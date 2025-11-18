@@ -2,24 +2,34 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/lumiforge/sellerproof-backend/internal/email"
 	"github.com/lumiforge/sellerproof-backend/internal/grpc"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
+	"github.com/lumiforge/sellerproof-backend/internal/logger"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
+	"github.com/lumiforge/sellerproof-backend/internal/telegram"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
 func main() {
 	ctx := context.Background()
 
+	// Инициализация Telegram клиента
+	tgClient := telegram.NewClient()
+
+	// Инициализация логгера
+	log := logger.New(tgClient)
+	slog.SetDefault(log)
+
 	// Инициализация YDB
 	db, err := ydb.NewYDBClient(ctx)
 	if err != nil {
-		log.Fatalf("Failed to connect to YDB: %v", err)
+		slog.Error("Failed to connect to YDB", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -35,7 +45,8 @@ func main() {
 	// Инициализация S3 клиента
 	storageClient, err := storage.NewClient(ctx)
 	if err != nil {
-		log.Fatalf("Failed to initialize storage client: %v", err)
+		slog.Error("Failed to initialize storage client", "error", err)
+		os.Exit(1)
 	}
 
 	// Инициализация gRPC сервера
@@ -47,8 +58,9 @@ func main() {
 		port = "50051"
 	}
 
-	log.Printf("Starting gRPC server on port %s", port)
+	slog.Info("Starting gRPC server", "port", port)
 	if err := grpc.StartGRPCServer(server, port); err != nil {
-		log.Fatalf("Failed to start gRPC server: %v", err)
+		slog.Error("Failed to start gRPC server", "error", err)
+		os.Exit(1)
 	}
 }

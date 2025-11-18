@@ -3,8 +3,10 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -13,6 +15,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
+	"github.com/lumiforge/sellerproof-backend/internal/logger"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
@@ -257,6 +260,44 @@ func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grp
 	return handler(newCtx, req)
 }
 
+// RequestIDInterceptor генерирует или извлекает RequestID
+func (s *Server) RequestIDInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	requestID := ""
+	if values := md["x-request-id"]; len(values) > 0 {
+		requestID = values[0]
+	}
+	if requestID == "" {
+		requestID = uuid.New().String()
+	}
+
+	// Добавляем в контекст
+	ctx = context.WithValue(ctx, "request_id", requestID)
+
+	// Добавляем в исходящие заголовки (опционально)
+	header := metadata.Pairs("x-request-id", requestID)
+	grpc.SetHeader(ctx, header)
+
+	return handler(ctx, req)
+}
+
+// LoggingInterceptor логирует запросы с использованием slog
+func (s *Server) LoggingInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	requestID, _ := ctx.Value("request_id").(string)
+
+	l := slog.With("request_id", requestID, "method", info.FullMethod)
+	ctx = logger.WithContext(ctx, l)
+
+	l.Info("Request started")
+	resp, err := handler(ctx, req)
+	if err != nil {
+		l.Error("Request failed", "error", err)
+	} else {
+		l.Info("Request completed")
+	}
+	return resp, err
+}
+
 // extractClaimsFromContext извлекает claims из контекста
 func (s *Server) extractClaimsFromContext(ctx context.Context) (*jwt.Claims, error) {
 	claims, ok := ctx.Value("user_claims").(*jwt.Claims)
@@ -275,13 +316,17 @@ func StartGRPCServer(server *Server, port string) error {
 
 	// Создание сервера с interceptor
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(server.AuthInterceptor),
+		grpc.ChainUnaryInterceptor(
+			server.RequestIDInterceptor,
+			server.LoggingInterceptor,
+			server.AuthInterceptor,
+		),
 	)
 
 	pb.RegisterAuthServiceServer(s, server)
 	pb.RegisterVideoServiceServer(s, server)
 
-	fmt.Printf("gRPC server listening on port %s\n", port)
+	slog.Info("gRPC server listening", "port", port)
 
 	return s.Serve(lis)
 }

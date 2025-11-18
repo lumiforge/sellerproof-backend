@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,7 +97,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		emailMessage, err := s.email.SendVerificationEmail(req.Email, verificationCode)
 		if err != nil {
 			// Логируем ошибку, но не прерываем регистрацию
-			fmt.Printf("Failed to send verification email: %v\n", err)
+			slog.Error("Failed to send verification email", "error", err, "email", req.Email)
 		} else {
 			// Сохраняем лог email в базу
 			emailLog := &ydb.EmailLog{
@@ -125,7 +126,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	err = s.db.CreateOrganization(ctx, org)
 	if err != nil {
-		fmt.Printf("Failed to create organization: %v\n", err)
+		slog.Error("Failed to create organization", "error", err, "user_id", user.UserID)
 	}
 
 	// Создание членства в организации с ролью admin
@@ -142,7 +143,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	err = s.db.CreateMembership(ctx, membership)
 	if err != nil {
-		fmt.Printf("Failed to create membership: %v\n", err)
+		slog.Error("Failed to create membership", "error", err, "user_id", user.UserID)
 	}
 
 	// Создание триальной подписки
@@ -164,7 +165,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	err = s.db.CreateSubscription(ctx, subscription)
 	if err != nil {
-		fmt.Printf("Failed to create subscription: %v\n", err)
+		slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
 	}
 
 	return &RegisterResponse{
@@ -292,7 +293,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	err = s.db.CreateRefreshToken(ctx, refreshTokenRecord)
 	if err != nil {
-		fmt.Printf("Failed to save refresh token: %v\n", err)
+		slog.Error("Failed to save refresh token", "error", err, "user_id", user.UserID)
 	}
 
 	return &LoginResponse{
@@ -366,7 +367,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *RefreshTokenRequest) (*
 
 	err = s.db.CreateRefreshToken(ctx, newTokenRecord)
 	if err != nil {
-		fmt.Printf("Failed to save new refresh token: %v\n", err)
+		slog.Error("Failed to save new refresh token", "error", err, "user_id", claims.UserID)
 	}
 
 	return &RefreshTokenResponse{
