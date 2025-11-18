@@ -176,6 +176,31 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		return fmt.Errorf("failed to create subscriptions table: %w", err)
 	}
 
+	// Таблица видео
+	_, err = c.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS videos (
+			video_id TEXT PRIMARY KEY,
+			org_id TEXT,
+			uploaded_by TEXT,
+			file_name TEXT,
+			file_name_search TEXT,
+			file_size_bytes INTEGER,
+			storage_path TEXT,
+			duration_seconds INTEGER,
+			upload_id TEXT,
+			upload_status TEXT,
+			parts_uploaded INTEGER,
+			total_parts INTEGER,
+			public_share_token TEXT,
+			share_expires_at DATETIME,
+			uploaded_at DATETIME,
+			is_deleted BOOLEAN DEFAULT FALSE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create videos table: %w", err)
+	}
+
 	return nil
 }
 
@@ -594,4 +619,85 @@ func (c *YDBClient) RevokeAllUserRefreshTokens(ctx context.Context, userID strin
 func (c *YDBClient) CleanupExpiredTokens(ctx context.Context) error {
 	// Реализация...
 	return nil
+}
+
+// CreateVideo создает запись о видео
+func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
+	query := `
+		INSERT INTO videos (
+			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
+			storage_path, duration_seconds, upload_id, upload_status, created_at, is_deleted
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := c.db.ExecContext(ctx, query,
+		video.VideoID, video.OrgID, video.UploadedBy, video.FileName, video.FileNameSearch,
+		video.FileSizeBytes, video.StoragePath, video.DurationSeconds, video.UploadID,
+		video.UploadStatus, time.Now(), video.IsDeleted,
+	)
+	return err
+}
+
+// GetVideo получает видео по ID
+func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error) {
+	query := `
+		SELECT video_id, org_id, uploaded_by, file_name, file_size_bytes, storage_path,
+		       duration_seconds, upload_id, upload_status, total_parts, public_share_token, share_expires_at, uploaded_at
+		FROM videos WHERE video_id = ?
+	`
+	var v Video
+	err := c.db.QueryRowContext(ctx, query, videoID).Scan(
+		&v.VideoID, &v.OrgID, &v.UploadedBy, &v.FileName, &v.FileSizeBytes, &v.StoragePath,
+		&v.DurationSeconds, &v.UploadID, &v.UploadStatus, &v.TotalParts, &v.PublicShareToken, &v.ShareExpiresAt, &v.UploadedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// UpdateVideo обновляет запись о видео
+func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
+	query := `
+		UPDATE videos SET
+			upload_status = ?, parts_uploaded = ?, total_parts = ?,
+			public_share_token = ?, share_expires_at = ?, uploaded_at = ?
+		WHERE video_id = ?
+	`
+	_, err := c.db.ExecContext(ctx, query,
+		video.UploadStatus, video.PartsUploaded, video.TotalParts,
+		video.PublicShareToken, video.ShareExpiresAt, video.UploadedAt, video.VideoID,
+	)
+	return err
+}
+
+// GetStorageUsage возвращает использованный объем хранилища
+func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, error) {
+	query := `
+		SELECT COALESCE(SUM(file_size_bytes), 0)
+		FROM videos
+		WHERE org_id = ? AND is_deleted = FALSE AND upload_status != 'failed'
+	`
+	var usage int64
+	err := c.db.QueryRowContext(ctx, query, orgID).Scan(&usage)
+	if err != nil {
+		return 0, err
+	}
+	return usage, nil
+}
+
+// GetVideoByShareToken получает видео по токену
+func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Video, error) {
+	query := `
+		SELECT video_id, org_id, file_name, file_size_bytes, storage_path, share_expires_at
+		FROM videos
+		WHERE public_share_token = ? AND is_deleted = FALSE
+	`
+	var v Video
+	err := c.db.QueryRowContext(ctx, query, token).Scan(
+		&v.VideoID, &v.OrgID, &v.FileName, &v.FileSizeBytes, &v.StoragePath, &v.ShareExpiresAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/grpc"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
+	"github.com/lumiforge/sellerproof-backend/internal/storage"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
@@ -31,8 +32,14 @@ func main() {
 	// Инициализация email клиента
 	emailClient := email.NewPostboxClient()
 
+	// Инициализация S3 клиента
+	storageClient, err := storage.NewClient(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize storage client: %v", err)
+	}
+
 	// Инициализация gRPC сервера
-	server := grpc.NewServer(db, jwtManager, rbacManager, emailClient)
+	server := grpc.NewServer(db, jwtManager, rbacManager, emailClient, storageClient)
 
 	// Запуск gRPC сервера
 	port := os.Getenv("GRPC_PORT")

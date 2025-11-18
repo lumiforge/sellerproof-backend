@@ -103,3 +103,23 @@ type RefreshToken struct {
 	CreatedAt time.Time `db:"created_at"`
 	IsRevoked bool      `db:"is_revoked"`
 }
+
+// Video представляет видео файл
+type Video struct {
+	VideoID          string     `db:"video_id"`
+	OrgID            string     `db:"org_id"`
+	UploadedBy       string     `db:"uploaded_by"`
+	FileName         string     `db:"file_name"`
+	FileNameSearch   string     `db:"file_name_search"`
+	FileSizeBytes    int64      `db:"file_size_bytes"`
+	StoragePath      string     `db:"storage_path"`
+	DurationSeconds  int32      `db:"duration_seconds"`
+	UploadID         string     `db:"upload_id"`
+	UploadStatus     string     `db:"upload_status"`
+	PartsUploaded    int32      `db:"parts_uploaded"`
+	TotalParts       int32      `db:"total_parts"`
+	PublicShareToken string     `db:"public_share_token"`
+	ShareExpiresAt   *time.Time `db:"share_expires_at"`
+	UploadedAt       *time.Time `db:"uploaded_at"`
+	IsDeleted        bool       `db:"is_deleted"`
+}

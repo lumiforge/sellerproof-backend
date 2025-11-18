@@ -14,6 +14,8 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/email"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
+	"github.com/lumiforge/sellerproof-backend/internal/storage"
+	"github.com/lumiforge/sellerproof-backend/internal/video"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 	pb "github.com/lumiforge/sellerproof-backend/proto"
 )
@@ -21,16 +23,20 @@ import (
 // Server реализует gRPC сервер
 type Server struct {
 	pb.UnimplementedAuthServiceServer
+	pb.UnimplementedVideoServiceServer
 	authService *auth.Service
+	videoService *video.Service
 	jwtManager  *jwt.JWTManager
 }
 
 // NewServer создает новый gRPC сервер
-func NewServer(db ydb.Database, jwtManager *jwt.JWTManager, rbacManager *rbac.RBAC, emailClient *email.PostboxClient) *Server {
+func NewServer(db ydb.Database, jwtManager *jwt.JWTManager, rbacManager *rbac.RBAC, emailClient *email.PostboxClient, storageClient *storage.Client) *Server {
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
+	videoService := video.NewService(db, storageClient, rbacManager)
 
 	return &Server{
 		authService: authService,
+		videoService: videoService,
 		jwtManager:  jwtManager,
 	}
 }
@@ -217,7 +223,8 @@ func (s *Server) AuthInterceptor(ctx context.Context, req interface{}, info *grp
 	if info.FullMethod == "/auth.AuthService/Register" ||
 		info.FullMethod == "/auth.AuthService/Login" ||
 		info.FullMethod == "/auth.AuthService/RefreshToken" ||
-		info.FullMethod == "/auth.AuthService/VerifyEmail" {
+		info.FullMethod == "/auth.AuthService/VerifyEmail" ||
+		info.FullMethod == "/video.VideoService/GetPublicVideo" {
 		return handler(ctx, req)
 	}
 
@@ -272,6 +279,7 @@ func StartGRPCServer(server *Server, port string) error {
 	)
 
 	pb.RegisterAuthServiceServer(s, server)
+	pb.RegisterVideoServiceServer(s, server)
 
 	fmt.Printf("gRPC server listening on port %s\n", port)
 

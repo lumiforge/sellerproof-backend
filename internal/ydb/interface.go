@@ -53,6 +53,13 @@ type Database interface {
 	RevokeAllUserRefreshTokens(ctx context.Context, userID string) error
 	CleanupExpiredTokens(ctx context.Context) error
 
+	// Видео
+	CreateVideo(ctx context.Context, video *Video) error
+	GetVideo(ctx context.Context, videoID string) (*Video, error)
+	UpdateVideo(ctx context.Context, video *Video) error
+	GetStorageUsage(ctx context.Context, orgID string) (int64, error)
+	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
+
 	// Инициализация и миграции
 	Initialize(ctx context.Context) error
 	Close() error
