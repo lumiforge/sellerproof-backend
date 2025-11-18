@@ -59,6 +59,7 @@ type Database interface {
 	UpdateVideo(ctx context.Context, video *Video) error
 	GetStorageUsage(ctx context.Context, orgID string) (int64, error)
 	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
+	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
 
 	// Инициализация и миграции
 	Initialize(ctx context.Context) error

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -194,6 +195,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			public_share_token TEXT,
 			share_expires_at DATETIME,
 			uploaded_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			is_deleted BOOLEAN DEFAULT FALSE
 		)
 	`)
@@ -700,4 +702,49 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 		return nil, err
 	}
 	return &v, nil
+}
+
+// SearchVideos ищет видео с пагинацией
+func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error) {
+	baseQuery := `FROM videos WHERE org_id = ? AND is_deleted = FALSE`
+	args := []interface{}{orgID}
+
+	if userID != "" {
+		baseQuery += ` AND uploaded_by = ?`
+		args = append(args, userID)
+	}
+
+	if query != "" {
+		baseQuery += ` AND file_name_search LIKE ?`
+		args = append(args, "%"+strings.ToLower(query)+"%")
+	}
+
+	// Count total
+	countQuery := `SELECT COUNT(*) ` + baseQuery
+	var total int64
+	err := c.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get data
+	dataQuery := `SELECT video_id, org_id, uploaded_by, file_name, file_size_bytes, storage_path, duration_seconds, upload_status, uploaded_at ` + baseQuery + ` ORDER BY uploaded_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := c.db.QueryContext(ctx, dataQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var videos []*Video
+	for rows.Next() {
+		var v Video
+		if err := rows.Scan(&v.VideoID, &v.OrgID, &v.UploadedBy, &v.FileName, &v.FileSizeBytes, &v.StoragePath, &v.DurationSeconds, &v.UploadStatus, &v.UploadedAt); err != nil {
+			return nil, 0, err
+		}
+		videos = append(videos, &v)
+	}
+
+	return videos, total, nil
 }

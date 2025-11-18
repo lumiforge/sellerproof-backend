@@ -173,13 +173,18 @@ func (s *Service) GetVideo(ctx context.Context, userID, orgID, videoID string) (
 	}, nil
 }
 
-func (s *Service) CreatePublicShareLink(ctx context.Context, userID, orgID string, req *pb.CreateShareLinkRequest) (*pb.CreateShareLinkResponse, error) {
+func (s *Service) CreatePublicShareLink(ctx context.Context, userID, orgID, role string, req *pb.CreateShareLinkRequest) (*pb.CreateShareLinkResponse, error) {
 	video, err := s.db.GetVideo(ctx, req.VideoId)
 	if err != nil {
 		return nil, err
 	}
 	if video.OrgID != orgID {
 		return nil, fmt.Errorf("access denied")
+	}
+
+	// RBAC: User can only share own videos
+	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+		return nil, fmt.Errorf("access denied: can only share own videos")
 	}
 
 	var expiresAt int64
@@ -229,9 +234,71 @@ func (s *Service) GetPublicVideo(ctx context.Context, shareToken string) (*pb.Ge
 	}, nil
 }
 
-func (s *Service) RevokeShareLink(ctx context.Context, userID, orgID, videoID string) error {
-	// Implementation skipped for brevity
-	return nil
+func (s *Service) RevokeShareLink(ctx context.Context, userID, orgID, role string, videoID string) error {
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return err
+	}
+	if video.OrgID != orgID {
+		return fmt.Errorf("access denied")
+	}
+
+	// RBAC: User can only revoke own videos
+	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+		return fmt.Errorf("access denied: can only revoke own videos")
+	}
+
+	video.PublicShareToken = ""
+	video.ShareExpiresAt = nil
+
+	return s.db.UpdateVideo(ctx, video)
+}
+
+func (s *Service) SearchVideos(ctx context.Context, userID, orgID, role string, req *pb.SearchVideosRequest) (*pb.SearchVideosResponse, error) {
+	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoSearch) {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	filterUserID := ""
+	if rbac.Role(role) == rbac.RoleUser {
+		filterUserID = userID
+	}
+
+	limit := int(req.PageSize)
+	if limit <= 0 {
+		limit = 10
+	}
+	offset := (int(req.Page) - 1) * limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	videos, total, err := s.db.SearchVideos(ctx, orgID, filterUserID, req.Query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	pbVideos := make([]*pb.Video, len(videos))
+	for i, v := range videos {
+		var uploadedAt int64
+		if v.UploadedAt != nil {
+			uploadedAt = v.UploadedAt.Unix()
+		}
+
+		pbVideos[i] = &pb.Video{
+			VideoId:         v.VideoID,
+			FileName:        v.FileName,
+			FileSizeBytes:   v.FileSizeBytes,
+			DurationSeconds: v.DurationSeconds,
+			UploadStatus:    v.UploadStatus,
+			UploadedAt:      uploadedAt,
+		}
+	}
+
+	return &pb.SearchVideosResponse{
+		Videos:     pbVideos,
+		TotalCount: total,
+	}, nil
 }
 
 func generateToken(length int) string {

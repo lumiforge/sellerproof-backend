@@ -71,6 +71,21 @@ func (s *Server) GetVideo(ctx context.Context, req *pb.GetVideoRequest) (*pb.Get
 	}, nil
 }
 
+// SearchVideos ищет видео
+func (s *Server) SearchVideos(ctx context.Context, req *pb.SearchVideosRequest) (*pb.SearchVideosResponse, error) {
+	claims, err := s.extractClaimsFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	resp, err := s.videoService.SearchVideos(ctx, claims.UserID, claims.OrgID, claims.Role, req)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return resp, nil
+}
+
 // GetPublicVideo возвращает публичную ссылку на видео (без аутентификации)
 func (s *Server) GetPublicVideo(ctx context.Context, req *pb.GetPublicVideoRequest) (*pb.GetPublicVideoResponse, error) {
 	if req.ShareToken == "" {
@@ -92,7 +107,7 @@ func (s *Server) CreatePublicShareLink(ctx context.Context, req *pb.CreateShareL
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	resp, err := s.videoService.CreatePublicShareLink(ctx, claims.UserID, claims.OrgID, req)
+	resp, err := s.videoService.CreatePublicShareLink(ctx, claims.UserID, claims.OrgID, claims.Role, req)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -107,7 +122,7 @@ func (s *Server) RevokeShareLink(ctx context.Context, req *pb.RevokeShareLinkReq
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	err = s.videoService.RevokeShareLink(ctx, claims.UserID, claims.OrgID, req.VideoId)
+	err = s.videoService.RevokeShareLink(ctx, claims.UserID, claims.OrgID, claims.Role, req.VideoId)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

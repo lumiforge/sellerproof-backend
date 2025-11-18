@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.21.12
-// source: video.proto
+// source: proto/video.proto
 
 package proto
 
@@ -23,6 +23,7 @@ const (
 	VideoService_GetPartUploadURLs_FullMethodName       = "/video.VideoService/GetPartUploadURLs"
 	VideoService_CompleteMultipartUpload_FullMethodName = "/video.VideoService/CompleteMultipartUpload"
 	VideoService_GetVideo_FullMethodName                = "/video.VideoService/GetVideo"
+	VideoService_SearchVideos_FullMethodName            = "/video.VideoService/SearchVideos"
 	VideoService_CreatePublicShareLink_FullMethodName   = "/video.VideoService/CreatePublicShareLink"
 	VideoService_GetPublicVideo_FullMethodName          = "/video.VideoService/GetPublicVideo"
 	VideoService_RevokeShareLink_FullMethodName         = "/video.VideoService/RevokeShareLink"
@@ -38,6 +39,7 @@ type VideoServiceClient interface {
 	CompleteMultipartUpload(ctx context.Context, in *CompleteMultipartUploadRequest, opts ...grpc.CallOption) (*CompleteMultipartUploadResponse, error)
 	// Video management
 	GetVideo(ctx context.Context, in *GetVideoRequest, opts ...grpc.CallOption) (*GetVideoResponse, error)
+	SearchVideos(ctx context.Context, in *SearchVideosRequest, opts ...grpc.CallOption) (*SearchVideosResponse, error)
 	// Sharing
 	CreatePublicShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error)
 	GetPublicVideo(ctx context.Context, in *GetPublicVideoRequest, opts ...grpc.CallOption) (*GetPublicVideoResponse, error)
@@ -92,6 +94,16 @@ func (c *videoServiceClient) GetVideo(ctx context.Context, in *GetVideoRequest, 
 	return out, nil
 }
 
+func (c *videoServiceClient) SearchVideos(ctx context.Context, in *SearchVideosRequest, opts ...grpc.CallOption) (*SearchVideosResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchVideosResponse)
+	err := c.cc.Invoke(ctx, VideoService_SearchVideos_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *videoServiceClient) CreatePublicShareLink(ctx context.Context, in *CreateShareLinkRequest, opts ...grpc.CallOption) (*CreateShareLinkResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateShareLinkResponse)
@@ -132,6 +144,7 @@ type VideoServiceServer interface {
 	CompleteMultipartUpload(context.Context, *CompleteMultipartUploadRequest) (*CompleteMultipartUploadResponse, error)
 	// Video management
 	GetVideo(context.Context, *GetVideoRequest) (*GetVideoResponse, error)
+	SearchVideos(context.Context, *SearchVideosRequest) (*SearchVideosResponse, error)
 	// Sharing
 	CreatePublicShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error)
 	GetPublicVideo(context.Context, *GetPublicVideoRequest) (*GetPublicVideoResponse, error)
@@ -157,6 +170,9 @@ func (UnimplementedVideoServiceServer) CompleteMultipartUpload(context.Context, 
 }
 func (UnimplementedVideoServiceServer) GetVideo(context.Context, *GetVideoRequest) (*GetVideoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVideo not implemented")
+}
+func (UnimplementedVideoServiceServer) SearchVideos(context.Context, *SearchVideosRequest) (*SearchVideosResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SearchVideos not implemented")
 }
 func (UnimplementedVideoServiceServer) CreatePublicShareLink(context.Context, *CreateShareLinkRequest) (*CreateShareLinkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePublicShareLink not implemented")
@@ -260,6 +276,24 @@ func _VideoService_GetVideo_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VideoService_SearchVideos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchVideosRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).SearchVideos(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_SearchVideos_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).SearchVideos(ctx, req.(*SearchVideosRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VideoService_CreatePublicShareLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateShareLinkRequest)
 	if err := dec(in); err != nil {
@@ -338,6 +372,10 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _VideoService_GetVideo_Handler,
 		},
 		{
+			MethodName: "SearchVideos",
+			Handler:    _VideoService_SearchVideos_Handler,
+		},
+		{
 			MethodName: "CreatePublicShareLink",
 			Handler:    _VideoService_CreatePublicShareLink_Handler,
 		},
@@ -351,5 +389,5 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "video.proto",
+	Metadata: "proto/video.proto",
 }

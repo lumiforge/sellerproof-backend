@@ -12,6 +12,7 @@ service VideoService {
 
   // Video management
   rpc GetVideo(GetVideoRequest) returns (GetVideoResponse);
+  rpc SearchVideos(SearchVideosRequest) returns (SearchVideosResponse);
 
   // Sharing
   rpc CreatePublicShareLink(CreateShareLinkRequest) returns (CreateShareLinkResponse);
@@ -62,6 +63,17 @@ message GetVideoRequest {
 
 message GetVideoResponse {
   Video video = 1;
+}
+
+message SearchVideosRequest {
+  string query = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message SearchVideosResponse {
+  repeated Video videos = 1;
+  int64 total_count = 2;
 }
 
 message Video {
