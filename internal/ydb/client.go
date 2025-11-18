@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 )
 
 // YDBClient реализация интерфейса Database
@@ -15,9 +16,9 @@ type YDBClient struct {
 }
 
 // NewYDBClient создает новый клиент YDB
-func NewYDBClient(ctx context.Context) (*YDBClient, error) {
-	endpoint := os.Getenv("SP_YDB_ENDPOINT")
-	database := os.Getenv("SP_YDB_DATABASE_PATH")
+func NewYDBClient(ctx context.Context, cfg *config.Config) (*YDBClient, error) {
+	endpoint := cfg.SPYDBEndpoint
+	database := cfg.SPYDBDatabasePath
 
 	if endpoint == "" || database == "" {
 		return nil, fmt.Errorf("YDB endpoint and database path must be set")

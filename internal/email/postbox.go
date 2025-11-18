@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/smtp"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 )
 
 // PostboxClient клиент для работы с Yandex Cloud Postbox
@@ -21,13 +21,13 @@ type PostboxClient struct {
 }
 
 // NewPostboxClient создает новый Postbox клиент
-func NewPostboxClient() *PostboxClient {
+func NewPostboxClient(cfg *config.Config) *PostboxClient {
 	return &PostboxClient{
 		Host:      "smtp.postbox.cloud.yandex.net",
 		Port:      "587",
-		Username:  os.Getenv("POSTBOX_ACCESS_KEY_ID"),
-		Password:  os.Getenv("POSTBOX_SECRET_ACCESS_KEY"),
-		FromEmail: os.Getenv("POSTBOX_FROM_EMAIL"),
+		Username:  cfg.PostboxAccessKeyID,
+		Password:  cfg.PostboxSecretAccessKey,
+		FromEmail: cfg.PostboxFromEmail,
 	}
 }
 
@@ -108,7 +108,7 @@ func (p *PostboxClient) SendVerificationEmail(toEmail, verificationCode string) 
 }
 
 // SendPasswordResetEmail отправляет email для сброса пароля
-func (p *PostboxClient) SendPasswordResetEmail(toEmail, resetToken string) (*EmailMessage, error) {
+func (p *PostboxClient) SendPasswordResetEmail(toEmail, resetToken string, frontendBaseURL string) (*EmailMessage, error) {
 	subject := "Сброс пароля - SellerProof"
 	body := fmt.Sprintf(`
 		<html>
@@ -120,7 +120,7 @@ func (p *PostboxClient) SendPasswordResetEmail(toEmail, resetToken string) (*Ema
 			<p>Если вы не запрашивали сброс пароля, проигнорируйте это письмо.</p>
 		</body>
 		</html>
-	`, os.Getenv("FRONTEND_BASE_URL"), resetToken)
+	`, frontendBaseURL, resetToken)
 
 	message := &EmailMessage{
 		ID:        uuid.New().String(),
@@ -238,12 +238,12 @@ type EmailConfig struct {
 }
 
 // LoadEmailConfig загружает конфигурацию из переменных окружения
-func LoadEmailConfig() *EmailConfig {
+func LoadEmailConfig(cfg *config.Config) *EmailConfig {
 	return &EmailConfig{
-		AccessKeyID:     os.Getenv("POSTBOX_ACCESS_KEY_ID"),
-		SecretAccessKey: os.Getenv("POSTBOX_SECRET_ACCESS_KEY"),
-		FromEmail:       os.Getenv("POSTBOX_FROM_EMAIL"),
-		FrontendBaseURL: os.Getenv("FRONTEND_BASE_URL"),
+		AccessKeyID:     cfg.PostboxAccessKeyID,
+		SecretAccessKey: cfg.PostboxSecretAccessKey,
+		FromEmail:       cfg.PostboxFromEmail,
+		FrontendBaseURL: cfg.FrontendBaseURL,
 	}
 }
 

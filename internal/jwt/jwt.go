@@ -2,11 +2,11 @@ package jwt
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 )
 
 // Claims представляет структуру claims в JWT токене
@@ -26,14 +26,9 @@ type JWTManager struct {
 }
 
 // NewJWTManager создает новый JWT менеджер
-func NewJWTManager() *JWTManager {
-	secretKey := os.Getenv("JWT_SECRET_KEY")
-	if secretKey == "" {
-		secretKey = "default-secret-key-change-in-production"
-	}
-
+func NewJWTManager(cfg *config.Config) *JWTManager {
 	return &JWTManager{
-		secretKey:     secretKey,
+		secretKey:     cfg.JWTSecretKey,
 		accessExpiry:  time.Hour * 24,     // 24 часа
 		refreshExpiry: time.Hour * 24 * 7, // 7 дней
 	}

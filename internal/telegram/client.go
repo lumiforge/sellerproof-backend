@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
+
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 )
 
 type Client struct {
@@ -14,10 +15,10 @@ type Client struct {
 	client *http.Client
 }
 
-func NewClient() *Client {
+func NewClient(cfg *config.Config) *Client {
 	return &Client{
-		token:  os.Getenv("TELEGRAM_BOT_TOKEN"),
-		chatID: os.Getenv("TELEGRAM_ADMIN_CHAT_ID"),
+		token:  cfg.TelegramBotToken,
+		chatID: cfg.TelegramAdminChatID,
 		client: &http.Client{Timeout: 10 * time.Second},
 	}
 }

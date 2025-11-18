@@ -3,14 +3,14 @@ package storage
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 )
 
 // Client обертка над S3 клиентом
@@ -21,30 +21,28 @@ type Client struct {
 }
 
 // NewClient создает новый S3 клиент
-func NewClient(ctx context.Context) (*Client, error) {
-	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
-	secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	bucketName := os.Getenv("SP_OBJSTORE_BUCKET_NAME")
-	endpoint := "https://storage.yandexcloud.net"
+func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
+	accessKey := cfg.AWSAccessKeyID
+	secretKey := cfg.AWSSecretAccessKey
+	bucketName := cfg.SPObjStoreBucketName
+	endpoint := cfg.S3Endpoint
 	region := "ru-central1"
 
 	if accessKey == "" || secretKey == "" || bucketName == "" {
 		return nil, fmt.Errorf("AWS credentials and bucket name must be set")
 	}
 
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion(region),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
-		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
-			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-				return aws.Endpoint{URL: endpoint}, nil
-			})),
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
+		awsconfig.WithRegion(region),
+		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load aws config: %w", err)
 	}
 
-	client := s3.NewFromConfig(cfg)
+	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(endpoint)
+	})
 	presignClient := s3.NewPresignClient(client)
 
 	return &Client{
