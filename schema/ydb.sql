@@ -1,57 +1,116 @@
+-- Таблица пользователей
 CREATE TABLE users (
-    user_id String,           
-    email String,             
-    password_hash String,     
-    email_verified Bool,      -- NEW: статус верификации
-    verification_code String, -- NEW: код верификации
-    verification_expires_at Timestamp, -- NEW: истекает через 24ч
+    user_id String PRIMARY KEY,
+    email String,
+    password_hash String,
+    full_name String,
+    email_verified Bool DEFAULT false,
+    verification_code String,
+    verification_expires_at Timestamp,
     created_at Timestamp,
     updated_at Timestamp,
-    is_active Bool,           
-    PRIMARY KEY (user_id),
+    is_active Bool DEFAULT true,
     INDEX email_idx GLOBAL ON (email)
 );
 
-
-CREATE TABLE videos (
-    video_id String,          
-    org_id String,            
-    uploaded_by String,       
-    file_name String,
-    file_name_search String,  -- NEW: lowercase для поиска
-    file_size_bytes Int64,
-    storage_path String,      
-    storage_class String,     
-    duration_seconds Int32,   
-    upload_id String,         -- NEW: для multipart upload
-    upload_status String,     -- NEW: "pending", "uploading", "completed", "failed"
-    parts_uploaded Int32,     -- NEW: количество загруженных частей
-    total_parts Int32,        -- NEW: общее количество частей
-    public_share_token String, -- NEW: токен для публичных ссылок
-    share_expires_at Timestamp, -- NEW: срок действия ссылки (nullable)
-    uploaded_at Timestamp,
-    moved_to_archive_at Timestamp,
-    is_deleted Bool,          
-    PRIMARY KEY (video_id),
-    INDEX org_idx GLOBAL ON (org_id, uploaded_at),
-    INDEX uploader_idx GLOBAL ON (uploaded_by),
-    INDEX search_idx GLOBAL ON (org_id, file_name_search), -- NEW: для поиска
-    INDEX share_token_idx GLOBAL ON (public_share_token) -- NEW: для публичного доступа
+-- Таблица организаций
+CREATE TABLE organizations (
+    org_id String PRIMARY KEY,
+    name String,
+    owner_id String,
+    settings Json,
+    created_at Timestamp,
+    updated_at Timestamp,
+    INDEX owner_idx GLOBAL ON (owner_id)
 );
 
+-- Таблица членства в организациях
+CREATE TABLE memberships (
+    membership_id String PRIMARY KEY,
+    user_id String,
+    org_id String,
+    role String, -- "admin", "manager", "user"
+    status String, -- "active", "invited", "declined"
+    invited_by String,
+    created_at Timestamp,
+    updated_at Timestamp,
+    INDEX user_idx GLOBAL ON (user_id),
+    INDEX org_idx GLOBAL ON (org_id),
+    INDEX user_org_idx GLOBAL ON (user_id, org_id)
+);
 
+-- Таблица тарифных планов
+CREATE TABLE plans (
+    plan_id String PRIMARY KEY,
+    name String,
+    storage_limit_gb Int64,
+    video_count_limit Int64,
+    price_rub Double,
+    billing_cycle String, -- "monthly", "yearly"
+    features Json,
+    created_at Timestamp,
+    updated_at Timestamp
+);
+
+-- Таблица подписок
+CREATE TABLE subscriptions (
+    subscription_id String PRIMARY KEY,
+    user_id String,
+    org_id String,
+    plan_id String,
+    storage_limit_gb Int64,
+    video_count_limit Int64,
+    is_active Bool DEFAULT true,
+    trial_ends_at Timestamp,
+    started_at Timestamp,
+    expires_at Timestamp,
+    billing_cycle String,
+    created_at Timestamp,
+    updated_at Timestamp,
+    INDEX user_idx GLOBAL ON (user_id),
+    INDEX org_idx GLOBAL ON (org_id)
+);
+
+-- Таблица истории подписок
+CREATE TABLE subscription_history (
+    history_id String PRIMARY KEY,
+    subscription_id String,
+    plan_id String,
+    storage_limit_gb Int64,
+    video_count_limit Int64,
+    event_type String, -- "created", "upgraded", "downgraded", "canceled"
+    changed_at Timestamp,
+    INDEX subscription_idx GLOBAL ON (subscription_id)
+);
+
+-- Таблица логов email
 CREATE TABLE email_logs (
-    email_id String,          -- UUID
-    user_id String,           -- FK to users
-    email_type String,        -- "verification", "password_reset", "subscription"
-    recipient String,         -- email адрес
-    status String,            -- "sent", "delivered", "bounced", "failed"
-    postbox_message_id String, -- ID из Postbox
+    email_id String PRIMARY KEY,
+    user_id String,
+    email_type String, -- "verification", "password_reset", "subscription"
+    recipient String,
+    status String, -- "sent", "delivered", "bounced", "failed"
+    postbox_message_id String,
     sent_at Timestamp,
     delivered_at Timestamp,
     error_message String,
-    PRIMARY KEY (email_id),
     INDEX user_idx GLOBAL ON (user_id)
 );
 
+-- Таблица refresh токенов
+CREATE TABLE refresh_tokens (
+    token_id String PRIMARY KEY,
+    user_id String,
+    token_hash String,
+    expires_at Timestamp,
+    created_at Timestamp,
+    is_revoked Bool DEFAULT false,
+    INDEX user_idx GLOBAL ON (user_id),
+    INDEX token_hash_idx GLOBAL ON (token_hash)
+);
 
+-- Вставка базовых тарифных планов
+INSERT INTO plans (plan_id, name, storage_limit_gb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at) VALUES
+    ("free", "Free", 1, 10, 0, "monthly", {"sharing": false, "search": true}, CurrentUtcTimestamp(), CurrentUtcTimestamp()),
+    ("pro", "Pro", 100, 1000, 990, "monthly", {"sharing": true, "search": true, "analytics": true}, CurrentUtcTimestamp(), CurrentUtcTimestamp()),
+    ("enterprise", "Enterprise", 0, 0, 4990, "monthly", {"sharing": true, "search": true, "analytics": true, "api_access": true, "priority_support": true}, CurrentUtcTimestamp(), CurrentUtcTimestamp());
