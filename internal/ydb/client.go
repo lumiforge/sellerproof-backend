@@ -33,7 +33,6 @@ func NewYDBClient(ctx context.Context, cfg *config.Config) (*YDBClient, error) {
 		return nil, fmt.Errorf("YDB credentials not provided. Please set SP_YDB_ENDPOINT and SP_YDB_DATABASE_PATH environment variables")
 	}
 
-	// Создаем подключение к YDB с использованием нативного драйвера и аутентификации через Yandex Cloud
 	driver, err := ydb.Open(ctx, endpoint,
 		ydb.WithDatabase(database),
 		yc.WithMetadataCredentials(),
@@ -49,10 +48,13 @@ func NewYDBClient(ctx context.Context, cfg *config.Config) (*YDBClient, error) {
 		databasePath: database,
 	}
 
-	// Создаем таблицы
-	err = client.createTables(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tables: %w", err)
+	// Создаём таблицы только если флаг установлен
+	if cfg.SPYDBAutoCreateTables {
+		log.Println("SP_YDB_AUTO_CREATE_TABLES is enabled, checking and creating tables...")
+		err = client.createTables(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tables: %w", err)
+		}
 	}
 
 	return client, nil

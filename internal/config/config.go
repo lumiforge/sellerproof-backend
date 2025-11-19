@@ -28,13 +28,13 @@ type Config struct {
 	JWTSecretKey string
 
 	// Email/Postbox configuration
-	SESEndpoint        string
-	SESRegion          string
-	SESAccessKeyID     string
-	SESSecretAccessKey string
-	EmailFrom          string
-	AppLoginURL        string
-	// FrontendBaseURL    string
+	SESEndpoint           string
+	SESRegion             string
+	SESAccessKeyID        string
+	SESSecretAccessKey    string
+	EmailFrom             string
+	AppLoginURL           string
+	SPYDBAutoCreateTables bool
 
 	// HTTP configuration
 	HTTPPort string
@@ -59,10 +59,11 @@ func Load() *Config {
 
 	return &Config{
 		// S3/Storage configuration
-		S3Endpoint:           s3Endpoint,
-		AWSAccessKeyID:       getEnv("SP_SA_KEY_ID", ""),
-		AWSSecretAccessKey:   getEnv("SP_SA_KEY", ""),
-		SPObjStoreBucketName: getEnv("SP_OBJSTORE_BUCKET_NAME", ""),
+		SPYDBAutoCreateTables: getEnvAsBool("SP_YDB_AUTO_CREATE_TABLES", false),
+		S3Endpoint:            s3Endpoint,
+		AWSAccessKeyID:        getEnv("SP_SA_KEY_ID", ""),
+		AWSSecretAccessKey:    getEnv("SP_SA_KEY", ""),
+		SPObjStoreBucketName:  getEnv("SP_OBJSTORE_BUCKET_NAME", ""),
 
 		// YDB configuration
 		SPYDBEndpoint:     getEnv("SP_YDB_ENDPOINT", ""),
@@ -96,6 +97,18 @@ func getEnv(key, fallback string) string {
 		log.Fatalf("FATAL: Environment variable %s is not set.", key)
 	}
 	return fallback
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+	return value
 }
 
 func getEnvInt(key string, fallback, min, max int) int {

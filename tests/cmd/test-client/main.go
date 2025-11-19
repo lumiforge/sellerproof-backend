@@ -601,17 +601,57 @@ func (c *TestClient) testRevokeShareLink() {
 }
 
 // testHealthCheck тестирует проверку здоровья сервиса
+// testHealthCheck тестирует проверку здоровья сервиса
 func (c *TestClient) testHealthCheck() {
 	fmt.Println("🏥 Тестирование Health Check...")
 
-	var resp map[string]interface{}
-	err := c.makeRequest("GET", "/health", nil, &resp)
+	// Тест 1: GET /health
+	var healthResp map[string]interface{}
+	err := c.makeRequest("GET", "/health", nil, &healthResp)
 	if err != nil {
-		c.printResult("Health Check", false, fmt.Sprintf("Ошибка: %v", err))
+		c.printResult("Health Check (/health)", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Health Check", true, fmt.Sprintf("Статус: %s, Время: %s", resp["status"], resp["timestamp"]))
+	// Проверяем наличие обязательных полей
+	status, hasStatus := healthResp["status"]
+	timestamp, hasTimestamp := healthResp["timestamp"]
+
+	if !hasStatus || !hasTimestamp {
+		c.printResult("Health Check (/health)", false, "Отсутствуют обязательные поля в ответе")
+		return
+	}
+
+	if status != "ok" && status != "healthy" {
+		c.printResult("Health Check (/health)", false, fmt.Sprintf("Неожиданный статус: %v", status))
+		return
+	}
+
+	c.printResult("Health Check (/health)", true, fmt.Sprintf("Статус: %s, Время: %s", status, timestamp))
+
+	// Тест 2: GET / (корневой endpoint также должен работать как health check)
+	var rootResp map[string]interface{}
+	err = c.makeRequest("GET", "/", nil, &rootResp)
+	if err != nil {
+		c.printResult("Health Check (/)", false, fmt.Sprintf("Ошибка: %v", err))
+		return
+	}
+
+	// Проверяем наличие обязательных полей
+	rootStatus, hasRootStatus := rootResp["status"]
+	rootTimestamp, hasRootTimestamp := rootResp["timestamp"]
+
+	if !hasRootStatus || !hasRootTimestamp {
+		c.printResult("Health Check (/)", false, "Отсутствуют обязательные поля в ответе")
+		return
+	}
+
+	if rootStatus != "ok" && rootStatus != "healthy" {
+		c.printResult("Health Check (/)", false, fmt.Sprintf("Неожиданный статус: %v", rootStatus))
+		return
+	}
+
+	c.printResult("Health Check (/)", true, fmt.Sprintf("Статус: %s, Время: %s", rootStatus, rootTimestamp))
 }
 
 // testNegativeScenarios запускает негативные тесты
