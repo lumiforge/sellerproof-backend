@@ -22,10 +22,11 @@ var verificationCode = ""   // Код верификации из email
 
 // TestClient представляет тестовый клиент для REST API
 type TestClient struct {
-	baseURL    string
-	httpClient *http.Client
-	token      string
-	userID     string
+	baseURL      string
+	httpClient   *http.Client
+	token        string
+	refreshToken string
+	userID       string
 }
 
 // NewTestClient создает новый тестовый клиент
@@ -124,6 +125,9 @@ func (c *TestClient) RunTests() {
 	fmt.Printf("🔗 Итоговый URL: %s\n", c.baseURL)
 	fmt.Printf("⏱️  Таймаут: %d секунд\n", testTimeout)
 
+	// Тест Health Check (всегда запускаем)
+	c.testHealthCheck()
+
 	if testMode != "" {
 		fmt.Printf("🎯 Режим: %s\n", testMode)
 	} else {
@@ -180,6 +184,7 @@ func (c *TestClient) RunTests() {
 		c.testGetProfile()
 		c.testUpdateProfile()
 		c.testRefreshToken()
+		c.testNegativeScenarios()
 		c.testLogout()
 		fmt.Println()
 	}
@@ -261,6 +266,7 @@ func (c *TestClient) testLogin() {
 
 	data := resp["user"].(map[string]interface{})
 	c.token = resp["access_token"].(string)
+	c.refreshToken = resp["refresh_token"].(string)
 	c.userID = data["user_id"].(string)
 	c.printResult("Вход", true, fmt.Sprintf("Токен получен, пользователь: %s (%s)", data["full_name"], data["email"]))
 }
@@ -314,6 +320,7 @@ func (c *TestClient) testLoginWithCode() {
 
 	data := resp["user"].(map[string]interface{})
 	c.token = resp["access_token"].(string)
+	c.refreshToken = resp["refresh_token"].(string)
 	c.userID = data["user_id"].(string)
 	c.printResult("Вход после верификации", true, fmt.Sprintf("Токен получен, пользователь: %s (%s)", data["full_name"], data["email"]))
 }
@@ -366,25 +373,38 @@ func (c *TestClient) testUpdateProfile() {
 func (c *TestClient) testRefreshToken() {
 	fmt.Println("🔄 Тестирование обновления токена...")
 
-	if c.token == "" {
+	if c.refreshToken == "" {
 		c.printResult("Обновление токена", false, "Требуется refresh токен из ответа входа")
 		return
 	}
 
-	c.printResult("Обновление токена", false, "Требуется refresh токен из ответа входа")
+	req := map[string]interface{}{
+		"refresh_token": c.refreshToken,
+	}
+
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/refresh", req, &resp)
+	if err != nil {
+		c.printResult("Обновление токена", false, fmt.Sprintf("Ошибка: %v", err))
+		return
+	}
+
+	c.token = resp["access_token"].(string)
+	c.refreshToken = resp["refresh_token"].(string)
+	c.printResult("Обновление токена", true, "Токены успешно обновлены")
 }
 
 // testLogout тестирует выход пользователя
 func (c *TestClient) testLogout() {
 	fmt.Println("🚪 Тестирование выхода пользователя...")
 
-	if c.token == "" {
+	if c.refreshToken == "" {
 		c.printResult("Выход", false, "Требуется refresh токен из ответа входа")
 		return
 	}
 
 	req := map[string]interface{}{
-		"refresh_token": "dummy-refresh-token",
+		"refresh_token": c.refreshToken,
 	}
 
 	var resp map[string]interface{}
@@ -578,6 +598,105 @@ func (c *TestClient) testRevokeShareLink() {
 	}
 
 	c.printResult("Отзыв публичной ссылки", true, fmt.Sprintf("Успешно: %v", resp["success"]))
+}
+
+// testHealthCheck тестирует проверку здоровья сервиса
+func (c *TestClient) testHealthCheck() {
+	fmt.Println("🏥 Тестирование Health Check...")
+
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/health", nil, &resp)
+	if err != nil {
+		c.printResult("Health Check", false, fmt.Sprintf("Ошибка: %v", err))
+		return
+	}
+
+	c.printResult("Health Check", true, fmt.Sprintf("Статус: %s, Время: %s", resp["status"], resp["timestamp"]))
+}
+
+// testNegativeScenarios запускает негативные тесты
+func (c *TestClient) testNegativeScenarios() {
+	fmt.Println("⛔ Запуск негативных тестов...")
+	c.testLoginInvalidCredentials()
+	c.testUnauthorizedAccess()
+	c.testVerifyEmailInvalidCode()
+	c.testGetVideoInvalidID()
+	fmt.Println()
+}
+
+// testLoginInvalidCredentials тестирует вход с неверными учетными данными
+func (c *TestClient) testLoginInvalidCredentials() {
+	fmt.Println("   🔐 Тест: Вход с неверным паролем...")
+
+	req := map[string]interface{}{
+		"email":    "test@example.com",
+		"password": "WrongPassword123!",
+	}
+
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/login", req, &resp)
+	if err == nil {
+		c.printResult("Вход с неверным паролем", false, "Ожидалась ошибка, но получен успех")
+		return
+	}
+
+	c.printResult("Вход с неверным паролем", true, "Получена ожидаемая ошибка")
+}
+
+// testUnauthorizedAccess тестирует доступ без токена
+func (c *TestClient) testUnauthorizedAccess() {
+	fmt.Println("   🚫 Тест: Доступ к защищенному ресурсу без токена...")
+
+	// Временно сохраняем и удаляем токен
+	savedToken := c.token
+	c.token = ""
+	defer func() { c.token = savedToken }()
+
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/api/v1/auth/profile", nil, &resp)
+	if err == nil {
+		c.printResult("Доступ без токена", false, "Ожидалась ошибка 401, но получен успех")
+		return
+	}
+
+	if strings.Contains(err.Error(), "401") {
+		c.printResult("Доступ без токена", true, "Получена ожидаемая ошибка 401")
+	} else {
+		c.printResult("Доступ без токена", false, fmt.Sprintf("Ожидалась ошибка 401, получено: %v", err))
+	}
+}
+
+// testVerifyEmailInvalidCode тестирует верификацию с неверным кодом
+func (c *TestClient) testVerifyEmailInvalidCode() {
+	fmt.Println("   📧 Тест: Верификация с неверным кодом...")
+
+	req := map[string]interface{}{
+		"email": "test@example.com",
+		"code":  "000000",
+	}
+
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/verify-email", req, &resp)
+	if err == nil {
+		c.printResult("Верификация с неверным кодом", false, "Ожидалась ошибка, но получен успех")
+		return
+	}
+
+	c.printResult("Верификация с неверным кодом", true, "Получена ожидаемая ошибка")
+}
+
+// testGetVideoInvalidID тестирует получение видео с несуществующим ID
+func (c *TestClient) testGetVideoInvalidID() {
+	fmt.Println("   📹 Тест: Получение видео с несуществующим ID...")
+
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/api/v1/video?video_id=invalid-id", nil, &resp)
+	if err == nil {
+		c.printResult("Видео с неверным ID", false, "Ожидалась ошибка, но получен успех")
+		return
+	}
+
+	c.printResult("Видео с неверным ID", true, "Получена ожидаемая ошибка")
 }
 
 // Main функция для запуска тестов

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"path"
 	"strings"
 	"time"
 
@@ -19,7 +20,8 @@ import (
 
 // YDBClient реализация интерфейса Database
 type YDBClient struct {
-	driver *ydb.Driver
+	driver       *ydb.Driver
+	databasePath string
 }
 
 // NewYDBClient создает новый клиент YDB
@@ -43,7 +45,8 @@ func NewYDBClient(ctx context.Context, cfg *config.Config) (*YDBClient, error) {
 	log.Println("Successfully connected to YDB")
 
 	client := &YDBClient{
-		driver: driver,
+		driver:       driver,
+		databasePath: database,
 	}
 
 	// Создаем таблицы
@@ -368,43 +371,27 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 
 // tableExists checks if a table exists in the database
 func (c *YDBClient) tableExists(ctx context.Context, tableName string) (bool, error) {
-	var exists bool
+	fullPath := path.Join(c.databasePath, tableName)
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		query := `
-			DECLARE $table_name AS Text;
-			SELECT COUNT(*) > 0 AS table_exists
-			FROM (SELECT 1 FROM ` + "`" + tableName + "`" + ` LIMIT 1)
-		`
-		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query, table.NewQueryParameters())
-		if err != nil {
-			// If we get an error, the table likely doesn't exist
-			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
-				return nil
-			}
-			return err
-		}
-		defer res.Close()
-
-		if res.NextResultSet(ctx) && res.NextRow() {
-			err := res.ScanNamed(
-				named.Required("table_exists", &exists),
-			)
-			if err != nil {
-				return err
-			}
-		}
-		return res.Err()
+		_, err := session.DescribeTable(ctx, fullPath)
+		return err
 	})
 
 	if err != nil {
 		// If error contains "not found" or similar, table doesn't exist
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
+		// YDB returns SchemeError with "Path not found" usually
+		// Also check for code 400070 which is SCHEME_ERROR
+		msg := err.Error()
+		if strings.Contains(msg, "not found") ||
+			strings.Contains(msg, "does not exist") ||
+			strings.Contains(msg, "Path not found") ||
+			strings.Contains(msg, "code = 400070") {
 			return false, nil
 		}
 		return false, err
 	}
 
-	return exists, nil
+	return true, nil
 }
 
 // executeSchemeQuery выполняет DDL запрос

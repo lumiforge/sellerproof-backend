@@ -4,7 +4,7 @@
 # Используем переменные окружения TEST_URL и TEST_EMAIL_ADDRESS
 SERVICE_URL ?= $(TEST_URL)
 TEST_EMAIL ?= $(TEST_EMAIL_ADDRESS)
-received_code ?= db907b
+received_code ?= 37a730
 GO_FILES = cmd/test-client/main.go
 
 # По умолчанию запускаем тесты
