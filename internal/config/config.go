@@ -36,8 +36,8 @@ type Config struct {
 	AppLoginURL        string
 	// FrontendBaseURL    string
 
-	// gRPC configuration
-	GRPCPort string
+	// HTTP configuration
+	HTTPPort string
 }
 
 func Load() *Config {
@@ -83,8 +83,8 @@ func Load() *Config {
 		EmailFrom:          getEnv("SP_EMAIL_FROM", ""),
 		AppLoginURL:        getEnv("SP_APP_LOGIN_URL", ""),
 
-		// gRPC configuration
-		GRPCPort: getEnv("SP_GRPC_PORT", "50051"),
+		// HTTP configuration
+		HTTPPort: getEnv("SP_HTTP_PORT", "8080"),
 	}
 }
 

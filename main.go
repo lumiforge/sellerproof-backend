@@ -3,16 +3,19 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 
+	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
-	"github.com/lumiforge/sellerproof-backend/internal/grpc"
+	httpserver "github.com/lumiforge/sellerproof-backend/internal/http"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/logger"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
 	"github.com/lumiforge/sellerproof-backend/internal/telegram"
+	"github.com/lumiforge/sellerproof-backend/internal/video"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
@@ -53,15 +56,22 @@ func EntryPoint() {
 		os.Exit(1)
 	}
 
-	// Инициализация gRPC сервера
-	server := grpc.NewServer(db, jwtManager, rbacManager, emailClient, storageClient)
+	// Инициализация сервисов
+	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
+	videoService := video.NewService(db, storageClient, rbacManager)
 
-	// Запуск gRPC сервера
-	port := cfg.GRPCPort
+	// Инициализация HTTP сервера
+	server := httpserver.NewServer(authService, videoService, jwtManager)
 
-	slog.Info("Starting gRPC server", "port", port)
-	if err := grpc.StartGRPCServer(server, port); err != nil {
-		slog.Error("Failed to start gRPC server", "error", err)
+	// Настройка роутера
+	router := httpserver.SetupRouter(server, jwtManager)
+
+	// Запуск HTTP сервера
+	port := cfg.HTTPPort
+
+	slog.Info("Starting HTTP server", "port", port)
+	if err := http.ListenAndServe(":"+port, router); err != nil {
+		slog.Error("Failed to start HTTP server", "error", err)
 		os.Exit(1)
 	}
 }

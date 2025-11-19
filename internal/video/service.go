@@ -14,7 +14,6 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
-	pb "github.com/lumiforge/sellerproof-backend/proto"
 )
 
 type Service struct {
@@ -31,7 +30,30 @@ func NewService(db ydb.Database, storage *storage.Client, rbac *rbac.RBAC) *Serv
 	}
 }
 
-func (s *Service) InitiateMultipartUpload(ctx context.Context, userID, orgID string, req *pb.InitiateMultipartUploadRequest) (*pb.InitiateMultipartUploadResponse, error) {
+// CompletedPart represents a completed multipart upload part
+type CompletedPart struct {
+	PartNumber int32  `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
+// VideoInfo represents video information
+type VideoInfo struct {
+	VideoID         string `json:"video_id"`
+	FileName        string `json:"file_name"`
+	FileSizeBytes   int64  `json:"file_size_bytes"`
+	DurationSeconds int32  `json:"duration_seconds"`
+	UploadStatus    string `json:"upload_status"`
+	UploadedAt      int64  `json:"uploaded_at"`
+}
+
+// SearchVideosResult represents search results
+type SearchVideosResult struct {
+	Videos     []*VideoInfo `json:"videos"`
+	TotalCount int64        `json:"total_count"`
+}
+
+// InitiateMultipartUploadDirect initiates multipart upload with direct parameters
+func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
 	// Проверка прав
 	// TODO: Реализовать проверку прав через RBAC
 
@@ -47,12 +69,12 @@ func (s *Service) InitiateMultipartUpload(ctx context.Context, userID, orgID str
 	}
 
 	limitBytes := sub.StorageLimitGB * 1024 * 1024 * 1024
-	if sub.StorageLimitGB > 0 && (currentUsage+req.FileSizeBytes) > limitBytes {
+	if sub.StorageLimitGB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
 		return nil, fmt.Errorf("storage limit exceeded")
 	}
 
 	videoID := uuid.New().String()
-	objectKey := fmt.Sprintf("videos/%s/%s/%s", orgID, videoID, req.FileName)
+	objectKey := fmt.Sprintf("videos/%s/%s/%s", orgID, videoID, fileName)
 
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, "video/mp4")
 	if err != nil {
@@ -63,11 +85,11 @@ func (s *Service) InitiateMultipartUpload(ctx context.Context, userID, orgID str
 		VideoID:         videoID,
 		OrgID:           orgID,
 		UploadedBy:      userID,
-		FileName:        req.FileName,
-		FileNameSearch:  strings.ToLower(req.FileName),
-		FileSizeBytes:   req.FileSizeBytes,
+		FileName:        fileName,
+		FileNameSearch:  strings.ToLower(fileName),
+		FileSizeBytes:   fileSizeBytes,
 		StoragePath:     objectKey,
-		DurationSeconds: req.DurationSeconds,
+		DurationSeconds: durationSeconds,
 		UploadID:        uploadID,
 		UploadStatus:    "pending",
 		IsDeleted:       false,
@@ -77,15 +99,23 @@ func (s *Service) InitiateMultipartUpload(ctx context.Context, userID, orgID str
 		return nil, fmt.Errorf("failed to create video record: %w", err)
 	}
 
-	return &pb.InitiateMultipartUploadResponse{
-		VideoId:               videoID,
-		UploadId:              uploadID,
-		RecommendedPartSizeMb: 10,
+	return &InitiateMultipartUploadResult{
+		VideoID:               videoID,
+		UploadID:              uploadID,
+		RecommendedPartSizeMB: 10,
 	}, nil
 }
 
-func (s *Service) GetPartUploadURLs(ctx context.Context, userID, orgID string, req *pb.GetPartUploadURLsRequest) (*pb.GetPartUploadURLsResponse, error) {
-	video, err := s.db.GetVideo(ctx, req.VideoId)
+// InitiateMultipartUploadResult represents the result of initiating multipart upload
+type InitiateMultipartUploadResult struct {
+	VideoID               string `json:"video_id"`
+	UploadID              string `json:"upload_id"`
+	RecommendedPartSizeMB int32  `json:"recommended_part_size_mb"`
+}
+
+// GetPartUploadURLsDirect gets part upload URLs with direct parameters
+func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, videoID string, totalParts int32) (*GetPartUploadURLsResult, error) {
+	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("video not found")
 	}
@@ -94,8 +124,8 @@ func (s *Service) GetPartUploadURLs(ctx context.Context, userID, orgID string, r
 		return nil, fmt.Errorf("access denied")
 	}
 
-	urls := make([]string, req.TotalParts)
-	for i := 0; i < int(req.TotalParts); i++ {
+	urls := make([]string, totalParts)
+	for i := 0; i < int(totalParts); i++ {
 		url, err := s.storage.GeneratePresignedPartURL(ctx, video.StoragePath, video.UploadID, int32(i+1), 1*time.Hour)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate url for part %d: %w", i+1, err)
@@ -103,18 +133,25 @@ func (s *Service) GetPartUploadURLs(ctx context.Context, userID, orgID string, r
 		urls[i] = url
 	}
 
-	video.TotalParts = req.TotalParts
+	video.TotalParts = totalParts
 	video.UploadStatus = "uploading"
 	s.db.UpdateVideo(ctx, video)
 
-	return &pb.GetPartUploadURLsResponse{
-		PartUrls:  urls,
+	return &GetPartUploadURLsResult{
+		PartURLs:  urls,
 		ExpiresAt: time.Now().Add(1 * time.Hour).Unix(),
 	}, nil
 }
 
-func (s *Service) CompleteMultipartUpload(ctx context.Context, userID, orgID string, req *pb.CompleteMultipartUploadRequest) (*pb.CompleteMultipartUploadResponse, error) {
-	video, err := s.db.GetVideo(ctx, req.VideoId)
+// GetPartUploadURLsResult represents the result of getting part upload URLs
+type GetPartUploadURLsResult struct {
+	PartURLs  []string `json:"part_urls"`
+	ExpiresAt int64    `json:"expires_at"`
+}
+
+// CompleteMultipartUploadDirect completes multipart upload with direct parameters
+func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, orgID, videoID string, parts []CompletedPart) (*CompleteMultipartUploadResult, error) {
+	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("video not found")
 	}
@@ -123,15 +160,15 @@ func (s *Service) CompleteMultipartUpload(ctx context.Context, userID, orgID str
 		return nil, fmt.Errorf("access denied")
 	}
 
-	parts := make([]types.CompletedPart, len(req.Parts))
-	for i, p := range req.Parts {
-		parts[i] = types.CompletedPart{
-			ETag:       aws.String(p.Etag),
+	s3Parts := make([]types.CompletedPart, len(parts))
+	for i, p := range parts {
+		s3Parts[i] = types.CompletedPart{
+			ETag:       aws.String(p.ETag),
 			PartNumber: aws.Int32(p.PartNumber),
 		}
 	}
 
-	if err := s.storage.CompleteMultipartUpload(ctx, video.StoragePath, video.UploadID, parts); err != nil {
+	if err := s.storage.CompleteMultipartUpload(ctx, video.StoragePath, video.UploadID, s3Parts); err != nil {
 		return nil, fmt.Errorf("failed to complete s3 upload: %w", err)
 	}
 
@@ -143,13 +180,20 @@ func (s *Service) CompleteMultipartUpload(ctx context.Context, userID, orgID str
 	// Генерация URL для просмотра (опционально)
 	url, _ := s.storage.GeneratePresignedDownloadURL(ctx, video.StoragePath, 1*time.Hour)
 
-	return &pb.CompleteMultipartUploadResponse{
+	return &CompleteMultipartUploadResult{
 		Message:  "Upload completed",
-		VideoUrl: url,
+		VideoURL: url,
 	}, nil
 }
 
-func (s *Service) GetVideo(ctx context.Context, userID, orgID, videoID string) (*pb.Video, error) {
+// CompleteMultipartUploadResult represents the result of completing multipart upload
+type CompleteMultipartUploadResult struct {
+	Message  string `json:"message"`
+	VideoURL string `json:"video_url"`
+}
+
+// GetVideoDirect gets video information with direct parameters
+func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, videoID string) (*VideoInfo, error) {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, err
@@ -163,8 +207,8 @@ func (s *Service) GetVideo(ctx context.Context, userID, orgID, videoID string) (
 		uploadedAt = video.UploadedAt.Unix()
 	}
 
-	return &pb.Video{
-		VideoId:         video.VideoID,
+	return &VideoInfo{
+		VideoID:         video.VideoID,
 		FileName:        video.FileName,
 		FileSizeBytes:   video.FileSizeBytes,
 		DurationSeconds: video.DurationSeconds,
@@ -173,8 +217,9 @@ func (s *Service) GetVideo(ctx context.Context, userID, orgID, videoID string) (
 	}, nil
 }
 
-func (s *Service) CreatePublicShareLink(ctx context.Context, userID, orgID, role string, req *pb.CreateShareLinkRequest) (*pb.CreateShareLinkResponse, error) {
-	video, err := s.db.GetVideo(ctx, req.VideoId)
+// CreatePublicShareLinkDirect creates public share link with direct parameters
+func (s *Service) CreatePublicShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string, expiresInHours int32) (*CreatePublicShareLinkResult, error) {
+	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
@@ -194,8 +239,8 @@ func (s *Service) CreatePublicShareLink(ctx context.Context, userID, orgID, role
 
 	token := generateToken(32)
 	video.PublicShareToken = token
-	if req.ExpiresInHours > 0 {
-		t := time.Now().Add(time.Duration(req.ExpiresInHours) * time.Hour)
+	if expiresInHours > 0 {
+		t := time.Now().Add(time.Duration(expiresInHours) * time.Hour)
 		video.ShareExpiresAt = &t
 	} else {
 		video.ShareExpiresAt = nil
@@ -205,13 +250,20 @@ func (s *Service) CreatePublicShareLink(ctx context.Context, userID, orgID, role
 		return nil, err
 	}
 
-	return &pb.CreateShareLinkResponse{
-		ShareUrl:  fmt.Sprintf("https://sellerproof.ru/share/%s", token),
+	return &CreatePublicShareLinkResult{
+		ShareURL:  fmt.Sprintf("https://sellerproof.ru/share/%s", token),
 		ExpiresAt: expiresAt,
 	}, nil
 }
 
-func (s *Service) GetPublicVideo(ctx context.Context, shareToken string) (*pb.GetPublicVideoResponse, error) {
+// CreatePublicShareLinkResult represents the result of creating public share link
+type CreatePublicShareLinkResult struct {
+	ShareURL  string `json:"share_url"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
+// GetPublicVideoDirect gets public video with direct parameters
+func (s *Service) GetPublicVideoDirect(ctx context.Context, shareToken string) (*GetPublicVideoResult, error) {
 	video, err := s.db.GetVideoByShareToken(ctx, shareToken)
 	if err != nil {
 		return nil, fmt.Errorf("video not found or link invalid")
@@ -226,15 +278,24 @@ func (s *Service) GetPublicVideo(ctx context.Context, shareToken string) (*pb.Ge
 		return nil, err
 	}
 
-	return &pb.GetPublicVideoResponse{
+	return &GetPublicVideoResult{
 		FileName:    video.FileName,
 		FileSize:    video.FileSizeBytes,
-		DownloadUrl: url,
+		DownloadURL: url,
 		ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
 	}, nil
 }
 
-func (s *Service) RevokeShareLink(ctx context.Context, userID, orgID, role string, videoID string) error {
+// GetPublicVideoResult represents the result of getting public video
+type GetPublicVideoResult struct {
+	FileName    string `json:"file_name"`
+	FileSize    int64  `json:"file_size"`
+	DownloadURL string `json:"download_url"`
+	ExpiresAt   int64  `json:"expires_at"`
+}
+
+// RevokeShareLinkDirect revokes share link with direct parameters
+func (s *Service) RevokeShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string) error {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return err
@@ -254,7 +315,8 @@ func (s *Service) RevokeShareLink(ctx context.Context, userID, orgID, role strin
 	return s.db.UpdateVideo(ctx, video)
 }
 
-func (s *Service) SearchVideos(ctx context.Context, userID, orgID, role string, req *pb.SearchVideosRequest) (*pb.SearchVideosResponse, error) {
+// SearchVideosDirect searches videos with direct parameters
+func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, query string, page, pageSize int32) (*SearchVideosResult, error) {
 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoSearch) {
 		return nil, fmt.Errorf("access denied")
 	}
@@ -264,29 +326,29 @@ func (s *Service) SearchVideos(ctx context.Context, userID, orgID, role string, 
 		filterUserID = userID
 	}
 
-	limit := int(req.PageSize)
+	limit := int(pageSize)
 	if limit <= 0 {
 		limit = 10
 	}
-	offset := (int(req.Page) - 1) * limit
+	offset := (int(page) - 1) * limit
 	if offset < 0 {
 		offset = 0
 	}
 
-	videos, total, err := s.db.SearchVideos(ctx, orgID, filterUserID, req.Query, limit, offset)
+	videos, total, err := s.db.SearchVideos(ctx, orgID, filterUserID, query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
-	pbVideos := make([]*pb.Video, len(videos))
+	videoInfos := make([]*VideoInfo, len(videos))
 	for i, v := range videos {
 		var uploadedAt int64
 		if v.UploadedAt != nil {
 			uploadedAt = v.UploadedAt.Unix()
 		}
 
-		pbVideos[i] = &pb.Video{
-			VideoId:         v.VideoID,
+		videoInfos[i] = &VideoInfo{
+			VideoID:         v.VideoID,
 			FileName:        v.FileName,
 			FileSizeBytes:   v.FileSizeBytes,
 			DurationSeconds: v.DurationSeconds,
@@ -295,8 +357,8 @@ func (s *Service) SearchVideos(ctx context.Context, userID, orgID, role string, 
 		}
 	}
 
-	return &pb.SearchVideosResponse{
-		Videos:     pbVideos,
+	return &SearchVideosResult{
+		Videos:     videoInfos,
 		TotalCount: total,
 	}, nil
 }

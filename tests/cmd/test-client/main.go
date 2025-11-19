@@ -1,47 +1,44 @@
 package main
 
 import (
-	"context"
-	"crypto/tls"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"net/url"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-
-	pb "github.com/lumiforge/sellerproof-backend/proto"
 )
 
 // URL вашего сервиса в Yandex Cloud (будет установлен при сборке из Makefile)
 var serviceURL string
-var testTimeout = 30 // секунды по умолчанию
+var testTimeout = 30 // секунд по умолчанию
 var testMode = ""    // "auth" или "video" или "" (все тесты)
 
-func init() {
-	// Если URL не установлен при сборке, используем значение по умолчанию
+// TestClient представляет тестовый клиент для REST API
+type TestClient struct {
+	baseURL    string
+	httpClient *http.Client
+	token      string
+	userID     string
+}
 
-	// Читаем URL из переменной окружения, если она установлена (имеет приоритет над Makefile)
-	if url := os.Getenv("SERVICE_URL"); url != "" {
-		serviceURL = url
+// NewTestClient создает новый тестовый клиент
+func NewTestClient() (*TestClient, error) {
+	// Нормализуем URL, добавляя порт если необходимо
+	normalizedURL := normalizeURL(serviceURL)
+
+	// Создаем HTTP клиент
+	client := &TestClient{
+		baseURL: normalizedURL,
+		httpClient: &http.Client{
+			Timeout: time.Duration(testTimeout) * time.Second,
+		},
 	}
 
-	// Читаем таймаут из переменной окружения, если она установлена
-	if timeout := os.Getenv("TIMEOUT"); timeout != "" {
-		if t, err := strconv.Atoi(timeout); err == nil {
-			testTimeout = t
-		}
-	}
-
-	// Читаем режим тестов из переменной окружения
-	if mode := os.Getenv("TEST_MODE"); mode != "" {
-		testMode = mode
-	}
+	return client, nil
 }
 
 // normalizeURL нормализует URL, добавляя порт если необходимо
@@ -51,82 +48,76 @@ func normalizeURL(rawURL string) string {
 		return rawURL
 	}
 
-	// Парсим URL
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		log.Printf("⚠️  Предупреждение: не удалось разобрать URL '%s': %v", rawURL, err)
-		return rawURL
+	// Для REST API нам нужен полный URL с схемой
+	if !hasScheme(rawURL) {
+		return "http://" + rawURL
 	}
 
-	// Если схема не указана, добавляем https
-	if parsedURL.Scheme == "" {
-		parsedURL.Scheme = "https"
-	}
-
-	// Если порт не указан и это https, добавляем порт 443
-	if parsedURL.Port() == "" {
-		if parsedURL.Scheme == "https" {
-			parsedURL.Host = parsedURL.Host + ":443"
-		} else if parsedURL.Scheme == "http" {
-			parsedURL.Host = parsedURL.Host + ":80"
-		}
-	}
-
-	// Для gRPC нам нужен только хост:порт, без схемы
-	return parsedURL.Host
+	return rawURL
 }
 
-// TestClient представляет тестовый клиент для gRPC сервиса
-type TestClient struct {
-	conn   *grpc.ClientConn
-	auth   pb.AuthServiceClient
-	video  pb.VideoServiceClient
-	token  string
-	userID string
-}
-
-// NewTestClient создает новый тестовый клиент
-func NewTestClient() (*TestClient, error) {
-	// Нормализуем URL, добавляя порт если необходимо
-	normalizedURL := normalizeURL(serviceURL)
-
-	// Определяем тип credentials на основе схемы URL
-	var creds credentials.TransportCredentials
-	if serviceURL != "" {
-		parsedURL, err := url.Parse(serviceURL)
-		if err == nil && parsedURL.Scheme == "https" {
-			// Для HTTPS используем TLS credentials
-			creds = credentials.NewTLS(&tls.Config{
-				InsecureSkipVerify: true, // Для тестирования пропускаем проверку сертификата
-			})
-		} else {
-			// Для HTTP или без схемы используем insecure credentials
-			creds = insecure.NewCredentials()
-		}
-	} else {
-		creds = insecure.NewCredentials()
-	}
-
-	// Устанавливаем соединение с gRPC сервером
-	conn, err := grpc.Dial(normalizedURL, grpc.WithTransportCredentials(creds))
-	if err != nil {
-		return nil, fmt.Errorf("не удалось подключиться к серверу: %v", err)
-	}
-
-	client := &TestClient{
-		conn:  conn,
-		auth:  pb.NewAuthServiceClient(conn),
-		video: pb.NewVideoServiceClient(conn),
-	}
-
-	return client, nil
+// hasScheme проверяет, есть ли у URL схема
+func hasScheme(rawURL string) bool {
+	return len(rawURL) > 3 && rawURL[4] == ':'
 }
 
 // Close закрывает соединение
 func (c *TestClient) Close() {
-	if c.conn != nil {
-		c.conn.Close()
+	// HTTP клиент не требует явного закрытия
+}
+
+// SetToken устанавливает токен аутентификации
+func (c *TestClient) SetToken(token string) {
+	c.token = token
+}
+
+// makeRequest выполняет HTTP запрос
+func (c *TestClient) makeRequest(method, endpoint string, body interface{}, response interface{}) error {
+	var reqBody io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		reqBody = bytes.NewBuffer(jsonBody)
 	}
+
+	url := c.baseURL + endpoint
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	// Выполняем запрос
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Читаем ответ
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Проверяем статус код
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// Парсим ответ
+	if err := json.Unmarshal(respBody, response); err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return nil
 }
 
 // RunTests запускает все тесты
@@ -142,13 +133,13 @@ func (c *TestClient) RunTests() {
 
 	fmt.Println("🚀 Запуск тестов для SellerProof Backend")
 	fmt.Printf("📡 Подключение к сервису: %s\n", displayURL)
-	fmt.Printf("🔗 Адрес для gRPC: %s\n", normalizedURL)
+	fmt.Printf("🔗 Адрес для REST API: %s\n", normalizedURL)
 	fmt.Printf("⏱️  Таймаут: %d секунд\n", testTimeout)
 
 	if testMode != "" {
-		fmt.Printf("🎯 Режим: %s\n\n", testMode)
+		fmt.Printf("🎯 Режим: %s\n", testMode)
 	} else {
-		fmt.Println("🎯 Режим: все тесты\n")
+		fmt.Println("🎯 Режим: все тесты")
 	}
 
 	// Тесты аутентификации
@@ -197,46 +188,43 @@ func (c *TestClient) printResult(testName string, success bool, details string) 
 func (c *TestClient) testRegister() {
 	fmt.Println("📝 Тестирование регистрации пользователя...")
 
-	req := &pb.RegisterRequest{
-		Email:    fmt.Sprintf("test%d@example.com", time.Now().Unix()),
-		Password: "TestPassword123!",
-		FullName: "Test User",
+	req := map[string]interface{}{
+		"email":     fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":  "TestPassword123!",
+		"full_name": "Test User",
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	resp, err := c.auth.Register(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/register", req, &resp)
 	if err != nil {
 		c.printResult("Регистрация", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.userID = resp.UserId
-	c.printResult("Регистрация", true, fmt.Sprintf("ID пользователя: %s, сообщение: %s", resp.UserId, resp.Message))
+	c.userID = resp["user_id"].(string)
+	c.printResult("Регистрация", true, fmt.Sprintf("ID пользователя: %s, сообщение: %s", resp["user_id"], resp["message"]))
 }
 
 // testLogin тестирует вход пользователя
 func (c *TestClient) testLogin() {
 	fmt.Println("🔐 Тестирование входа пользователя...")
 
-	req := &pb.LoginRequest{
-		Email:    "test@example.com", // Используем существующий email для теста
-		Password: "TestPassword123!",
+	req := map[string]interface{}{
+		"email":    "test@example.com", // Используем существующий email для теста
+		"password": "TestPassword123!",
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	resp, err := c.auth.Login(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/login", req, &resp)
 	if err != nil {
 		c.printResult("Вход", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.token = resp.AccessToken
-	c.userID = resp.User.UserId
-	c.printResult("Вход", true, fmt.Sprintf("Токен получен, пользователь: %s (%s)", resp.User.FullName, resp.User.Email))
+	data := resp["user"].(map[string]interface{})
+	c.token = resp["access_token"].(string)
+	c.userID = data["user_id"].(string)
+	c.printResult("Вход", true, fmt.Sprintf("Токен получен, пользователь: %s (%s)", data["full_name"], data["email"]))
 }
 
 // testGetProfile тестирует получение профиля
@@ -248,20 +236,15 @@ func (c *TestClient) testGetProfile() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.GetProfileRequest{}
-	resp, err := c.auth.GetProfile(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/api/v1/auth/profile", nil, &resp)
 	if err != nil {
 		c.printResult("Получение профиля", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Получение профиля", true, fmt.Sprintf("Пользователь: %s (%s), роль: %s", resp.User.FullName, resp.User.Email, resp.User.Role))
+	data := resp["user"].(map[string]interface{})
+	c.printResult("Получение профиля", true, fmt.Sprintf("Пользователь: %s (%s), роль: %s", data["full_name"], data["email"], data["role"]))
 }
 
 // testUpdateProfile тестирует обновление профиля
@@ -273,23 +256,19 @@ func (c *TestClient) testUpdateProfile() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.UpdateProfileRequest{
-		FullName: "Updated Test User",
+	req := map[string]interface{}{
+		"full_name": "Updated Test User",
 	}
 
-	resp, err := c.auth.UpdateProfile(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("PUT", "/api/v1/auth/profile", req, &resp)
 	if err != nil {
 		c.printResult("Обновление профиля", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Обновление профиля", true, fmt.Sprintf("Имя обновлено на: %s", resp.User.FullName))
+	data := resp["user"].(map[string]interface{})
+	c.printResult("Обновление профиля", true, fmt.Sprintf("Имя обновлено на: %s", data["full_name"]))
 }
 
 // testRefreshToken тестирует обновление токена
@@ -297,7 +276,11 @@ func (c *TestClient) testRefreshToken() {
 	fmt.Println("🔄 Тестирование обновления токена...")
 
 	// Для этого теста нужен refresh токен, который мы получаем при входе
-	// В реальном сценарии мы бы сохранили refresh токен из ответа входа
+	if c.token == "" {
+		c.printResult("Обновление токена", false, "Требуется refresh токен из ответа входа")
+		return
+	}
+
 	c.printResult("Обновление токена", false, "Требуется refresh токен из ответа входа")
 }
 
@@ -306,7 +289,23 @@ func (c *TestClient) testLogout() {
 	fmt.Println("🚪 Тестирование выхода пользователя...")
 
 	// Для этого теста нужен refresh токен
-	c.printResult("Выход", false, "Требуется refresh токен из ответа входа")
+	if c.token == "" {
+		c.printResult("Выход", false, "Требуется refresh токен из ответа входа")
+		return
+	}
+
+	req := map[string]interface{}{
+		"refresh_token": "dummy-refresh-token",
+	}
+
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/logout", req, &resp)
+	if err != nil {
+		c.printResult("Выход", false, fmt.Sprintf("Ошибка: %v", err))
+		return
+	}
+
+	c.printResult("Выход", true, fmt.Sprintf("Сообщение: %s", resp["message"]))
 }
 
 // testInitiateMultipartUpload тестирует инициализацию загрузки видео
@@ -318,25 +317,20 @@ func (c *TestClient) testInitiateMultipartUpload() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.InitiateMultipartUploadRequest{
-		FileName:        "test-video.mp4",
-		FileSizeBytes:   102400000, // 100MB
-		DurationSeconds: 300,       // 5 минут
+	req := map[string]interface{}{
+		"file_name":        "test-video.mp4",
+		"file_size_bytes":  102400000, // 100MB
+		"duration_seconds": 300,       // 5 минут
 	}
 
-	resp, err := c.video.InitiateMultipartUpload(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/video/upload/initiate", req, &resp)
 	if err != nil {
 		c.printResult("Инициализация загрузки видео", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Инициализация загрузки видео", true, fmt.Sprintf("ID видео: %s, ID загрузки: %s", resp.VideoId, resp.UploadId))
+	c.printResult("Инициализация загрузки видео", true, fmt.Sprintf("ID видео: %s, ID загрузки: %s", resp["video_id"], resp["upload_id"]))
 }
 
 // testGetPartUploadURLs тестирует получение URL для загрузки частей
@@ -348,24 +342,20 @@ func (c *TestClient) testGetPartUploadURLs() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.GetPartUploadURLsRequest{
-		VideoId:    "test-video-id", // Используем тестовый ID
-		TotalParts: 5,
+	req := map[string]interface{}{
+		"video_id":    "test-video-id", // Используем тестовый ID
+		"total_parts": 5,
 	}
 
-	resp, err := c.video.GetPartUploadURLs(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/video/upload/urls", req, &resp)
 	if err != nil {
 		c.printResult("Получение URL для загрузки частей", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Получение URL для загрузки частей", true, fmt.Sprintf("Получено %d URL, истекают: %d", len(resp.PartUrls), resp.ExpiresAt))
+	data := resp["part_urls"].([]interface{})
+	c.printResult("Получение URL для загрузки частей", true, fmt.Sprintf("Получено %d URL, истекают: %d", len(data), resp["expires_at"]))
 }
 
 // testCompleteMultipartUpload тестирует завершение загрузки видео
@@ -377,33 +367,28 @@ func (c *TestClient) testCompleteMultipartUpload() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
 	// Создаем тестовые части
-	parts := make([]*pb.CompletedPart, 0)
+	parts := make([]map[string]interface{}, 0)
 	for i := 1; i <= 3; i++ {
-		parts = append(parts, &pb.CompletedPart{
-			PartNumber: int32(i),
-			Etag:       fmt.Sprintf("etag-part-%d", i),
+		parts = append(parts, map[string]interface{}{
+			"part_number": i,
+			"etag":        fmt.Sprintf("etag-part-%d", i),
 		})
 	}
 
-	req := &pb.CompleteMultipartUploadRequest{
-		VideoId: "test-video-id", // Используем тестовый ID
-		Parts:   parts,
+	req := map[string]interface{}{
+		"video_id": "test-video-id", // Используем тестовый ID
+		"parts":    parts,
 	}
 
-	resp, err := c.video.CompleteMultipartUpload(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/video/upload/complete", req, &resp)
 	if err != nil {
 		c.printResult("Завершение загрузки видео", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Завершение загрузки видео", true, fmt.Sprintf("Сообщение: %s, URL видео: %s", resp.Message, resp.VideoUrl))
+	c.printResult("Завершение загрузки видео", true, fmt.Sprintf("Сообщение: %s, URL видео: %s", resp["message"], resp["video_url"]))
 }
 
 // testGetVideo тестирует получение информации о видео
@@ -415,23 +400,15 @@ func (c *TestClient) testGetVideo() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.GetVideoRequest{
-		VideoId: "test-video-id", // Используем тестовый ID
-	}
-
-	resp, err := c.video.GetVideo(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/api/v1/video?video_id=test-video-id", nil, &resp)
 	if err != nil {
 		c.printResult("Получение информации о видео", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Получение информации о видео", true, fmt.Sprintf("Видео: %s, размер: %d байт, статус: %s", resp.Video.FileName, resp.Video.FileSizeBytes, resp.Video.UploadStatus))
+	data := resp["video"].(map[string]interface{})
+	c.printResult("Получение информации о видео", true, fmt.Sprintf("Видео: %s, размер: %v байт, статус: %s", data["file_name"], data["file_size_bytes"], data["upload_status"]))
 }
 
 // testSearchVideos тестирует поиск видео
@@ -443,25 +420,15 @@ func (c *TestClient) testSearchVideos() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.SearchVideosRequest{
-		Query:    "test",
-		Page:     1,
-		PageSize: 10,
-	}
-
-	resp, err := c.video.SearchVideos(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/api/v1/video/search?query=test&page=1&page_size=10", nil, &resp)
 	if err != nil {
 		c.printResult("Поиск видео", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Поиск видео", true, fmt.Sprintf("Найдено видео: %d, всего: %d", len(resp.Videos), resp.TotalCount))
+	data := resp["videos"].([]interface{})
+	c.printResult("Поиск видео", true, fmt.Sprintf("Найдено видео: %d, всего: %d", len(data), resp["total_count"]))
 }
 
 // testCreatePublicShareLink тестирует создание публичной ссылки
@@ -473,44 +440,33 @@ func (c *TestClient) testCreatePublicShareLink() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.CreateShareLinkRequest{
-		VideoId:        "test-video-id", // Используем тестовый ID
-		ExpiresInHours: 24,
+	req := map[string]interface{}{
+		"video_id":         "test-video-id", // Используем тестовый ID
+		"expires_in_hours": 24,
 	}
 
-	resp, err := c.video.CreatePublicShareLink(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/video/share", req, &resp)
 	if err != nil {
 		c.printResult("Создание публичной ссылки", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Создание публичной ссылки", true, fmt.Sprintf("URL: %s, истекает: %d", resp.ShareUrl, resp.ExpiresAt))
+	c.printResult("Создание публичной ссылки", true, fmt.Sprintf("URL: %s, истекает: %d", resp["share_url"], resp["expires_at"]))
 }
 
 // testGetPublicVideo тестирует получение публичного видео
 func (c *TestClient) testGetPublicVideo() {
 	fmt.Println("🌍 Тестирование получения публичного видео...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	req := &pb.GetPublicVideoRequest{
-		ShareToken: "test-share-token", // Используем тестовый токен
-	}
-
-	resp, err := c.video.GetPublicVideo(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("GET", "/api/v1/video/public?share_token=test-share-token", nil, &resp)
 	if err != nil {
 		c.printResult("Получение публичного видео", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Получение публичного видео", true, fmt.Sprintf("Файл: %s, размер: %d, URL: %s", resp.FileName, resp.FileSize, resp.DownloadUrl))
+	c.printResult("Получение публичного видео", true, fmt.Sprintf("Файл: %s, размер: %v, URL: %s", resp["file_name"], resp["file_size"], resp["download_url"]))
 }
 
 // testRevokeShareLink тестирует отзыв публичной ссылки
@@ -522,27 +478,39 @@ func (c *TestClient) testRevokeShareLink() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(testTimeout)*time.Second)
-	defer cancel()
-
-	// Добавляем токен в метаданные
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", c.token))
-
-	req := &pb.RevokeShareLinkRequest{
-		VideoId: "test-video-id", // Используем тестовый ID
+	req := map[string]interface{}{
+		"video_id": "test-video-id", // Используем тестовый ID
 	}
 
-	resp, err := c.video.RevokeShareLink(ctx, req)
+	var resp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/video/share/revoke", req, &resp)
 	if err != nil {
 		c.printResult("Отзыв публичной ссылки", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.printResult("Отзыв публичной ссылки", true, fmt.Sprintf("Успешно: %t", resp.Success))
+	c.printResult("Отзыв публичной ссылки", true, fmt.Sprintf("Успешно: %v", resp["success"]))
 }
 
 // Main функция для запуска тестов
 func main() {
+	// Читаем URL из переменной окружения, если она установлена (имеет приоритет над Makefile)
+	if url := os.Getenv("SERVICE_URL"); url != "" {
+		serviceURL = url
+	}
+
+	// Читаем таймаут из переменной окружения, если она установлена
+	if timeout := os.Getenv("TIMEOUT"); timeout != "" {
+		if t, err := strconv.Atoi(timeout); err == nil {
+			testTimeout = t
+		}
+	}
+
+	// Читаем режим тестов из переменной окружения
+	if mode := os.Getenv("TEST_MODE"); mode != "" {
+		testMode = mode
+	}
+
 	client, err := NewTestClient()
 	if err != nil {
 		log.Fatalf("Ошибка создания клиента: %v", err)
