@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -27,7 +28,7 @@ type TestClient struct {
 
 // NewTestClient создает новый тестовый клиент
 func NewTestClient() (*TestClient, error) {
-	// Нормализуем URL, добавляя порт если необходимо
+	// Нормализуем URL
 	normalizedURL := normalizeURL(serviceURL)
 
 	// Создаем HTTP клиент
@@ -41,24 +42,19 @@ func NewTestClient() (*TestClient, error) {
 	return client, nil
 }
 
-// normalizeURL нормализует URL, добавляя порт если необходимо
+// normalizeURL нормализует URL, удаляя дублирующие протоколы
 func normalizeURL(rawURL string) string {
 	// Если URL пустой, возвращаем пустую строку
 	if rawURL == "" {
 		return rawURL
 	}
 
-	// Для REST API нам нужен полный URL с схемой
-	if !hasScheme(rawURL) {
-		return "http://" + rawURL
-	}
-
-	return rawURL
-}
-
-// hasScheme проверяет, есть ли у URL схема
-func hasScheme(rawURL string) bool {
-	return len(rawURL) > 3 && rawURL[4] == ':'
+	// Удаляем префикс http:// если URL уже содержит https://
+	rawURL = strings.TrimPrefix(rawURL, "http://")
+	rawURL = strings.TrimPrefix(rawURL, "https://")
+	
+	// Добавляем https:// (для production всегда используем HTTPS)
+	return "https://" + rawURL
 }
 
 // Close закрывает соединение
@@ -122,18 +118,9 @@ func (c *TestClient) makeRequest(method, endpoint string, body interface{}, resp
 
 // RunTests запускает все тесты
 func (c *TestClient) RunTests() {
-	// Нормализуем URL для подключения
-	normalizedURL := normalizeURL(serviceURL)
-
-	// Создаем полный URL для отображения
-	displayURL := serviceURL
-	if displayURL == "" {
-		displayURL = "не указан"
-	}
-
 	fmt.Println("🚀 Запуск тестов для SellerProof Backend")
-	fmt.Printf("📡 Подключение к сервису: %s\n", displayURL)
-	fmt.Printf("🔗 Адрес для REST API: %s\n", normalizedURL)
+	fmt.Printf("📡 Подключение к сервису: %s\n", serviceURL)
+	fmt.Printf("🔗 Итоговый URL: %s\n", c.baseURL)
 	fmt.Printf("⏱️  Таймаут: %d секунд\n", testTimeout)
 
 	if testMode != "" {
@@ -141,6 +128,7 @@ func (c *TestClient) RunTests() {
 	} else {
 		fmt.Println("🎯 Режим: все тесты")
 	}
+	fmt.Println()
 
 	// Тесты аутентификации
 	if testMode == "" || testMode == "auth" {
@@ -210,7 +198,7 @@ func (c *TestClient) testLogin() {
 	fmt.Println("🔐 Тестирование входа пользователя...")
 
 	req := map[string]interface{}{
-		"email":    "test@example.com", // Используем существующий email для теста
+		"email":    "test@example.com",
 		"password": "TestPassword123!",
 	}
 
@@ -275,7 +263,6 @@ func (c *TestClient) testUpdateProfile() {
 func (c *TestClient) testRefreshToken() {
 	fmt.Println("🔄 Тестирование обновления токена...")
 
-	// Для этого теста нужен refresh токен, который мы получаем при входе
 	if c.token == "" {
 		c.printResult("Обновление токена", false, "Требуется refresh токен из ответа входа")
 		return
@@ -288,7 +275,6 @@ func (c *TestClient) testRefreshToken() {
 func (c *TestClient) testLogout() {
 	fmt.Println("🚪 Тестирование выхода пользователя...")
 
-	// Для этого теста нужен refresh токен
 	if c.token == "" {
 		c.printResult("Выход", false, "Требуется refresh токен из ответа входа")
 		return
@@ -319,8 +305,8 @@ func (c *TestClient) testInitiateMultipartUpload() {
 
 	req := map[string]interface{}{
 		"file_name":        "test-video.mp4",
-		"file_size_bytes":  102400000, // 100MB
-		"duration_seconds": 300,       // 5 минут
+		"file_size_bytes":  102400000,
+		"duration_seconds": 300,
 	}
 
 	var resp map[string]interface{}
@@ -343,7 +329,7 @@ func (c *TestClient) testGetPartUploadURLs() {
 	}
 
 	req := map[string]interface{}{
-		"video_id":    "test-video-id", // Используем тестовый ID
+		"video_id":    "test-video-id",
 		"total_parts": 5,
 	}
 
@@ -367,7 +353,6 @@ func (c *TestClient) testCompleteMultipartUpload() {
 		return
 	}
 
-	// Создаем тестовые части
 	parts := make([]map[string]interface{}, 0)
 	for i := 1; i <= 3; i++ {
 		parts = append(parts, map[string]interface{}{
@@ -377,7 +362,7 @@ func (c *TestClient) testCompleteMultipartUpload() {
 	}
 
 	req := map[string]interface{}{
-		"video_id": "test-video-id", // Используем тестовый ID
+		"video_id": "test-video-id",
 		"parts":    parts,
 	}
 
@@ -441,7 +426,7 @@ func (c *TestClient) testCreatePublicShareLink() {
 	}
 
 	req := map[string]interface{}{
-		"video_id":         "test-video-id", // Используем тестовый ID
+		"video_id":         "test-video-id",
 		"expires_in_hours": 24,
 	}
 
@@ -479,7 +464,7 @@ func (c *TestClient) testRevokeShareLink() {
 	}
 
 	req := map[string]interface{}{
-		"video_id": "test-video-id", // Используем тестовый ID
+		"video_id": "test-video-id",
 	}
 
 	var resp map[string]interface{}
