@@ -83,7 +83,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	user := &ydb.User{
 		UserID:                uuid.New().String(),
 		Email:                 req.Email,
-		PasswordHash:          &passwordHashStr,
+		PasswordHash:          passwordHashStr,
 		FullName:              &req.FullName,
 		EmailVerified:         false,
 		VerificationCode:      &verificationCode,
@@ -276,11 +276,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	// Проверка пароля
-	if user.PasswordHash == nil {
-		return nil, fmt.Errorf("invalid credentials")
-	}
-	err = bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")
 	}

@@ -444,12 +444,8 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 			table.NewQueryParameters(
 				table.ValueParam("$user_id", types.TextValue(user.UserID)),
 				table.ValueParam("$email", types.TextValue(user.Email)),
-				func() table.ParameterOption {
-					if user.PasswordHash == nil {
-						return table.ValueParam("$password_hash", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$password_hash", types.TextValue(*user.PasswordHash))
-				}(),
+				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
+
 				func() table.ParameterOption {
 					if user.FullName == nil {
 						return table.ValueParam("$full_name", types.NullValue(types.TypeText))
@@ -614,12 +610,8 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 			table.NewQueryParameters(
 				table.ValueParam("$user_id", types.TextValue(user.UserID)),
 				table.ValueParam("$email", types.TextValue(user.Email)),
-				func() table.ParameterOption {
-					if user.PasswordHash == nil {
-						return table.ValueParam("$password_hash", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$password_hash", types.TextValue(*user.PasswordHash))
-				}(),
+				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
+
 				func() table.ParameterOption {
 					if user.FullName == nil {
 						return table.ValueParam("$full_name", types.NullValue(types.TypeText))

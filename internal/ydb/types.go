@@ -6,26 +6,26 @@ import (
 
 // User представляет пользователя в системе
 type User struct {
-	UserID                string    `db:"user_id"`
-	Email                 string    `db:"email"`
-	PasswordHash          *string   `db:"password_hash"`
-	FullName              *string   `db:"full_name"`
-	EmailVerified         bool      `db:"email_verified"`
-	VerificationCode      *string   `db:"verification_code"`
+	UserID                string     `db:"user_id"`
+	Email                 string     `db:"email"`
+	PasswordHash          string     `db:"password_hash"`
+	FullName              *string    `db:"full_name"`
+	EmailVerified         bool       `db:"email_verified"`
+	VerificationCode      *string    `db:"verification_code"`
 	VerificationExpiresAt *time.Time `db:"verification_expires_at"`
-	CreatedAt             time.Time `db:"created_at"`
-	UpdatedAt             time.Time `db:"updated_at"`
-	IsActive              bool      `db:"is_active"`
+	CreatedAt             time.Time  `db:"created_at"`
+	UpdatedAt             time.Time  `db:"updated_at"`
+	IsActive              bool       `db:"is_active"`
 }
 
 // Organization представляет организацию
 type Organization struct {
-	OrgID     string            `db:"org_id"`
-	Name      *string           `db:"name"`
-	OwnerID   *string           `db:"owner_id"`
+	OrgID     string             `db:"org_id"`
+	Name      *string            `db:"name"`
+	OwnerID   *string            `db:"owner_id"`
 	Settings  *map[string]string `db:"settings"`
-	CreatedAt time.Time         `db:"created_at"`
-	UpdatedAt time.Time         `db:"updated_at"`
+	CreatedAt time.Time          `db:"created_at"`
+	UpdatedAt time.Time          `db:"updated_at"`
 }
 
 // Membership представляет членство в организации
@@ -42,32 +42,32 @@ type Membership struct {
 
 // Plan представляет тарифный план
 type Plan struct {
-	PlanID          string            `db:"plan_id"`
-	Name            *string           `db:"name"`
-	StorageLimitGB  *int64            `db:"storage_limit_gb"`
-	VideoCountLimit *int64            `db:"video_count_limit"`
-	PriceRub        *float64          `db:"price_rub"`
-	BillingCycle    *string           `db:"billing_cycle"`
+	PlanID          string             `db:"plan_id"`
+	Name            *string            `db:"name"`
+	StorageLimitGB  *int64             `db:"storage_limit_gb"`
+	VideoCountLimit *int64             `db:"video_count_limit"`
+	PriceRub        *float64           `db:"price_rub"`
+	BillingCycle    *string            `db:"billing_cycle"`
 	Features        *map[string]string `db:"features"`
-	CreatedAt       time.Time         `db:"created_at"`
-	UpdatedAt       time.Time         `db:"updated_at"`
+	CreatedAt       time.Time          `db:"created_at"`
+	UpdatedAt       time.Time          `db:"updated_at"`
 }
 
 // Subscription представляет подписку
 type Subscription struct {
-	SubscriptionID  string    `db:"subscription_id"`
-	UserID          string    `db:"user_id"`
-	OrgID           string    `db:"org_id"`
-	PlanID          *string   `db:"plan_id"`
-	StorageLimitGB  *int64    `db:"storage_limit_gb"`
-	VideoCountLimit *int64    `db:"video_count_limit"`
-	IsActive        *bool     `db:"is_active"`
+	SubscriptionID  string     `db:"subscription_id"`
+	UserID          string     `db:"user_id"`
+	OrgID           string     `db:"org_id"`
+	PlanID          *string    `db:"plan_id"`
+	StorageLimitGB  *int64     `db:"storage_limit_gb"`
+	VideoCountLimit *int64     `db:"video_count_limit"`
+	IsActive        *bool      `db:"is_active"`
 	TrialEndsAt     *time.Time `db:"trial_ends_at"`
-	StartedAt       time.Time `db:"started_at"`
-	ExpiresAt       time.Time `db:"expires_at"`
-	BillingCycle    string    `db:"billing_cycle"`
-	CreatedAt       time.Time `db:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at"`
+	StartedAt       time.Time  `db:"started_at"`
+	ExpiresAt       time.Time  `db:"expires_at"`
+	BillingCycle    string     `db:"billing_cycle"`
+	CreatedAt       time.Time  `db:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at"`
 }
 
 // SubscriptionHistory представляет историю изменений подписок
@@ -96,12 +96,12 @@ type EmailLog struct {
 
 // RefreshToken представляет refresh токен
 type RefreshToken struct {
-	TokenID   string    `db:"token_id"`
-	UserID    string    `db:"user_id"`
-	TokenHash *string   `db:"token_hash"`
+	TokenID   string     `db:"token_id"`
+	UserID    string     `db:"user_id"`
+	TokenHash *string    `db:"token_hash"`
 	ExpiresAt *time.Time `db:"expires_at"`
 	CreatedAt *time.Time `db:"created_at"`
-	IsRevoked bool      `db:"is_revoked"`
+	IsRevoked bool       `db:"is_revoked"`
 }
 
 // Video представляет видео файл
