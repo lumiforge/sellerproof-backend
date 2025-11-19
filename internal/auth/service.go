@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"log/slog"
 	"strings"
 	"time"
@@ -58,6 +59,9 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	// Проверка, что email не занят
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
+	// TODO: Remove this log after debugging
+	log.Println("GetUserByEmail result", "err", err, "existingUser", existingUser)
+
 	if err == nil && existingUser != nil {
 		return nil, fmt.Errorf("email already exists")
 	}
@@ -75,18 +79,20 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	}
 
 	// Создание пользователя
+	passwordHashStr := string(passwordHash)
 	user := &ydb.User{
 		UserID:                uuid.New().String(),
 		Email:                 req.Email,
-		PasswordHash:          string(passwordHash),
-		FullName:              req.FullName,
+		PasswordHash:          &passwordHashStr,
+		FullName:              &req.FullName,
 		EmailVerified:         false,
-		VerificationCode:      verificationCode,
-		VerificationExpiresAt: time.Now().Add(24 * time.Hour),
+		VerificationCode:      &verificationCode,
+		VerificationExpiresAt: &time.Time{},
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 		IsActive:              true,
 	}
+	*user.VerificationExpiresAt = time.Now().Add(24 * time.Hour)
 
 	err = s.db.CreateUser(ctx, user)
 	if err != nil {
@@ -105,13 +111,15 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 			slog.Error("Failed to send verification email", "error", err, "email", req.Email)
 		} else {
 			// Сохраняем лог email в базу
+			emailType := string(email.EmailTypeVerification)
+			status := string(emailMessage.Status)
 			emailLog := &ydb.EmailLog{
 				EmailID:          emailMessage.ID,
 				UserID:           user.UserID,
-				EmailType:        string(email.EmailTypeVerification),
-				Recipient:        req.Email,
-				Status:           string(emailMessage.Status),
-				PostboxMessageID: emailMessage.MessageID,
+				EmailType:        &emailType,
+				Recipient:        &req.Email,
+				Status:           &status,
+				PostboxMessageID: &emailMessage.MessageID,
 				SentAt:           emailMessage.SentAt,
 				ErrorMessage:     emailMessage.Error,
 			}
@@ -120,11 +128,13 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	}
 
 	// Создание персональной организации для пользователя
+	orgName := fmt.Sprintf("%s's Organization", req.FullName)
+	settings := make(map[string]string)
 	org := &ydb.Organization{
 		OrgID:     uuid.New().String(),
-		Name:      fmt.Sprintf("%s's Organization", req.FullName),
-		OwnerID:   user.UserID,
-		Settings:  make(map[string]string),
+		Name:      &orgName,
+		OwnerID:   &user.UserID,
+		Settings:  &settings,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -136,13 +146,15 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	}
 
 	// Создание членства в организации с ролью admin
+	role := string(rbac.RoleAdmin)
+	status := "active"
 	membership := &ydb.Membership{
 		MembershipID: uuid.New().String(),
 		UserID:       user.UserID,
 		OrgID:        org.OrgID,
-		Role:         string(rbac.RoleAdmin),
-		Status:       "active",
-		InvitedBy:    user.UserID,
+		Role:         &role,
+		Status:       &status,
+		InvitedBy:    &user.UserID,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -153,15 +165,20 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	}
 
 	// Создание триальной подписки
+	planID := "free"
+	storageLimitGB := int64(1)
+	videoCountLimit := int64(10)
+	isActive := true
+	trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
 	subscription := &ydb.Subscription{
 		SubscriptionID:  uuid.New().String(),
 		UserID:          user.UserID,
 		OrgID:           org.OrgID,
-		PlanID:          "free",
-		StorageLimitGB:  1,
-		VideoCountLimit: 10,
-		IsActive:        true,
-		TrialEndsAt:     time.Now().Add(7 * 24 * time.Hour),
+		PlanID:          &planID,
+		StorageLimitGB:  &storageLimitGB,
+		VideoCountLimit: &videoCountLimit,
+		IsActive:        &isActive,
+		TrialEndsAt:     &trialEndsAt,
 		StartedAt:       time.Now(),
 		ExpiresAt:       time.Now().Add(30 * 24 * time.Hour), // 30 дней
 		BillingCycle:    "monthly",
@@ -200,18 +217,19 @@ func (s *Service) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*Ve
 	}
 
 	// Проверка кода верификации
-	if user.VerificationCode != req.Code {
+	if user.VerificationCode == nil || *user.VerificationCode != req.Code {
 		return nil, fmt.Errorf("invalid verification code")
 	}
 
 	// Проверка срока действия кода
-	if time.Now().After(user.VerificationExpiresAt) {
+	if user.VerificationExpiresAt == nil || time.Now().After(*user.VerificationExpiresAt) {
 		return nil, fmt.Errorf("verification code expired")
 	}
 
 	// Обновление статуса верификации
 	user.EmailVerified = true
-	user.VerificationCode = "" // Очищаем код
+	emptyStr := ""
+	user.VerificationCode = &emptyStr // Очищаем код
 	user.UpdatedAt = time.Now()
 
 	err = s.db.UpdateUser(ctx, user)
@@ -259,7 +277,10 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	}
 
 	// Проверка пароля
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
+	if user.PasswordHash == nil {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")
 	}
@@ -276,10 +297,14 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	}
 
 	// Генерация JWT токенов
+	role := ""
+	if membership.Role != nil {
+		role = *membership.Role
+	}
 	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
 		user.UserID,
 		user.Email,
-		membership.Role,
+		role,
 		membership.OrgID,
 	)
 	if err != nil {
@@ -288,12 +313,14 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	// Сохранение refresh токена в базу
 	tokenHash := s.hashToken(refreshToken)
+	expiresAt := time.Now().Add(s.jwtManager.GetTokenExpiry("refresh"))
+	createdAt := time.Now()
 	refreshTokenRecord := &ydb.RefreshToken{
 		TokenID:   uuid.New().String(),
 		UserID:    user.UserID,
-		TokenHash: tokenHash,
-		ExpiresAt: time.Now().Add(s.jwtManager.GetTokenExpiry("refresh")),
-		CreatedAt: time.Now(),
+		TokenHash: &tokenHash,
+		ExpiresAt: &expiresAt,
+		CreatedAt: &createdAt,
 		IsRevoked: false,
 	}
 
@@ -302,6 +329,14 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 		slog.Error("Failed to save refresh token", "error", err, "user_id", user.UserID)
 	}
 
+	fullName := ""
+	if user.FullName != nil {
+		fullName = *user.FullName
+	}
+	role = ""
+	if membership.Role != nil {
+		role = *membership.Role
+	}
 	return &LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -309,8 +344,8 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 		User: &UserInfo{
 			UserID:        user.UserID,
 			Email:         user.Email,
-			FullName:      user.FullName,
-			Role:          membership.Role,
+			FullName:      fullName,
+			Role:          role,
 			OrgID:         membership.OrgID,
 			EmailVerified: user.EmailVerified,
 			CreatedAt:     user.CreatedAt.Unix(),
@@ -362,12 +397,14 @@ func (s *Service) RefreshToken(ctx context.Context, req *RefreshTokenRequest) (*
 
 	// Сохранение нового refresh токена
 	newTokenHash := s.hashToken(refreshToken)
+	newExpiresAt := time.Now().Add(s.jwtManager.GetTokenExpiry("refresh"))
+	newCreatedAt := time.Now()
 	newTokenRecord := &ydb.RefreshToken{
 		TokenID:   uuid.New().String(),
 		UserID:    claims.UserID,
-		TokenHash: newTokenHash,
-		ExpiresAt: time.Now().Add(s.jwtManager.GetTokenExpiry("refresh")),
-		CreatedAt: time.Now(),
+		TokenHash: &newTokenHash,
+		ExpiresAt: &newExpiresAt,
+		CreatedAt: &newCreatedAt,
 		IsRevoked: false,
 	}
 
@@ -430,12 +467,20 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*GetProfileRes
 		return nil, fmt.Errorf("failed to get user membership: %w", err)
 	}
 
+	fullName := ""
+	if user.FullName != nil {
+		fullName = *user.FullName
+	}
+	role := ""
+	if membership.Role != nil {
+		role = *membership.Role
+	}
 	return &GetProfileResponse{
 		User: &UserInfo{
 			UserID:        user.UserID,
 			Email:         user.Email,
-			FullName:      user.FullName,
-			Role:          membership.Role,
+			FullName:      fullName,
+			Role:          role,
 			OrgID:         membership.OrgID,
 			EmailVerified: user.EmailVerified,
 			CreatedAt:     user.CreatedAt.Unix(),
@@ -463,6 +508,10 @@ func (s *Service) CheckPermission(ctx context.Context, userID, orgID string, per
 		return false, fmt.Errorf("failed to get user membership: %w", err)
 	}
 
-	role := rbac.Role(membership.Role)
+	roleStr := ""
+	if membership.Role != nil {
+		roleStr = *membership.Role
+	}
+	role := rbac.Role(roleStr)
 	return s.rbac.CheckPermissionWithRole(role, permission), nil
 }

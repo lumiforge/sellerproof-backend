@@ -444,11 +444,31 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 			table.NewQueryParameters(
 				table.ValueParam("$user_id", types.TextValue(user.UserID)),
 				table.ValueParam("$email", types.TextValue(user.Email)),
-				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
-				table.ValueParam("$full_name", types.TextValue(user.FullName)),
+				func() table.ParameterOption {
+					if user.PasswordHash == nil {
+						return table.ValueParam("$password_hash", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$password_hash", types.TextValue(*user.PasswordHash))
+				}(),
+				func() table.ParameterOption {
+					if user.FullName == nil {
+						return table.ValueParam("$full_name", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$full_name", types.TextValue(*user.FullName))
+				}(),
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
-				table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(user.VerificationCode))),
-				table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(user.VerificationExpiresAt))),
+				func() table.ParameterOption {
+					if user.VerificationCode == nil {
+						return table.ValueParam("$verification_code", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$verification_code", types.TextValue(*user.VerificationCode))
+				}(),
+				func() table.ParameterOption {
+					if user.VerificationExpiresAt == nil {
+						return table.ValueParam("$verification_expires_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(*user.VerificationExpiresAt))
+				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -594,11 +614,31 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 			table.NewQueryParameters(
 				table.ValueParam("$user_id", types.TextValue(user.UserID)),
 				table.ValueParam("$email", types.TextValue(user.Email)),
-				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
-				table.ValueParam("$full_name", types.TextValue(user.FullName)),
+				func() table.ParameterOption {
+					if user.PasswordHash == nil {
+						return table.ValueParam("$password_hash", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$password_hash", types.TextValue(*user.PasswordHash))
+				}(),
+				func() table.ParameterOption {
+					if user.FullName == nil {
+						return table.ValueParam("$full_name", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$full_name", types.TextValue(*user.FullName))
+				}(),
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
-				table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(user.VerificationCode))),
-				table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(user.VerificationExpiresAt))),
+				func() table.ParameterOption {
+					if user.VerificationCode == nil {
+						return table.ValueParam("$verification_code", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$verification_code", types.TextValue(*user.VerificationCode))
+				}(),
+				func() table.ParameterOption {
+					if user.VerificationExpiresAt == nil {
+						return table.ValueParam("$verification_expires_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(*user.VerificationExpiresAt))
+				}(),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
@@ -631,7 +671,7 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 
 	// Always marshal settings to JSON, use empty object if nil/empty
 	var settingsJSON string
-	if org.Settings != nil && len(org.Settings) > 0 {
+	if org.Settings != nil && len(*org.Settings) > 0 {
 		b, err := json.Marshal(org.Settings)
 		if err != nil {
 			return fmt.Errorf("failed to marshal settings: %w", err)
@@ -645,8 +685,18 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$org_id", types.TextValue(org.OrgID)),
-				table.ValueParam("$name", types.TextValue(org.Name)),
-				table.ValueParam("$owner_id", types.TextValue(org.OwnerID)),
+				func() table.ParameterOption {
+					if org.Name == nil {
+						return table.ValueParam("$name", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$name", types.TextValue(*org.Name))
+				}(),
+				func() table.ParameterOption {
+					if org.OwnerID == nil {
+						return table.ValueParam("$owner_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$owner_id", types.TextValue(*org.OwnerID))
+				}(),
 				table.ValueParam("$settings", types.JSONValue(settingsJSON)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(org.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(org.UpdatedAt)),
@@ -687,9 +737,24 @@ func (c *YDBClient) CreateMembership(ctx context.Context, membership *Membership
 				table.ValueParam("$membership_id", types.TextValue(membership.MembershipID)),
 				table.ValueParam("$user_id", types.TextValue(membership.UserID)),
 				table.ValueParam("$org_id", types.TextValue(membership.OrgID)),
-				table.ValueParam("$role", types.TextValue(membership.Role)),
-				table.ValueParam("$status", types.TextValue(membership.Status)),
-				table.ValueParam("$invited_by", types.TextValue(membership.InvitedBy)),
+				func() table.ParameterOption {
+					if membership.Role == nil {
+						return table.ValueParam("$role", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$role", types.TextValue(*membership.Role))
+				}(),
+				func() table.ParameterOption {
+					if membership.Status == nil {
+						return table.ValueParam("$status", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$status", types.TextValue(*membership.Status))
+				}(),
+				func() table.ParameterOption {
+					if membership.InvitedBy == nil {
+						return table.ValueParam("$invited_by", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$invited_by", types.TextValue(*membership.InvitedBy))
+				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(membership.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(membership.UpdatedAt)),
 			),
@@ -767,7 +832,11 @@ func (c *YDBClient) CreateRefreshToken(ctx context.Context, token *RefreshToken)
 
 	now := time.Now()
 	if token.CreatedAt.IsZero() {
-		token.CreatedAt = now
+		if token.CreatedAt == nil {
+			token.CreatedAt = &now
+		} else {
+			*token.CreatedAt = now
+		}
 	}
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -775,9 +844,24 @@ func (c *YDBClient) CreateRefreshToken(ctx context.Context, token *RefreshToken)
 			table.NewQueryParameters(
 				table.ValueParam("$token_id", types.TextValue(token.TokenID)),
 				table.ValueParam("$user_id", types.TextValue(token.UserID)),
-				table.ValueParam("$token_hash", types.TextValue(token.TokenHash)),
-				table.ValueParam("$expires_at", types.TimestampValueFromTime(token.ExpiresAt)),
-				table.ValueParam("$created_at", types.TimestampValueFromTime(token.CreatedAt)),
+				func() table.ParameterOption {
+					if token.TokenHash == nil {
+						return table.ValueParam("$token_hash", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$token_hash", types.TextValue(*token.TokenHash))
+				}(),
+				func() table.ParameterOption {
+					if token.ExpiresAt == nil {
+						return table.ValueParam("$expires_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$expires_at", types.TimestampValueFromTime(*token.ExpiresAt))
+				}(),
+				func() table.ParameterOption {
+					if token.CreatedAt == nil {
+						return table.ValueParam("$created_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$created_at", types.TimestampValueFromTime(*token.CreatedAt))
+				}(),
 			),
 		)
 		return err
@@ -877,10 +961,30 @@ func (c *YDBClient) CreateEmailLog(ctx context.Context, log *EmailLog) error {
 			table.NewQueryParameters(
 				table.ValueParam("$email_id", types.TextValue(log.EmailID)),
 				table.ValueParam("$user_id", types.TextValue(log.UserID)),
-				table.ValueParam("$email_type", types.TextValue(log.EmailType)),
-				table.ValueParam("$recipient", types.TextValue(log.Recipient)),
-				table.ValueParam("$status", types.TextValue(log.Status)),
-				table.ValueParam("$postbox_message_id", types.TextValue(log.PostboxMessageID)),
+				func() table.ParameterOption {
+					if log.EmailType == nil {
+						return table.ValueParam("$email_type", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$email_type", types.TextValue(*log.EmailType))
+				}(),
+				func() table.ParameterOption {
+					if log.Recipient == nil {
+						return table.ValueParam("$recipient", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$recipient", types.TextValue(*log.Recipient))
+				}(),
+				func() table.ParameterOption {
+					if log.Status == nil {
+						return table.ValueParam("$status", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$status", types.TextValue(*log.Status))
+				}(),
+				func() table.ParameterOption {
+					if log.PostboxMessageID == nil {
+						return table.ValueParam("$postbox_message_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$postbox_message_id", types.TextValue(*log.PostboxMessageID))
+				}(),
 				table.ValueParam("$sent_at", types.TimestampValueFromTime(log.SentAt)),
 			),
 		)
@@ -978,15 +1082,35 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
-				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-				table.ValueParam("$storage_limit_gb", types.Int64Value(subscription.StorageLimitGB)),
-				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
-				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
+				func() table.ParameterOption {
+					if subscription.PlanID == nil {
+						return table.ValueParam("$plan_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$plan_id", types.TextValue(*subscription.PlanID))
+				}(),
+				func() table.ParameterOption {
+					if subscription.StorageLimitGB == nil {
+						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$storage_limit_gb", types.Int64Value(*subscription.StorageLimitGB))
+				}(),
+				func() table.ParameterOption {
+					if subscription.VideoCountLimit == nil {
+						return table.ValueParam("$video_count_limit", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$video_count_limit", types.Int64Value(*subscription.VideoCountLimit))
+				}(),
+				func() table.ParameterOption {
+					if subscription.IsActive == nil {
+						return table.ValueParam("$is_active", types.NullValue(types.TypeBool))
+					}
+					return table.ValueParam("$is_active", types.BoolValue(*subscription.IsActive))
+				}(),
 				func() table.ParameterOption {
 					if subscription.TrialEndsAt.IsZero() {
 						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
 					}
-					return table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt))
+					return table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(*subscription.TrialEndsAt))
 				}(),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
@@ -1092,13 +1216,43 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$video_id", types.TextValue(video.VideoID)),
 				table.ValueParam("$org_id", types.TextValue(video.OrgID)),
 				table.ValueParam("$uploaded_by", types.TextValue(video.UploadedBy)),
-				table.ValueParam("$file_name", types.TextValue(video.FileName)),
-				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
-				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
-				table.ValueParam("$storage_path", types.TextValue(video.StoragePath)),
+				func() table.ParameterOption {
+					if video.FileName == nil {
+						return table.ValueParam("$file_name", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$file_name", types.TextValue(*video.FileName))
+				}(),
+				func() table.ParameterOption {
+					if video.FileName == nil {
+						return table.ValueParam("$file_name_search", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(*video.FileName)))
+				}(),
+				func() table.ParameterOption {
+					if video.FileSizeBytes == nil {
+						return table.ValueParam("$file_size_bytes", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$file_size_bytes", types.Int64Value(*video.FileSizeBytes))
+				}(),
+				func() table.ParameterOption {
+					if video.StoragePath == nil {
+						return table.ValueParam("$storage_path", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$storage_path", types.TextValue(*video.StoragePath))
+				}(),
 				table.ValueParam("$duration_seconds", types.NullValue(types.TypeInt32)),
-				table.ValueParam("$upload_id", types.TextValue(video.UploadID)),
-				table.ValueParam("$upload_status", types.TextValue(video.UploadStatus)),
+				func() table.ParameterOption {
+					if video.UploadID == nil {
+						return table.ValueParam("$upload_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$upload_id", types.TextValue(*video.UploadID))
+				}(),
+				func() table.ParameterOption {
+					if video.UploadStatus == nil {
+						return table.ValueParam("$upload_status", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$upload_status", types.TextValue(*video.UploadStatus))
+				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
 			),
@@ -1198,15 +1352,55 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$video_id", types.TextValue(video.VideoID)),
 				table.ValueParam("$org_id", types.TextValue(video.OrgID)),
 				table.ValueParam("$uploaded_by", types.TextValue(video.UploadedBy)),
-				table.ValueParam("$file_name", types.TextValue(video.FileName)),
-				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
-				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
-				table.ValueParam("$storage_path", types.TextValue(video.StoragePath)),
+				func() table.ParameterOption {
+					if video.FileName == nil {
+						return table.ValueParam("$file_name", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$file_name", types.TextValue(*video.FileName))
+				}(),
+				func() table.ParameterOption {
+					if video.FileName == nil {
+						return table.ValueParam("$file_name_search", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(*video.FileName)))
+				}(),
+				func() table.ParameterOption {
+					if video.FileSizeBytes == nil {
+						return table.ValueParam("$file_size_bytes", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$file_size_bytes", types.Int64Value(*video.FileSizeBytes))
+				}(),
+				func() table.ParameterOption {
+					if video.StoragePath == nil {
+						return table.ValueParam("$storage_path", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$storage_path", types.TextValue(*video.StoragePath))
+				}(),
 				table.ValueParam("$duration_seconds", types.NullValue(types.TypeInt32)),
-				table.ValueParam("$upload_id", types.TextValue(video.UploadID)),
-				table.ValueParam("$upload_status", types.TextValue(video.UploadStatus)),
-				table.ValueParam("$parts_uploaded", types.Int32Value(video.PartsUploaded)),
-				table.ValueParam("$total_parts", types.Int32Value(video.TotalParts)),
+				func() table.ParameterOption {
+					if video.UploadID == nil {
+						return table.ValueParam("$upload_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$upload_id", types.TextValue(*video.UploadID))
+				}(),
+				func() table.ParameterOption {
+					if video.UploadStatus == nil {
+						return table.ValueParam("$upload_status", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$upload_status", types.TextValue(*video.UploadStatus))
+				}(),
+				func() table.ParameterOption {
+					if video.PartsUploaded == nil {
+						return table.ValueParam("$parts_uploaded", types.NullValue(types.TypeInt32))
+					}
+					return table.ValueParam("$parts_uploaded", types.Int32Value(*video.PartsUploaded))
+				}(),
+				func() table.ParameterOption {
+					if video.TotalParts == nil {
+						return table.ValueParam("$total_parts", types.NullValue(types.TypeInt32))
+					}
+					return table.ValueParam("$total_parts", types.Int32Value(*video.TotalParts))
+				}(),
 				table.ValueParam("$public_share_token", types.NullValue(types.TypeText)),
 				table.ValueParam("$share_expires_at", types.NullValue(types.TypeTimestamp)),
 				table.ValueParam("$uploaded_at", types.NullValue(types.TypeTimestamp)),
@@ -1555,8 +1749,18 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$org_id", types.TextValue(org.OrgID)),
-				table.ValueParam("$name", types.TextValue(org.Name)),
-				table.ValueParam("$owner_id", types.TextValue(org.OwnerID)),
+				func() table.ParameterOption {
+					if org.Name == nil {
+						return table.ValueParam("$name", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$name", types.TextValue(*org.Name))
+				}(),
+				func() table.ParameterOption {
+					if org.OwnerID == nil {
+						return table.ValueParam("$owner_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$owner_id", types.TextValue(*org.OwnerID))
+				}(),
 				table.ValueParam("$settings", types.NullValue(types.TypeJSON)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(org.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(org.UpdatedAt)),
@@ -1688,9 +1892,24 @@ func (c *YDBClient) UpdateMembership(ctx context.Context, membership *Membership
 				table.ValueParam("$membership_id", types.TextValue(membership.MembershipID)),
 				table.ValueParam("$user_id", types.TextValue(membership.UserID)),
 				table.ValueParam("$org_id", types.TextValue(membership.OrgID)),
-				table.ValueParam("$role", types.TextValue(membership.Role)),
-				table.ValueParam("$status", types.TextValue(membership.Status)),
-				table.ValueParam("$invited_by", types.TextValue(membership.InvitedBy)),
+				func() table.ParameterOption {
+					if membership.Role == nil {
+						return table.ValueParam("$role", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$role", types.TextValue(*membership.Role))
+				}(),
+				func() table.ParameterOption {
+					if membership.Status == nil {
+						return table.ValueParam("$status", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$status", types.TextValue(*membership.Status))
+				}(),
+				func() table.ParameterOption {
+					if membership.InvitedBy == nil {
+						return table.ValueParam("$invited_by", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$invited_by", types.TextValue(*membership.InvitedBy))
+				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(membership.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(membership.UpdatedAt)),
 			),
@@ -1905,15 +2124,35 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
-				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-				table.ValueParam("$storage_limit_gb", types.Int64Value(subscription.StorageLimitGB)),
-				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
-				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
+				func() table.ParameterOption {
+					if subscription.PlanID == nil {
+						return table.ValueParam("$plan_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$plan_id", types.TextValue(*subscription.PlanID))
+				}(),
+				func() table.ParameterOption {
+					if subscription.StorageLimitGB == nil {
+						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$storage_limit_gb", types.Int64Value(*subscription.StorageLimitGB))
+				}(),
+				func() table.ParameterOption {
+					if subscription.VideoCountLimit == nil {
+						return table.ValueParam("$video_count_limit", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$video_count_limit", types.Int64Value(*subscription.VideoCountLimit))
+				}(),
+				func() table.ParameterOption {
+					if subscription.IsActive == nil {
+						return table.ValueParam("$is_active", types.NullValue(types.TypeBool))
+					}
+					return table.ValueParam("$is_active", types.BoolValue(*subscription.IsActive))
+				}(),
 				func() table.ParameterOption {
 					if subscription.TrialEndsAt.IsZero() {
 						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
 					}
-					return table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt))
+					return table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(*subscription.TrialEndsAt))
 				}(),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
@@ -1951,11 +2190,36 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$history_id", types.TextValue(historyID)),
-				table.ValueParam("$subscription_id", types.TextValue(history.SubscriptionID)),
-				table.ValueParam("$plan_id", types.TextValue(history.PlanID)),
-				table.ValueParam("$storage_limit_gb", types.Int64Value(history.StorageLimitGB)),
-				table.ValueParam("$video_count_limit", types.Int64Value(history.VideoCountLimit)),
-				table.ValueParam("$event_type", types.TextValue(history.EventType)),
+				func() table.ParameterOption {
+					if history.SubscriptionID == nil {
+						return table.ValueParam("$subscription_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$subscription_id", types.TextValue(*history.SubscriptionID))
+				}(),
+				func() table.ParameterOption {
+					if history.PlanID == nil {
+						return table.ValueParam("$plan_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$plan_id", types.TextValue(*history.PlanID))
+				}(),
+				func() table.ParameterOption {
+					if history.StorageLimitGB == nil {
+						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$storage_limit_gb", types.Int64Value(*history.StorageLimitGB))
+				}(),
+				func() table.ParameterOption {
+					if history.VideoCountLimit == nil {
+						return table.ValueParam("$video_count_limit", types.NullValue(types.TypeInt64))
+					}
+					return table.ValueParam("$video_count_limit", types.Int64Value(*history.VideoCountLimit))
+				}(),
+				func() table.ParameterOption {
+					if history.EventType == nil {
+						return table.ValueParam("$event_type", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$event_type", types.TextValue(*history.EventType))
+				}(),
 				table.ValueParam("$changed_at", types.TimestampValueFromTime(history.ChangedAt)),
 			),
 		)
@@ -2085,10 +2349,30 @@ func (c *YDBClient) UpdateEmailLog(ctx context.Context, log *EmailLog) error {
 			table.NewQueryParameters(
 				table.ValueParam("$email_id", types.TextValue(log.EmailID)),
 				table.ValueParam("$user_id", types.TextValue(log.UserID)),
-				table.ValueParam("$email_type", types.TextValue(log.EmailType)),
-				table.ValueParam("$recipient", types.TextValue(log.Recipient)),
-				table.ValueParam("$status", types.TextValue(log.Status)),
-				table.ValueParam("$postbox_message_id", types.TextValue(log.PostboxMessageID)),
+				func() table.ParameterOption {
+					if log.EmailType == nil {
+						return table.ValueParam("$email_type", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$email_type", types.TextValue(*log.EmailType))
+				}(),
+				func() table.ParameterOption {
+					if log.Recipient == nil {
+						return table.ValueParam("$recipient", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$recipient", types.TextValue(*log.Recipient))
+				}(),
+				func() table.ParameterOption {
+					if log.Status == nil {
+						return table.ValueParam("$status", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$status", types.TextValue(*log.Status))
+				}(),
+				func() table.ParameterOption {
+					if log.PostboxMessageID == nil {
+						return table.ValueParam("$postbox_message_id", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$postbox_message_id", types.TextValue(*log.PostboxMessageID))
+				}(),
 				table.ValueParam("$sent_at", types.TimestampValueFromTime(log.SentAt)),
 				table.ValueParam("$delivered_at", types.NullValue(types.TypeTimestamp)),
 				table.ValueParam("$error_message", types.NullValue(types.TypeText)),
