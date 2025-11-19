@@ -86,7 +86,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			CREATE TABLE users (
 				user_id Text NOT NULL,
 				email Text NOT NULL,
-				password_hash Text,
+				password_hash Text NOT NULL,
 				full_name Text,
 				email_verified Bool DEFAULT false,
 				verification_code Text,
