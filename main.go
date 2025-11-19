@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
@@ -18,57 +19,66 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
-// EntryPoint adapted for Yandex Cloud Function
-func EntryPoint(ctx context.Context, request []byte) ([]byte, error) {
-	// Load config
+var (
+	router http.Handler
+)
+
+func init() {
+	ctx := context.Background()
+
+	// Загрузка конфигурации
 	cfg := config.Load()
 
-	// Init Telegram Client
+	// Инициализация Telegram клиента
 	tgClient := telegram.NewClient(cfg)
 
-	// Init logger
+	// Инициализация логгера
 	log := logger.New(tgClient)
 	slog.SetDefault(log)
 
-	// Init YDB
+	// Инициализация YDB
 	db, err := ydb.NewYDBClient(ctx, cfg)
 	if err != nil {
-		return nil, err
+		slog.Error("Failed to connect to YDB", "error", err)
+		os.Exit(1)
 	}
-	defer db.Close()
 
-	// Init JWT Manager
+	// Инициализация JWT менеджера
 	jwtManager := jwt.NewJWTManager(cfg)
 
-	// Init RBAC
+	// Инициализация RBAC
 	rbacManager := rbac.NewRBAC()
 
-	// Init email client
+	// Инициализация email клиента
 	emailClient := email.NewClient(cfg)
 
-	// Init S3 client
+	// Инициализация S3 клиента
 	storageClient, err := storage.NewClient(ctx, cfg)
 	if err != nil {
-		return nil, err
+		slog.Error("Failed to initialize storage client", "error", err)
+		os.Exit(1)
 	}
 
-	// Init services
+	// Инициализация сервисов
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
 	videoService := video.NewService(db, storageClient, rbacManager)
 
-	// Init HTTP server
+	// Инициализация HTTP сервера
 	server := httpserver.NewServer(authService, videoService, jwtManager)
 
-	// Setup router
-	router := httpserver.SetupRouter(server, jwtManager)
+	// Настройка роутера
+	router = httpserver.SetupRouter(server, jwtManager)
+}
 
-	// TODO: parse request and response for Cloud Function integration
-	// return 501 Not Implemented response by default
-	return []byte(`{"statusCode":501,"body":"Not Implemented"}`), nil
+func Handler(w http.ResponseWriter, r *http.Request) {
+	router.ServeHTTP(w, r)
 }
 
 func main() {
-	// For local HTTP server launch
-	// Use normal HTTP server run
-	EntryPoint(context.Background(), nil)
+	port := config.Load().HTTPPort
+	slog.Info("Starting HTTP server", "port", port)
+	if err := http.ListenAndServe(":"+port, router); err != nil {
+		slog.Error("Failed to start HTTP server", "error", err)
+		os.Exit(1)
+	}
 }
