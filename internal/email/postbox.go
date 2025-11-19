@@ -243,7 +243,7 @@ func LoadEmailConfig(cfg *config.Config) *EmailConfig {
 		AccessKeyID:     cfg.SESAccessKeyID,
 		SecretAccessKey: cfg.SESSecretAccessKey,
 		FromEmail:       cfg.EmailFrom,
-		FrontendBaseURL: cfg.FrontendBaseURL,
+		FrontendBaseURL: cfg.AppLoginURL,
 	}
 }
 

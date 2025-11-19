@@ -34,7 +34,7 @@ type Config struct {
 	SESSecretAccessKey string
 	EmailFrom          string
 	AppLoginURL        string
-	FrontendBaseURL    string
+	// FrontendBaseURL    string
 
 	// gRPC configuration
 	GRPCPort string
@@ -82,7 +82,6 @@ func Load() *Config {
 		SESSecretAccessKey: getEnv("SP_POSTBOX_SECRET_ACCESS_KEY", ""),
 		EmailFrom:          getEnv("SP_EMAIL_FROM", ""),
 		AppLoginURL:        getEnv("SP_APP_LOGIN_URL", ""),
-		FrontendBaseURL:    getEnv("FRONTEND_BASE_URL", ""),
 
 		// gRPC configuration
 		GRPCPort: getEnv("SP_GRPC_PORT", "50051"),
