@@ -12,7 +12,7 @@ CREATE TABLE users (
 	updated_at Timestamp,
 	is_active Bool DEFAULT true,
 	PRIMARY KEY (user_id),
-	INDEX email_idx GLOBAL ON (email) COVER (user_id, password_hash, full_name, email_verified, is_active)
+	INDEX email_idx GLOBAL UNIQUE ON (email) COVER (user_id, password_hash, full_name, email_verified, is_active)
 );
 
 -- Таблица организаций

@@ -15,8 +15,10 @@ import (
 
 // URL вашего сервиса в Yandex Cloud (будет установлен при сборке из Makefile)
 var serviceURL string
-var testTimeout = 30 // секунд по умолчанию
-var testMode = ""    // "auth" или "video" или "" (все тесты)
+var testEmailAddress string // Email для регистрации (будет установлен при сборке из Makefile)
+var testTimeout = 30        // секунд по умолчанию
+var testMode = ""           // "auth", "video", "register", "login" или "" (все тесты)
+var verificationCode = ""   // Код верификации из email
 
 // TestClient представляет тестовый клиент для REST API
 type TestClient struct {
@@ -129,6 +131,47 @@ func (c *TestClient) RunTests() {
 	}
 	fmt.Println()
 
+	// Режим регистрации (часть 1)
+	if testMode == "register" {
+		fmt.Println("📝 Запуск регистрации...")
+		c.testRegister()
+		fmt.Println()
+		fmt.Println("✅ Регистрация завершена!")
+		fmt.Println("📧 Проверьте email и скопируйте код верификации в переменную received_code в Makefile")
+		fmt.Println("💡 Затем запустите: make test-login")
+		return
+	}
+
+	// Режим входа с кодом (часть 2)
+	if testMode == "login" {
+		fmt.Println("🔐 Запуск входа с кодом верификации...")
+		c.testLoginWithCode()
+		fmt.Println()
+
+		// После успешного входа запускаем все тесты
+		fmt.Println("✅ Вход выполнен успешно. Запуск остальных тестов...")
+		fmt.Println()
+
+		fmt.Println("👤 Запуск тестов профиля...")
+		c.testGetProfile()
+		c.testUpdateProfile()
+		fmt.Println()
+
+		fmt.Println("📹 Запуск тестов видео...")
+		c.testInitiateMultipartUpload()
+		c.testGetPartUploadURLs()
+		c.testCompleteMultipartUpload()
+		c.testGetVideo()
+		c.testSearchVideos()
+		c.testCreatePublicShareLink()
+		c.testGetPublicVideo()
+		c.testRevokeShareLink()
+		fmt.Println()
+
+		fmt.Println("✅ Все тесты завершены!")
+		return
+	}
+
 	// Тесты аутентификации
 	if testMode == "" || testMode == "auth" {
 		fmt.Println("🔐 Запуск тестов аутентификации...")
@@ -175,11 +218,19 @@ func (c *TestClient) printResult(testName string, success bool, details string) 
 func (c *TestClient) testRegister() {
 	fmt.Println("📝 Тестирование регистрации пользователя...")
 
+	// Используем email из переменной окружения или генерируем новый
+	email := testEmailAddress
+	if email == "" {
+		email = fmt.Sprintf("test%d@example.com", time.Now().Unix())
+	}
+
 	req := map[string]interface{}{
-		"email":     fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"email":     email,
 		"password":  "TestPassword123!",
 		"full_name": "Test User",
 	}
+
+	fmt.Printf("   📧 Регистрация email: %s\n", email)
 
 	var resp map[string]interface{}
 	err := c.makeRequest("POST", "/api/v1/auth/register", req, &resp)
@@ -212,6 +263,59 @@ func (c *TestClient) testLogin() {
 	c.token = resp["access_token"].(string)
 	c.userID = data["user_id"].(string)
 	c.printResult("Вход", true, fmt.Sprintf("Токен получен, пользователь: %s (%s)", data["full_name"], data["email"]))
+}
+
+// testLoginWithCode тестирует вход пользователя с кодом верификации
+func (c *TestClient) testLoginWithCode() {
+	fmt.Println("🔐 Тестирование верификации email и входа...")
+
+	if testEmailAddress == "" {
+		c.printResult("Вход с кодом", false, "Требуется TEST_EMAIL_ADDRESS")
+		return
+	}
+
+	if verificationCode == "" {
+		c.printResult("Вход с кодом", false, "Требуется VERIFICATION_CODE")
+		return
+	}
+
+	// Шаг 1: Верификация email с кодом
+	fmt.Println("   📧 Шаг 1: Верификация email...")
+	verifyReq := map[string]interface{}{
+		"email": testEmailAddress,
+		"code":  verificationCode,
+	}
+
+	fmt.Printf("   📧 Email: %s\n", testEmailAddress)
+	fmt.Printf("   🔑 Код: %s\n", verificationCode)
+
+	var verifyResp map[string]interface{}
+	err := c.makeRequest("POST", "/api/v1/auth/verify-email", verifyReq, &verifyResp)
+	if err != nil {
+		c.printResult("Верификация email", false, fmt.Sprintf("Ошибка: %v", err))
+		return
+	}
+
+	c.printResult("Верификация email", true, fmt.Sprintf("Сообщение: %s", verifyResp["message"]))
+
+	// Шаг 2: Вход с паролем
+	fmt.Println("   🔐 Шаг 2: Вход с паролем...")
+	loginReq := map[string]interface{}{
+		"email":    testEmailAddress,
+		"password": "TestPassword123!", // Используем тот же пароль, что и при регистрации
+	}
+
+	var resp map[string]interface{}
+	err = c.makeRequest("POST", "/api/v1/auth/login", loginReq, &resp)
+	if err != nil {
+		c.printResult("Вход после верификации", false, fmt.Sprintf("Ошибка: %v", err))
+		return
+	}
+
+	data := resp["user"].(map[string]interface{})
+	c.token = resp["access_token"].(string)
+	c.userID = data["user_id"].(string)
+	c.printResult("Вход после верификации", true, fmt.Sprintf("Токен получен, пользователь: %s (%s)", data["full_name"], data["email"]))
 }
 
 // testGetProfile тестирует получение профиля
@@ -481,6 +585,16 @@ func main() {
 	// Читаем URL из переменной окружения, если она установлена (имеет приоритет над Makefile)
 	if url := os.Getenv("SERVICE_URL"); url != "" {
 		serviceURL = url
+	}
+
+	// Читаем email из переменной окружения, если она установлена (имеет приоритет над Makefile)
+	if email := os.Getenv("TEST_EMAIL_ADDRESS"); email != "" {
+		testEmailAddress = email
+	}
+
+	// Читаем код верификации из переменной окружения
+	if code := os.Getenv("VERIFICATION_CODE"); code != "" {
+		verificationCode = code
 	}
 
 	// Читаем таймаут из переменной окружения, если она установлена

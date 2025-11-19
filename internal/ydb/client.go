@@ -2,6 +2,7 @@ package ydb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -89,7 +90,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				updated_at Timestamp,
 				is_active Bool DEFAULT true,
 				PRIMARY KEY (user_id),
-				INDEX email_idx GLOBAL ON (email) COVER (password_hash, full_name, email_verified, is_active)
+				INDEX email_idx GLOBAL UNIQUE ON (email) COVER (password_hash, full_name, email_verified, is_active)
 			)
 		`
 		err := c.executeSchemeQuery(ctx, query)
@@ -99,6 +100,9 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 	} else {
 		log.Println("Table users already exists, skipping creation")
 	}
+
+	// Небольшая задержка между созданием таблиц для избежания лимита schema operations
+	time.Sleep(500 * time.Millisecond)
 
 	// Таблица организаций
 	log.Println("Creating table: organizations")
@@ -124,6 +128,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 	} else {
 		log.Println("Table organizations already exists, skipping creation")
 	}
+
+	time.Sleep(500 * time.Millisecond)
 
 	// Таблица членства
 	log.Println("Creating table: memberships")
@@ -154,6 +160,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		log.Println("Table memberships already exists, skipping creation")
 	}
 
+	time.Sleep(500 * time.Millisecond)
+
 	// Таблица refresh токенов
 	log.Println("Creating table: refresh_tokens")
 	if exists, err := c.tableExists(ctx, "refresh_tokens"); err != nil {
@@ -179,6 +187,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 	} else {
 		log.Println("Table refresh_tokens already exists, skipping creation")
 	}
+
+	time.Sleep(500 * time.Millisecond)
 
 	// Таблица email логов
 	log.Println("Creating table: email_logs")
@@ -208,6 +218,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		log.Println("Table email_logs already exists, skipping creation")
 	}
 
+	time.Sleep(500 * time.Millisecond)
+
 	// Таблица тарифных планов
 	log.Println("Creating table: plans")
 	if exists, err := c.tableExists(ctx, "plans"); err != nil {
@@ -231,21 +243,23 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to create plans table: %w", err)
 		}
+
+		// Вставляем базовые тарифные планы только после создания таблицы
+		plansQuery := `
+			REPLACE INTO plans (plan_id, name, storage_limit_gb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at)
+			VALUES
+			('free', 'Free', 1, 10, 0, 'monthly', '{"sharing": false, "search": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
+			('pro', 'Pro', 100, 1000, 990, 'monthly', '{"sharing": true, "search": true, "analytics": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
+			('enterprise', 'Enterprise', 0, 0, 4990, 'monthly', '{"sharing": true, "search": true, "analytics": true, "api_access": true, "priority_support": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp())
+		`
+		if err := c.executeQuery(ctx, plansQuery); err != nil {
+			return fmt.Errorf("failed to insert plans: %w", err)
+		}
 	} else {
 		log.Println("Table plans already exists, skipping creation")
 	}
 
-	// Вставляем базовые тарифные планы
-	plansQuery := `
-		REPLACE INTO plans (plan_id, name, storage_limit_gb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at)
-		VALUES
-		('free', 'Free', 1, 10, 0, 'monthly', '{"sharing": false, "search": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
-		('pro', 'Pro', 100, 1000, 990, 'monthly', '{"sharing": true, "search": true, "analytics": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
-		('enterprise', 'Enterprise', 0, 0, 4990, 'monthly', '{"sharing": true, "search": true, "analytics": true, "api_access": true, "priority_support": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp())
-	`
-	if err := c.executeQuery(ctx, plansQuery); err != nil {
-		return fmt.Errorf("failed to insert plans: %w", err)
-	}
+	time.Sleep(500 * time.Millisecond)
 
 	// Таблица подписок
 	log.Println("Creating table: subscriptions")
@@ -279,6 +293,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 	} else {
 		log.Println("Table subscriptions already exists, skipping creation")
 	}
+
+	time.Sleep(500 * time.Millisecond)
 
 	// Таблица видео
 	log.Println("Creating table: videos")
@@ -318,6 +334,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 	} else {
 		log.Println("Table videos already exists, skipping creation")
 	}
+
+	time.Sleep(500 * time.Millisecond)
 
 	// Таблица истории подписок
 	log.Println("Creating table: subscription_history")
@@ -386,7 +404,6 @@ func (c *YDBClient) tableExists(ctx context.Context, tableName string) (bool, er
 		return false, err
 	}
 
-	exists = true // If no error, table exists
 	return exists, nil
 }
 
@@ -441,8 +458,8 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
 				table.ValueParam("$full_name", types.TextValue(user.FullName)),
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
-				table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(""))),
-				table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(time.Now()))),
+				table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(user.VerificationCode))),
+				table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(user.VerificationExpiresAt))),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -591,8 +608,8 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
 				table.ValueParam("$full_name", types.TextValue(user.FullName)),
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
-				table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(""))),
-				table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(time.Now()))),
+				table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(user.VerificationCode))),
+				table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(user.VerificationExpiresAt))),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
@@ -623,13 +640,25 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 		org.UpdatedAt = now
 	}
 
+	// Always marshal settings to JSON, use empty object if nil/empty
+	var settingsJSON string
+	if org.Settings != nil && len(org.Settings) > 0 {
+		b, err := json.Marshal(org.Settings)
+		if err != nil {
+			return fmt.Errorf("failed to marshal settings: %w", err)
+		}
+		settingsJSON = string(b)
+	} else {
+		settingsJSON = "{}"
+	}
+
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$org_id", types.TextValue(org.OrgID)),
 				table.ValueParam("$name", types.TextValue(org.Name)),
 				table.ValueParam("$owner_id", types.TextValue(org.OwnerID)),
-				table.ValueParam("$settings", types.NullValue(types.TypeJSON)),
+				table.ValueParam("$settings", types.JSONValue(settingsJSON)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(org.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(org.UpdatedAt)),
 			),

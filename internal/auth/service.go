@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,6 +90,10 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	err = s.db.CreateUser(ctx, user)
 	if err != nil {
+		// Check if error is due to duplicate email (UNIQUE constraint violation)
+		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique constraint") {
+			return nil, fmt.Errorf("email already exists")
+		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
@@ -127,6 +132,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	err = s.db.CreateOrganization(ctx, org)
 	if err != nil {
 		slog.Error("Failed to create organization", "error", err, "user_id", user.UserID)
+		return nil, fmt.Errorf("failed to create organization: %w", err)
 	}
 
 	// Создание членства в организации с ролью admin
