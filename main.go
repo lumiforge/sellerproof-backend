@@ -40,6 +40,8 @@ func init() {
 	db, err := ydb.NewYDBClient(ctx, cfg)
 	if err != nil {
 		slog.Error("Failed to connect to YDB", "error", err)
+		// Force output to stdout to ensure it appears in simple logs
+		println("CRITICAL ERROR: Failed to connect to YDB: " + err.Error())
 		os.Exit(1)
 	}
 
@@ -70,7 +72,7 @@ func init() {
 	router = httpserver.SetupRouter(server, jwtManager)
 }
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func EntryPoint(w http.ResponseWriter, r *http.Request) {
 	router.ServeHTTP(w, r)
 }
 

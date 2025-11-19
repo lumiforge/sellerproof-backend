@@ -70,7 +70,7 @@ func Load() *Config {
 
 		// Telegram configuration
 		TelegramBotToken:    getEnv("TELEGRAM_BOT_TOKEN", ""),
-		TelegramAdminChatID: getEnv("TELEGRAM_ADMIN_CHAT_ID", ""),
+		TelegramAdminChatID: getEnv("TELEGRAM_CHAT_ID", ""),
 
 		// JWT configuration
 		JWTSecretKey: getEnv("SP_JWT_SECRET_KEY", "default-secret-key-change-in-production"),

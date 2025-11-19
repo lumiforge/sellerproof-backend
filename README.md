@@ -95,12 +95,24 @@ SP_HTTP_PORT=8080
 
 ### 3. Создание таблиц в YDB
 
-Выполните SQL схему из файла `schema/ydb.sql` в вашей YDB базе данных.
+Таблицы создаются автоматически при первом запуске приложения. Если нужно создать их вручную, выполните:
+
+```bash
+# Используя YDB CLI
+ydb --endpoint grpcs://ydb.serverless.yandexcloud.net:2135 \
+     --database /ru-central1/b1gia87mbaomkf2ssg3/sellerproof \
+     -f schema/ydb.sql
+```
 
 ### 4. Запуск локально
 
 ```bash
-go run cmd/main.go
+# Используя Go run
+make run
+
+# Или собрав бинарный файл
+make build
+./sellerproof-backend
 ```
 
 Сервер будет доступен на порту `8080` (HTTP API).
@@ -222,13 +234,26 @@ Content-Type: application/json
 
 ## Деплой в Yandex Cloud
 
-### 1. Сборка
+### 1. Разработка
 
 ```bash
+# Установка зависимостей
+make deps
+
+# Запуск локально
+make run
+
+# Сборка
 make build
+
+# Тестирование
+make test
+
+# Очистка
+make clean
 ```
 
-### 2. Деплой
+### 2. Деплой в Yandex Cloud Functions
 
 ```bash
 make deploy
@@ -238,9 +263,16 @@ make deploy
 
 ```bash
 export SP_SA=your-service-account-id
-export SP_FUNC=sellerproof-auth
-export SP_ENTRY=cmd.main
+export SP_FUNC=sellerproof-backend
+export SP_ENTRY=main.EntryPoint
 # ... другие переменные
+```
+
+### 3. Работа с YDB
+
+```bash
+# Инициализация YDB ресурсов
+make ydb-init
 ```
 
 ## Мониторинг и логирование
@@ -273,9 +305,16 @@ go test -cover ./...
 
 ### Проблемы с подключением к YDB
 
-1. Проверьте переменные `SP_YDB_ENDPOINT` и `SP_YDB_DATABASE_PATH`
+1. Проверьте переменные `SP_YDB_ENDPOINT` и `SP_YDB_DATABASE_PATH` в `.env`
 2. Убедитесь, что сервисный аккаунт имеет права доступа к YDB
-3. Проверьте сетевые настройки
+3. Проверьте сетевые настройки и доступность endpoint
+4. Убедитесь, что используется нативный YDB SDK v3.75.0+
+
+### Проблемы с аутентификацией в Yandex Cloud
+
+1. Убедитесь, что код запускается в среде с доступом к metadata service
+2. Для локальной разработки настройте `yc` CLI: `yc init`
+3. Проверьте права сервисного аккаунта на доступ к YDB
 
 ### Проблемы с отправкой email
 
