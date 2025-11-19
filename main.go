@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"os"
 
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
@@ -19,63 +18,57 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
-func EntryPoint() {
-	ctx := context.Background()
-
-	// Загрузка конфигурации
+// EntryPoint adapted for Yandex Cloud Function
+func EntryPoint(ctx context.Context, request []byte) ([]byte, error) {
+	// Load config
 	cfg := config.Load()
 
-	// Инициализация Telegram клиента
+	// Init Telegram Client
 	tgClient := telegram.NewClient(cfg)
 
-	// Инициализация логгера
+	// Init logger
 	log := logger.New(tgClient)
 	slog.SetDefault(log)
 
-	// Инициализация YDB
+	// Init YDB
 	db, err := ydb.NewYDBClient(ctx, cfg)
 	if err != nil {
-		slog.Error("Failed to connect to YDB", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
 	defer db.Close()
 
-	// Инициализация JWT менеджера
+	// Init JWT Manager
 	jwtManager := jwt.NewJWTManager(cfg)
 
-	// Инициализация RBAC
+	// Init RBAC
 	rbacManager := rbac.NewRBAC()
 
-	// Инициализация email клиента
+	// Init email client
 	emailClient := email.NewClient(cfg)
 
-	// Инициализация S3 клиента
+	// Init S3 client
 	storageClient, err := storage.NewClient(ctx, cfg)
 	if err != nil {
-		slog.Error("Failed to initialize storage client", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
 
-	// Инициализация сервисов
+	// Init services
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
 	videoService := video.NewService(db, storageClient, rbacManager)
 
-	// Инициализация HTTP сервера
+	// Init HTTP server
 	server := httpserver.NewServer(authService, videoService, jwtManager)
 
-	// Настройка роутера
+	// Setup router
 	router := httpserver.SetupRouter(server, jwtManager)
 
-	// Запуск HTTP сервера
-	port := cfg.HTTPPort
-
-	slog.Info("Starting HTTP server", "port", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
-		slog.Error("Failed to start HTTP server", "error", err)
-		os.Exit(1)
-	}
+	// TODO: parse request and response for Cloud Function integration
+	// return 501 Not Implemented response by default
+	return []byte(`{"statusCode":501,"body":"Not Implemented"}`), nil
 }
 
 func main() {
-	EntryPoint()
+	// For local HTTP server launch
+	// Use normal HTTP server run
+	EntryPoint(context.Background(), nil)
 }
