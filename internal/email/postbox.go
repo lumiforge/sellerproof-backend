@@ -25,9 +25,9 @@ func NewPostboxClient(cfg *config.Config) *PostboxClient {
 	return &PostboxClient{
 		Host:      "smtp.postbox.cloud.yandex.net",
 		Port:      "587",
-		Username:  cfg.PostboxAccessKeyID,
-		Password:  cfg.PostboxSecretAccessKey,
-		FromEmail: cfg.PostboxFromEmail,
+		Username:  cfg.SESAccessKeyID,
+		Password:  cfg.SESSecretAccessKey,
+		FromEmail: cfg.EmailFrom,
 	}
 }
 
@@ -240,9 +240,9 @@ type EmailConfig struct {
 // LoadEmailConfig загружает конфигурацию из переменных окружения
 func LoadEmailConfig(cfg *config.Config) *EmailConfig {
 	return &EmailConfig{
-		AccessKeyID:     cfg.PostboxAccessKeyID,
-		SecretAccessKey: cfg.PostboxSecretAccessKey,
-		FromEmail:       cfg.PostboxFromEmail,
+		AccessKeyID:     cfg.SESAccessKeyID,
+		SecretAccessKey: cfg.SESSecretAccessKey,
+		FromEmail:       cfg.EmailFrom,
 		FrontendBaseURL: cfg.FrontendBaseURL,
 	}
 }

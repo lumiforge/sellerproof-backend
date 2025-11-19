@@ -22,11 +22,11 @@ type Service struct {
 	db         ydb.Database
 	jwtManager *jwtmanager.JWTManager
 	rbac       *rbac.RBAC
-	email      *email.PostboxClient
+	email      *email.Client
 }
 
 // NewService создает новый auth сервис
-func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager *rbac.RBAC, emailClient *email.PostboxClient) *Service {
+func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager *rbac.RBAC, emailClient *email.Client) *Service {
 	return &Service{
 		db:         db,
 		jwtManager: jwtManager,
@@ -94,7 +94,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	// Отправка email верификации
 	if s.email.IsConfigured() {
-		emailMessage, err := s.email.SendVerificationEmail(req.Email, verificationCode)
+		emailMessage, err := s.email.SendVerificationEmail(ctx, req.Email, verificationCode)
 		if err != nil {
 			// Логируем ошибку, но не прерываем регистрацию
 			slog.Error("Failed to send verification email", "error", err, "email", req.Email)

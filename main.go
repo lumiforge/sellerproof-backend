@@ -44,7 +44,7 @@ func EntryPoint() {
 	rbacManager := rbac.NewRBAC()
 
 	// Инициализация email клиента
-	emailClient := email.NewPostboxClient(cfg)
+	emailClient := email.NewClient(cfg)
 
 	// Инициализация S3 клиента
 	storageClient, err := storage.NewClient(ctx, cfg)
@@ -64,4 +64,8 @@ func EntryPoint() {
 		slog.Error("Failed to start gRPC server", "error", err)
 		os.Exit(1)
 	}
+}
+
+func main() {
+	EntryPoint()
 }

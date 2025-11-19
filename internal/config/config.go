@@ -28,10 +28,13 @@ type Config struct {
 	JWTSecretKey string
 
 	// Email/Postbox configuration
-	PostboxAccessKeyID     string
-	PostboxSecretAccessKey string
-	PostboxFromEmail       string
-	FrontendBaseURL        string
+	SESEndpoint        string
+	SESRegion          string
+	SESAccessKeyID     string
+	SESSecretAccessKey string
+	EmailFrom          string
+	AppLoginURL        string
+	FrontendBaseURL    string
 
 	// gRPC configuration
 	GRPCPort string
@@ -73,10 +76,13 @@ func Load() *Config {
 		JWTSecretKey: getEnv("SP_JWT_SECRET_KEY", "default-secret-key-change-in-production"),
 
 		// Email/Postbox configuration
-		PostboxAccessKeyID:     getEnv("POSTBOX_ACCESS_KEY_ID", ""),
-		PostboxSecretAccessKey: getEnv("POSTBOX_SECRET_ACCESS_KEY", ""),
-		PostboxFromEmail:       getEnv("POSTBOX_FROM_EMAIL", ""),
-		FrontendBaseURL:        getEnv("FRONTEND_BASE_URL", ""),
+		SESEndpoint:        getEnv("SP_POSTBOX_ENDPOINT", ""),
+		SESRegion:          getEnv("SP_POSTBOX_REGION", ""),
+		SESAccessKeyID:     getEnv("SP_POSTBOX_ACCESS_KEY_ID", ""),
+		SESSecretAccessKey: getEnv("SP_POSTBOX_SECRET_ACCESS_KEY", ""),
+		EmailFrom:          getEnv("SP_EMAIL_FROM", ""),
+		AppLoginURL:        getEnv("SP_APP_LOGIN_URL", ""),
+		FrontendBaseURL:    getEnv("FRONTEND_BASE_URL", ""),
 
 		// gRPC configuration
 		GRPCPort: getEnv("SP_GRPC_PORT", "50051"),
