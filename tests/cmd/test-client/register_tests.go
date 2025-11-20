@@ -92,11 +92,43 @@ func (c *TestClient) testRegister() {
 		c.printResult("Валидация необычного имени", true, "Получена ожидаемая ошибка 400")
 	}
 
+	// Тест 6: Слишком длинное имя
+	fmt.Println("      👤 Тест: Слишком длинное имя...")
+	longName := strings.Repeat("a", 300) // 300 символов
+	longNameReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          "TestPassword123!",
+		"full_name":         longName,
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", longNameReq, 400)
+	if err != nil {
+		c.printResult("Валидация длинного имени", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация длинного имени", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// Тест 7: Слишком длинный email
+	fmt.Println("      📧 Тест: Слишком длинный email...")
+	longEmail := fmt.Sprintf("test%d%s@example.com", time.Now().Unix(), strings.Repeat("a", 300))
+	longEmailReq := map[string]interface{}{
+		"email":             longEmail,
+		"password":          "TestPassword123!",
+		"full_name":         "Test User",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", longEmailReq, 400)
+	if err != nil {
+		c.printResult("Валидация длинного email", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация длинного email", true, "Получена ожидаемая ошибка 400")
+	}
+
 	// **Проверка формата запроса:**
 	// Отправка некорректного JSON, отсутствие обязательных полей
 	fmt.Println("   📋 Тесты формата запроса...")
 
-	// Тест 6: Некорректный JSON
+	// Тест 8: Некорректный JSON
 	fmt.Println("      📄 Тест: Некорректный JSON...")
 	invalidJSON := `{"email": "test@example.com", "password": "TestPassword123!", "full_name": "Test User", "organization_name": "Test Organization"`
 	err = c.makeRequestWithRawBody("POST", "/api/v1/auth/register", invalidJSON, nil)
@@ -106,7 +138,7 @@ func (c *TestClient) testRegister() {
 		c.printResult("Некорректный JSON", true, "Получена ожидаемая ошибка")
 	}
 
-	// Тест 7: Отсутствие обязательных полей
+	// Тест 9: Отсутствие обязательных полей
 	fmt.Println("      📄 Тест: Отсутствие обязательных полей...")
 	missingFieldsReq := map[string]interface{}{
 		"email": "test@example.com",
@@ -125,7 +157,7 @@ func (c *TestClient) testRegister() {
 	// Проверить что endpoint устойчив к попыткам инъекции через email/имя/пароль
 	fmt.Println("   🔒 Тесты безопасности (SQL инъекции)...")
 
-	// Тест 8: SQL инъекция через email
+	// Тест 10: SQL инъекция через email
 	fmt.Println("      💉 Тест: SQL инъекция через email...")
 	sqlInjectionEmailReq := map[string]interface{}{
 		"email":             "test@example.com'; DROP TABLE users; --",
@@ -140,7 +172,7 @@ func (c *TestClient) testRegister() {
 		c.printResult("SQL инъекция через email", true, "Получена ожидаемая ошибка 400")
 	}
 
-	// Тест 9: SQL инъекция через имя
+	// Тест 11: SQL инъекция через имя
 	fmt.Println("      💉 Тест: SQL инъекция через имя...")
 	sqlInjectionNameReq := map[string]interface{}{
 		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
@@ -155,7 +187,7 @@ func (c *TestClient) testRegister() {
 		c.printResult("SQL инъекция через имя", true, "Получена ожидаемая ошибка 400")
 	}
 
-	// Тест 10: SQL инъекция через пароль
+	// Тест 12: SQL инъекция через пароль
 	fmt.Println("      💉 Тест: SQL инъекция через пароль...")
 	sqlInjectionPasswordReq := map[string]interface{}{
 		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
@@ -174,7 +206,7 @@ func (c *TestClient) testRegister() {
 	// Передать валидные email, пароль и имя, убедиться, что пользователь создаётся
 	fmt.Println("   ✅ Тест корректной регистрации...")
 
-	// Тест 11: Корректная регистрация
+	// Тест 13: Корректная регистрация
 	fmt.Println("      📝 Тест: Корректная регистрация...")
 	validEmail := testEmailAddress
 	if validEmail == "" {
@@ -218,7 +250,7 @@ func (c *TestClient) testRegister() {
 	// Попробовать зарегистрировать пользователя с уже существующим email
 	fmt.Println("   🔄 Тест дублирующего email...")
 
-	// Тест 12: Дублирующий email
+	// Тест 14: Дублирующий email
 	fmt.Println("      📧 Тест: Дублирующий email...")
 	duplicateReq := map[string]interface{}{
 		"email":             validEmail, // Используем тот же email

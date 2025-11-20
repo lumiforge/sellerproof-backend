@@ -62,7 +62,11 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		return nil, fmt.Errorf("full_name is required")
 	}
 
-	// Валидация email
+	// Валидация длины email сначала
+	if len(req.Email) > 254 {
+		return nil, fmt.Errorf("email must be less than 255 characters long")
+	}
+	// Затем валидация формата email
 	if !email.ValidateEmail(req.Email) {
 		return nil, fmt.Errorf("invalid email format")
 	}
