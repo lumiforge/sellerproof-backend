@@ -5,8 +5,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -34,16 +32,16 @@ type Config struct {
 	SESSecretAccessKey    string
 	EmailFrom             string
 	AppLoginURL           string
-	SPYDBAutoCreateTables bool
+	SPYDBAutoCreateTables int
 
 	// HTTP configuration
 	HTTPPort string
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
-	}
+	// if err := godotenv.Load(); err != nil {
+	// 	log.Println("No .env file found, using environment variables")
+	// }
 
 	// S3/Storage configuration
 	s3Endpoint := getEnv("S3_ENDPOINT", "https://storage.yandexcloud.net")
@@ -59,7 +57,7 @@ func Load() *Config {
 
 	return &Config{
 		// S3/Storage configuration
-		SPYDBAutoCreateTables: getEnvAsBool("SP_YDB_AUTO_CREATE_TABLES", false),
+		SPYDBAutoCreateTables: getEnvInt("SP_YDB_AUTO_CREATE_TABLES", 0, 0, 1),
 		S3Endpoint:            s3Endpoint,
 		AWSAccessKeyID:        getEnv("SP_SA_KEY_ID", ""),
 		AWSSecretAccessKey:    getEnv("SP_SA_KEY", ""),
