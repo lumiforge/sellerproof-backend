@@ -554,7 +554,6 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 		defer res.Close()
 
 		if res.NextResultSet(ctx) && res.NextRow() {
-			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
 			found = true
 			err := res.ScanNamed(
 				named.Required("user_id", &user.UserID),
@@ -568,6 +567,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.Required("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
+			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
