@@ -417,7 +417,7 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 		DECLARE $user_id AS Text;
 		DECLARE $email AS Text;
 		DECLARE $password_hash AS Text;
-		DECLARE $full_name AS Text;
+		DECLARE $full_name AS Optional<Text>;
 		DECLARE $email_verified AS Bool;
 		DECLARE $verification_code AS Optional<Text>;
 		DECLARE $verification_expires_at AS Optional<Timestamp>;
@@ -590,7 +590,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 		DECLARE $user_id AS Text;
 		DECLARE $email AS Text;
 		DECLARE $password_hash AS Text;
-		DECLARE $full_name AS Text;
+		DECLARE $full_name AS Optional<Text>;
 		DECLARE $email_verified AS Bool;
 		DECLARE $verification_code AS Optional<Text>;
 		DECLARE $verification_expires_at AS Optional<Timestamp>;
@@ -643,8 +643,8 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) error {
 	query := `
 		DECLARE $org_id AS Text;
-		DECLARE $name AS Text;
-		DECLARE $owner_id AS Text;
+		DECLARE $name AS Optional<Text>;
+		DECLARE $owner_id AS Optional<Text>;
 		DECLARE $settings AS Json;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -704,9 +704,9 @@ func (c *YDBClient) CreateMembership(ctx context.Context, membership *Membership
 		DECLARE $membership_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $role AS Text;
-		DECLARE $status AS Text;
-		DECLARE $invited_by AS Text;
+		DECLARE $role AS Optional<Text>;
+		DECLARE $status AS Optional<Text>;
+		DECLARE $invited_by AS Optional<Text>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 
@@ -814,9 +814,9 @@ func (c *YDBClient) CreateRefreshToken(ctx context.Context, token *RefreshToken)
 	query := `
 		DECLARE $token_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $token_hash AS Text;
-		DECLARE $expires_at AS Timestamp;
-		DECLARE $created_at AS Timestamp;
+		DECLARE $token_hash AS Optional<Text>;
+		DECLARE $expires_at AS Optional<Timestamp>;
+		DECLARE $created_at AS Optional<Timestamp>;
 
 		REPLACE INTO refresh_tokens (token_id, user_id, token_hash, expires_at, created_at)
 		VALUES ($token_id, $user_id, $token_hash, $expires_at, $created_at)
@@ -932,10 +932,10 @@ func (c *YDBClient) CreateEmailLog(ctx context.Context, log *EmailLog) error {
 	query := `
 		DECLARE $email_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $email_type AS Text;
-		DECLARE $recipient AS Text;
-		DECLARE $status AS Text;
-		DECLARE $postbox_message_id AS Text;
+		DECLARE $email_type AS Optional<Text>;
+		DECLARE $recipient AS Optional<Text>;
+		DECLARE $status AS Optional<Text>;
+		DECLARE $postbox_message_id AS Optional<Text>;
 		DECLARE $sent_at AS Timestamp;
 
 		REPLACE INTO email_logs (
@@ -1043,13 +1043,13 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_gb AS Int64;
-		DECLARE $video_count_limit AS Int64;
-		DECLARE $is_active AS Bool;
-		DECLARE $trial_ends_at AS Timestamp;
+		DECLARE $plan_id AS Optional<Text>;
+		DECLARE $storage_limit_gb AS Optional<Int64>;
+		DECLARE $video_count_limit AS Optional<Int64>;
+		DECLARE $is_active AS Optional<Bool>;
+		DECLARE $trial_ends_at AS Optional<Timestamp>;
 		DECLARE $started_at AS Timestamp;
-		DECLARE $expires_at AS Timestamp;
+		DECLARE $expires_at AS Optional<Timestamp>;
 		DECLARE $billing_cycle AS Text;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -1186,13 +1186,13 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $uploaded_by AS Text;
-		DECLARE $file_name AS Text;
-		DECLARE $file_name_search AS Text;
-		DECLARE $file_size_bytes AS Int64;
-		DECLARE $storage_path AS Text;
-		DECLARE $duration_seconds AS Int32;
-		DECLARE $upload_id AS Text;
-		DECLARE $upload_status AS Text;
+		DECLARE $file_name AS Optional<Text>;
+		DECLARE $file_name_search AS Optional<Text>;
+		DECLARE $file_size_bytes AS Optional<Int64>;
+		DECLARE $storage_path AS Optional<Text>;
+		DECLARE $duration_seconds AS Optional<Int32>;
+		DECLARE $upload_id AS Optional<Text>;
+		DECLARE $upload_status AS Optional<Text>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
 
@@ -1316,18 +1316,18 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $uploaded_by AS Text;
-		DECLARE $file_name AS Text;
-		DECLARE $file_name_search AS Text;
-		DECLARE $file_size_bytes AS Int64;
-		DECLARE $storage_path AS Text;
-		DECLARE $duration_seconds AS Int32;
-		DECLARE $upload_id AS Text;
-		DECLARE $upload_status AS Text;
-		DECLARE $parts_uploaded AS Int32;
-		DECLARE $total_parts AS Int32;
-		DECLARE $public_share_token AS Text;
-		DECLARE $share_expires_at AS Timestamp;
-		DECLARE $uploaded_at AS Timestamp;
+		DECLARE $file_name AS Optional<Text>;
+		DECLARE $file_name_search AS Optional<Text>;
+		DECLARE $file_size_bytes AS Optional<Int64>;
+		DECLARE $storage_path AS Optional<Text>;
+		DECLARE $duration_seconds AS Optional<Int32>;
+		DECLARE $upload_id AS Optional<Text>;
+		DECLARE $upload_status AS Optional<Text>;
+		DECLARE $parts_uploaded AS Optional<Int32>;
+		DECLARE $total_parts AS Optional<Int32>;
+		DECLARE $public_share_token AS Optional<Text>;
+		DECLARE $share_expires_at AS Optional<Timestamp>;
+		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
 
@@ -1725,8 +1725,8 @@ func (c *YDBClient) GetOrganizationsByOwner(ctx context.Context, ownerID string)
 func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) error {
 	query := `
 		DECLARE $org_id AS Text;
-		DECLARE $name AS Text;
-		DECLARE $owner_id AS Text;
+		DECLARE $name AS Optional<Text>;
+		DECLARE $owner_id AS Optional<Text>;
 		DECLARE $settings AS Json;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -1865,9 +1865,9 @@ func (c *YDBClient) UpdateMembership(ctx context.Context, membership *Membership
 		DECLARE $membership_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $role AS Text;
-		DECLARE $status AS Text;
-		DECLARE $invited_by AS Text;
+		DECLARE $role AS Optional<Text>;
+		DECLARE $status AS Optional<Text>;
+		DECLARE $invited_by AS Optional<Text>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 
@@ -2091,13 +2091,13 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_gb AS Int64;
-		DECLARE $video_count_limit AS Int64;
-		DECLARE $is_active AS Bool;
-		DECLARE $trial_ends_at AS Timestamp;
+		DECLARE $plan_id AS Optional<Text>;
+		DECLARE $storage_limit_gb AS Optional<Int64>;
+		DECLARE $video_count_limit AS Optional<Int64>;
+		DECLARE $is_active AS Optional<Bool>;
+		DECLARE $trial_ends_at AS Optional<Timestamp>;
 		DECLARE $started_at AS Timestamp;
-		DECLARE $expires_at AS Timestamp;
+		DECLARE $expires_at AS Optional<Timestamp>;
 		DECLARE $billing_cycle AS Text;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -2166,11 +2166,11 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 	historyID := uuid.New().String()
 	query := `
 		DECLARE $history_id AS Text;
-		DECLARE $subscription_id AS Text;
-		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_gb AS Int64;
-		DECLARE $video_count_limit AS Int64;
-		DECLARE $event_type AS Text;
+		DECLARE $subscription_id AS Optional<Text>;
+		DECLARE $plan_id AS Optional<Text>;
+		DECLARE $storage_limit_gb AS Optional<Int64>;
+		DECLARE $video_count_limit AS Optional<Int64>;
+		DECLARE $event_type AS Optional<Text>;
 		DECLARE $changed_at AS Timestamp;
 
 		REPLACE INTO subscription_history (
@@ -2323,13 +2323,13 @@ func (c *YDBClient) UpdateEmailLog(ctx context.Context, log *EmailLog) error {
 	query := `
 		DECLARE $email_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $email_type AS Text;
-		DECLARE $recipient AS Text;
-		DECLARE $status AS Text;
-		DECLARE $postbox_message_id AS Text;
+		DECLARE $email_type AS Optional<Text>;
+		DECLARE $recipient AS Optional<Text>;
+		DECLARE $status AS Optional<Text>;
+		DECLARE $postbox_message_id AS Optional<Text>;
 		DECLARE $sent_at AS Timestamp;
-		DECLARE $delivered_at AS Timestamp;
-		DECLARE $error_message AS Text;
+		DECLARE $delivered_at AS Optional<Timestamp>;
+		DECLARE $error_message AS Optional<Text>;
 
 		REPLACE INTO email_logs (
 			email_id, user_id, email_type, recipient, status, postbox_message_id, sent_at, delivered_at, error_message
