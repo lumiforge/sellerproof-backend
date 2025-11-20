@@ -433,9 +433,9 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 
 	now := time.Now()
 
-	user.CreatedAt = now
+	user.CreatedAt = &now
 
-	user.UpdatedAt = now
+	user.UpdatedAt = &now
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
@@ -463,8 +463,8 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 					}
 					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
 				}(),
-				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
-				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(*user.CreatedAt)),
+				table.ValueParam("$updated_at", types.TimestampValueFromTime(*user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
 		)
@@ -602,7 +602,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $updated_at, $is_active)
 	`
 
-	user.UpdatedAt = time.Now()
+	*user.UpdatedAt = time.Now()
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
@@ -630,7 +630,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 					}
 					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
 				}(),
-				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
+				table.ValueParam("$updated_at", types.TimestampValueFromTime(*user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
 		)

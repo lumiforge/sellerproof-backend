@@ -13,8 +13,8 @@ type User struct {
 	EmailVerified         bool       `db:"email_verified"`
 	VerificationCode      *string    `db:"verification_code"`
 	VerificationExpiresAt *time.Time `db:"verification_expires_at"`
-	CreatedAt             time.Time  `db:"created_at"`
-	UpdatedAt             time.Time  `db:"updated_at"`
+	CreatedAt             *time.Time `db:"created_at"`
+	UpdatedAt             *time.Time `db:"updated_at"`
 	IsActive              bool       `db:"is_active"`
 }
 
