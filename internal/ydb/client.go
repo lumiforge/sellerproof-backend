@@ -90,7 +90,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				full_name Text,
 				email_verified Bool DEFAULT false,
 				verification_code Text,
-				verification_expires_at Timestamp,
+				verification_expires_at Optional<Timestamp>,
 				created_at Timestamp,
 				updated_at Timestamp,
 				is_active Bool DEFAULT true,
@@ -177,7 +177,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				token_id Text NOT NULL,
 				user_id Text NOT NULL,
 				token_hash Text NOT NULL,
-				expires_at Timestamp,
+				expires_at Optional<Timestamp>,
 				created_at Timestamp,
 				is_revoked Bool DEFAULT false,
 				PRIMARY KEY (token_id),
@@ -209,7 +209,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				status Text,
 				postbox_message_id Text,
 				sent_at Timestamp,
-				delivered_at Timestamp,
+				delivered_at Optional<Timestamp>,
 				error_message Text,
 				PRIMARY KEY (email_id),
 				INDEX user_idx GLOBAL ON (user_id)
@@ -282,7 +282,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				is_active Bool DEFAULT true,
 				trial_ends_at Timestamp,
 				started_at Timestamp,
-				expires_at Timestamp,
+				expires_at Optional<Timestamp>,
 				billing_cycle Text,
 				created_at Timestamp,
 				updated_at Timestamp,
@@ -321,7 +321,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				parts_uploaded Int32 DEFAULT 0,
 				total_parts Int32 DEFAULT 0,
 				public_share_token Text,
-				share_expires_at Timestamp,
+				share_expires_at Optional<Timestamp>,
 				uploaded_at Timestamp,
 				created_at Timestamp,
 				is_deleted Bool DEFAULT false,
@@ -554,6 +554,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 		defer res.Close()
 
 		if res.NextResultSet(ctx) && res.NextRow() {
+			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
 			found = true
 			err := res.ScanNamed(
 				named.Required("user_id", &user.UserID),
@@ -889,7 +890,7 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 				named.Required("token_id", &token.TokenID),
 				named.Required("user_id", &token.UserID),
 				named.Required("token_hash", &token.TokenHash),
-				named.Required("expires_at", &token.ExpiresAt),
+				named.Optional("expires_at", &token.ExpiresAt),
 				named.Required("created_at", &token.CreatedAt),
 				named.Required("is_revoked", &token.IsRevoked),
 			)
@@ -1106,10 +1107,10 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				}(),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
-					if subscription.ExpiresAt.IsZero() {
+					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
 						return table.ValueParam("$expires_at", types.NullValue(types.TypeTimestamp))
 					}
-					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(subscription.ExpiresAt)))
+					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.ExpiresAt)))
 				}(),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(subscription.CreatedAt)),
@@ -2148,10 +2149,10 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				}(),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
-					if subscription.ExpiresAt.IsZero() {
+					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
 						return table.ValueParam("$expires_at", types.NullValue(types.TypeTimestamp))
 					}
-					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(subscription.ExpiresAt)))
+					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.ExpiresAt)))
 				}(),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(subscription.CreatedAt)),
@@ -2403,7 +2404,7 @@ func (c *YDBClient) GetRefreshTokensByUser(ctx context.Context, userID string) (
 					named.Required("token_id", &token.TokenID),
 					named.Required("user_id", &token.UserID),
 					named.Required("token_hash", &token.TokenHash),
-					named.Required("expires_at", &token.ExpiresAt),
+					named.Optional("expires_at", &token.ExpiresAt),
 					named.Required("created_at", &token.CreatedAt),
 					named.Required("is_revoked", &token.IsRevoked),
 				); err != nil {

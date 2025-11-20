@@ -64,7 +64,7 @@ type Subscription struct {
 	IsActive        *bool      `db:"is_active"`
 	TrialEndsAt     *time.Time `db:"trial_ends_at"`
 	StartedAt       time.Time  `db:"started_at"`
-	ExpiresAt       time.Time  `db:"expires_at"`
+	ExpiresAt       *time.Time `db:"expires_at"`
 	BillingCycle    string     `db:"billing_cycle"`
 	CreatedAt       time.Time  `db:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at"`
@@ -83,15 +83,15 @@ type SubscriptionHistory struct {
 
 // EmailLog представляет лог отправленного email
 type EmailLog struct {
-	EmailID          string    `db:"email_id"`
-	UserID           string    `db:"user_id"`
-	EmailType        *string   `db:"email_type"`
-	Recipient        *string   `db:"recipient"`
-	Status           *string   `db:"status"`
-	PostboxMessageID *string   `db:"postbox_message_id"`
-	SentAt           time.Time `db:"sent_at"`
-	DeliveredAt      time.Time `db:"delivered_at"`
-	ErrorMessage     string    `db:"error_message"`
+	EmailID          string     `db:"email_id"`
+	UserID           string     `db:"user_id"`
+	EmailType        *string    `db:"email_type"`
+	Recipient        *string    `db:"recipient"`
+	Status           *string    `db:"status"`
+	PostboxMessageID *string    `db:"postbox_message_id"`
+	SentAt           time.Time  `db:"sent_at"`
+	DeliveredAt      *time.Time `db:"delivered_at"`
+	ErrorMessage     *string    `db:"error_message"`
 }
 
 // RefreshToken представляет refresh токен

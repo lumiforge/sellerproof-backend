@@ -113,6 +113,10 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 			// Сохраняем лог email в базу
 			emailType := string(email.EmailTypeVerification)
 			status := string(emailMessage.Status)
+			var errorMessage *string
+			if emailMessage.Error != "" {
+				errorMessage = &emailMessage.Error
+			}
 			emailLog := &ydb.EmailLog{
 				EmailID:          emailMessage.ID,
 				UserID:           user.UserID,
@@ -121,7 +125,8 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 				Status:           &status,
 				PostboxMessageID: &emailMessage.MessageID,
 				SentAt:           emailMessage.SentAt,
-				ErrorMessage:     emailMessage.Error,
+				DeliveredAt:      nil,
+				ErrorMessage:     errorMessage,
 			}
 			s.db.CreateEmailLog(ctx, emailLog)
 		}
@@ -170,6 +175,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	videoCountLimit := int64(10)
 	isActive := true
 	trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
+	expiresAt := time.Now().Add(30 * 24 * time.Hour) // 30 дней
 	subscription := &ydb.Subscription{
 		SubscriptionID:  uuid.New().String(),
 		UserID:          user.UserID,
@@ -180,12 +186,14 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		IsActive:        &isActive,
 		TrialEndsAt:     &trialEndsAt,
 		StartedAt:       time.Now(),
-		ExpiresAt:       time.Now().Add(30 * 24 * time.Hour), // 30 дней
+		ExpiresAt:       &expiresAt,
 		BillingCycle:    "monthly",
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
 
+	subscription.ExpiresAt = &time.Time{}
+	*subscription.ExpiresAt = time.Now().Add(30 * 24 * time.Hour) // 30 дней
 	err = s.db.CreateSubscription(ctx, subscription)
 	if err != nil {
 		slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
