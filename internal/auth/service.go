@@ -37,9 +37,10 @@ func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager 
 
 // RegisterRequest запрос на регистрацию
 type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	FullName string `json:"full_name"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	FullName         string `json:"full_name"`
+	OrganizationName string `json:"organization_name"`
 }
 
 // RegisterResponse ответ на регистрацию
@@ -129,7 +130,11 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 	}
 
 	// Создание персональной организации для пользователя
-	orgName := fmt.Sprintf("%s's Organization", req.FullName)
+	orgName := req.OrganizationName
+	if orgName == "" {
+		// Если имя организации не указано, используем значение по умолчанию
+		orgName = req.FullName
+	}
 	settings := make(map[string]string)
 	org := &ydb.Organization{
 		OrgID:     uuid.New().String(),

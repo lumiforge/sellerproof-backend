@@ -230,9 +230,10 @@ func (c *TestClient) testRegister() {
 	}
 
 	req := map[string]interface{}{
-		"email":     email,
-		"password":  "TestPassword123!",
-		"full_name": "Test User",
+		"email":             email,
+		"password":          "TestPassword123!",
+		"full_name":         "Test User",
+		"organization_name": "Кфтвщь Name Organization",
 	}
 
 	fmt.Printf("   📧 Регистрация email: %s\n", email)

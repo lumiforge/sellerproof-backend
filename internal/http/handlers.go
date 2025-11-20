@@ -63,9 +63,10 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	authReq := &auth.RegisterRequest{
-		Email:    req.Email,
-		Password: req.Password,
-		FullName: req.FullName,
+		Email:            req.Email,
+		Password:         req.Password,
+		FullName:         req.FullName,
+		OrganizationName: req.OrganizationName,
 	}
 
 	resp, err := s.authService.Register(r.Context(), authReq)

@@ -6,9 +6,10 @@ import "time"
 
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
-	FullName string `json:"full_name" validate:"required"`
+	Email            string `json:"email" validate:"required,email"`
+	Password         string `json:"password" validate:"required,min=8"`
+	FullName         string `json:"full_name" validate:"required"`
+	OrganizationName string `json:"organization_name"`
 }
 
 // RegisterResponse represents a registration response
