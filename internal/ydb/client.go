@@ -1075,10 +1075,8 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				func() table.ParameterOption {
-					if subscription.PlanID == nil {
-						return table.ValueParam("$plan_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(*subscription.PlanID)))
+
+					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(subscription.PlanID)))
 				}(),
 				func() table.ParameterOption {
 					if subscription.StorageLimitGB == nil {
@@ -2117,10 +2115,8 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				func() table.ParameterOption {
-					if subscription.PlanID == nil {
-						return table.ValueParam("$plan_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(*subscription.PlanID)))
+
+					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(subscription.PlanID)))
 				}(),
 				func() table.ParameterOption {
 					if subscription.StorageLimitGB == nil {

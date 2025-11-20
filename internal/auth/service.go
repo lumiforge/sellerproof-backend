@@ -176,7 +176,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		SubscriptionID:  uuid.New().String(),
 		UserID:          user.UserID,
 		OrgID:           org.OrgID,
-		PlanID:          &planID,
+		PlanID:          planID,
 		StorageLimitGB:  &storageLimitGB,
 		VideoCountLimit: &videoCountLimit,
 		IsActive:        &isActive,

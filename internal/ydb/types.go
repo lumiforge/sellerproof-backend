@@ -58,7 +58,7 @@ type Subscription struct {
 	SubscriptionID  string     `db:"subscription_id"`
 	UserID          string     `db:"user_id"`
 	OrgID           string     `db:"org_id"`
-	PlanID          *string    `db:"plan_id"`
+	PlanID          string     `db:"plan_id"`
 	StorageLimitGB  *int64     `db:"storage_limit_gb"`
 	VideoCountLimit *int64     `db:"video_count_limit"`
 	IsActive        *bool      `db:"is_active"`
