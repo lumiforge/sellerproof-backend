@@ -1043,7 +1043,7 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $plan_id AS Optional<Text>;
+		DECLARE $plan_id AS Text;
 		DECLARE $storage_limit_gb AS Optional<Int64>;
 		DECLARE $video_count_limit AS Optional<Int64>;
 		DECLARE $is_active AS Optional<Bool>;
@@ -1074,10 +1074,8 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
-				func() table.ParameterOption {
+				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
 
-					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(subscription.PlanID)))
-				}(),
 				func() table.ParameterOption {
 					if subscription.StorageLimitGB == nil {
 						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
@@ -2089,7 +2087,7 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $plan_id AS Optional<Text>;
+		DECLARE $plan_id AS Text;
 		DECLARE $storage_limit_gb AS Optional<Int64>;
 		DECLARE $video_count_limit AS Optional<Int64>;
 		DECLARE $is_active AS Optional<Bool>;
@@ -2114,10 +2112,8 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
-				func() table.ParameterOption {
+				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
 
-					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(subscription.PlanID)))
-				}(),
 				func() table.ParameterOption {
 					if subscription.StorageLimitGB == nil {
 						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
