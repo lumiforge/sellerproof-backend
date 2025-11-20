@@ -78,7 +78,6 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		return nil, fmt.Errorf("failed to generate verification code: %w", err)
 	}
 
-	now := time.Now()
 	// Создание пользователя
 	passwordHashStr := string(passwordHash)
 	user := &ydb.User{
@@ -89,8 +88,8 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		EmailVerified:         false,
 		VerificationCode:      &verificationCode,
 		VerificationExpiresAt: &time.Time{},
-		CreatedAt:             &now,
-		UpdatedAt:             &now,
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
 		IsActive:              true,
 	}
 	*user.VerificationExpiresAt = time.Now().Add(24 * time.Hour)
@@ -235,11 +234,11 @@ func (s *Service) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*Ve
 		return nil, fmt.Errorf("verification code expired")
 	}
 
-	*user.UpdatedAt = time.Now()
 	// Обновление статуса верификации
 	user.EmailVerified = true
 	emptyStr := ""
 	user.VerificationCode = &emptyStr // Очищаем код
+	user.UpdatedAt = time.Now()
 
 	err = s.db.UpdateUser(ctx, user)
 	if err != nil {

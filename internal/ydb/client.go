@@ -433,9 +433,9 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 
 	now := time.Now()
 
-	user.CreatedAt = &now
+	user.CreatedAt = now
 
-	user.UpdatedAt = &now
+	user.UpdatedAt = now
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
@@ -463,8 +463,8 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 					}
 					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
 				}(),
-				table.ValueParam("$created_at", types.TimestampValueFromTime(*user.CreatedAt)),
-				table.ValueParam("$updated_at", types.TimestampValueFromTime(*user.UpdatedAt)),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
+				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
 		)
@@ -550,6 +550,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 			return err
 		}
 		defer res.Close()
+		var createdAt, updatedAt *time.Time
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			found = true
@@ -561,14 +562,21 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.Required("email_verified", &user.EmailVerified),
 				named.Optional("verification_code", &user.VerificationCode),
 				named.Optional("verification_expires_at", &user.VerificationExpiresAt),
-				named.Required("created_at", &user.CreatedAt),
-				named.Required("updated_at", &user.UpdatedAt),
+				named.Required("created_at", &createdAt),
+				named.Required("updated_at", &updatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
 			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
+			if createdAt != nil {
+				user.CreatedAt = *createdAt
+			}
+			if updatedAt != nil {
+				user.UpdatedAt = *updatedAt
+			}
+
 		}
 		return res.Err()
 	})
@@ -602,7 +610,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $updated_at, $is_active)
 	`
 
-	*user.UpdatedAt = time.Now()
+	user.UpdatedAt = time.Now()
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
@@ -630,7 +638,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 					}
 					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
 				}(),
-				table.ValueParam("$updated_at", types.TimestampValueFromTime(*user.UpdatedAt)),
+				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
 		)
