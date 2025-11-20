@@ -550,7 +550,6 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 			return err
 		}
 		defer res.Close()
-		var createdAt, updatedAt *time.Time
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			found = true
@@ -562,19 +561,13 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.Required("email_verified", &user.EmailVerified),
 				named.Optional("verification_code", &user.VerificationCode),
 				named.Optional("verification_expires_at", &user.VerificationExpiresAt),
-				named.OptionalWithDefault("created_at", &createdAt),
-				named.OptionalWithDefault("updated_at", &updatedAt),
+				named.OptionalWithDefault("created_at", &user.CreatedAt),
+				named.OptionalWithDefault("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
 			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
-			}
-			if createdAt != nil {
-				user.CreatedAt = *createdAt
-			}
-			if updatedAt != nil {
-				user.UpdatedAt = *updatedAt
 			}
 
 		}
