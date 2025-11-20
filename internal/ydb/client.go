@@ -432,12 +432,10 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 	`
 
 	now := time.Now()
-	if user.CreatedAt.IsZero() {
-		user.CreatedAt = now
-	}
-	if user.UpdatedAt.IsZero() {
-		user.UpdatedAt = now
-	}
+
+	user.CreatedAt = now
+
+	user.UpdatedAt = now
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
