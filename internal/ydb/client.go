@@ -562,8 +562,8 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.Required("email_verified", &user.EmailVerified),
 				named.Optional("verification_code", &user.VerificationCode),
 				named.Optional("verification_expires_at", &user.VerificationExpiresAt),
-				named.Required("created_at", &createdAt),
-				named.Required("updated_at", &updatedAt),
+				named.OptionalWithDefault("created_at", &createdAt),
+				named.OptionalWithDefault("updated_at", &updatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
 			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
