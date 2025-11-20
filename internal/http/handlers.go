@@ -77,8 +77,8 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		if errorMsg == "email already exists" {
 			s.writeError(w, http.StatusConflict, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid email format") ||
-			strings.Contains(errorMsg, "password must be") ||
-			strings.Contains(errorMsg, "full_name must be") ||
+			strings.Contains(errorMsg, "must be at least") ||
+			strings.Contains(errorMsg, "must be less than") ||
 			strings.Contains(errorMsg, "is required") ||
 			strings.Contains(errorMsg, "contains invalid characters") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)

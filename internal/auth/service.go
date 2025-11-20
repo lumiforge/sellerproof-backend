@@ -83,39 +83,74 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		return nil, fmt.Errorf("full_name must be less than 101 characters long")
 	}
 
+	// Валидация организации
+	if len(req.OrganizationName) > 200 {
+		return nil, fmt.Errorf("organization_name must be less than 201 characters long")
+	}
+
 	// Проверка на потенциальные XSS/инъекции в имени
 	if strings.Contains(req.FullName, "<script") ||
 		strings.Contains(req.FullName, "</script>") ||
 		strings.Contains(req.FullName, "javascript:") ||
 		strings.Contains(req.FullName, "onerror=") ||
-		strings.Contains(req.FullName, "onload=") {
+		strings.Contains(req.FullName, "onload=") ||
+		strings.Contains(req.FullName, "<") ||
+		strings.Contains(req.FullName, ">") {
 		return nil, fmt.Errorf("full_name contains invalid characters")
 	}
 
-	// Проверка на SQL инъекции в email
-	if strings.Contains(req.Email, "'") ||
-		strings.Contains(req.Email, ";") ||
-		strings.Contains(req.Email, "--") ||
-		strings.Contains(req.Email, "/*") ||
-		strings.Contains(req.Email, "*/") ||
-		strings.Contains(strings.ToLower(req.Email), "drop") ||
-		strings.Contains(strings.ToLower(req.Email), "delete") ||
-		strings.Contains(strings.ToLower(req.Email), "insert") ||
-		strings.Contains(strings.ToLower(req.Email), "update") {
-		return nil, fmt.Errorf("email contains invalid characters")
+	// Проверка на потенциальные XSS/инъекции в организации
+	if strings.Contains(req.OrganizationName, "<script") ||
+		strings.Contains(req.OrganizationName, "</script>") ||
+		strings.Contains(req.OrganizationName, "javascript:") ||
+		strings.Contains(req.OrganizationName, "onerror=") ||
+		strings.Contains(req.OrganizationName, "onload=") ||
+		strings.Contains(req.OrganizationName, "<") ||
+		strings.Contains(req.OrganizationName, ">") {
+		return nil, fmt.Errorf("organization_name contains invalid characters")
 	}
 
-	// Проверка на SQL инъекции в пароле
-	if strings.Contains(req.Password, "'") ||
-		strings.Contains(req.Password, ";") ||
-		strings.Contains(req.Password, "--") ||
-		strings.Contains(req.Password, "/*") ||
-		strings.Contains(req.Password, "*/") ||
-		strings.Contains(strings.ToLower(req.Password), "drop") ||
-		strings.Contains(strings.ToLower(req.Password), "delete") ||
-		strings.Contains(strings.ToLower(req.Password), "insert") ||
-		strings.Contains(strings.ToLower(req.Password), "update") {
-		return nil, fmt.Errorf("password contains invalid characters")
+	// Улучшенная проверка на SQL инъекции во всех полях
+	sqlInjectionPatterns := []string{
+		"'", ";", "--", "/*", "*/", "xp_", "sp_",
+		"drop ", "delete ", "insert ", "update ", "select ",
+		"union ", "exec ", "execute ", "truncate ", "alter ",
+		"create ", "table ", "from ", "where ", "or 1=1",
+		"and 1=1", "sleep(", "benchmark(", "waitfor delay",
+		"convert(", "cast(", "char(", "ascii(", "substring(",
+		"concat(", "load_file(", "into outfile", "into dumpfile",
+	}
+
+	// Проверка email на SQL инъекции
+	emailLower := strings.ToLower(req.Email)
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(req.Email, pattern) || strings.Contains(emailLower, pattern) {
+			return nil, fmt.Errorf("email contains invalid characters")
+		}
+	}
+
+	// Проверка пароля на SQL инъекции
+	passwordLower := strings.ToLower(req.Password)
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(req.Password, pattern) || strings.Contains(passwordLower, pattern) {
+			return nil, fmt.Errorf("password contains invalid characters")
+		}
+	}
+
+	// Проверка имени на SQL инъекции
+	nameLower := strings.ToLower(req.FullName)
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(req.FullName, pattern) || strings.Contains(nameLower, pattern) {
+			return nil, fmt.Errorf("full_name contains invalid characters")
+		}
+	}
+
+	// Проверка организации на SQL инъекции
+	orgLower := strings.ToLower(req.OrganizationName)
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(req.OrganizationName, pattern) || strings.Contains(orgLower, pattern) {
+			return nil, fmt.Errorf("organization_name contains invalid characters")
+		}
 	}
 
 	// Проверка, что email не занят
