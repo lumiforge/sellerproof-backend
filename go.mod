@@ -14,7 +14,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.54.4
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
-	github.com/joho/godotenv v1.5.1
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.75.0
 	golang.org/x/crypto v0.23.0
 )

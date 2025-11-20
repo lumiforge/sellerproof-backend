@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"log/slog"
 	"strings"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/lumiforge/sellerproof-backend/internal/email"
-	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	jwtmanager "github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
@@ -59,8 +57,6 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 
 	// Проверка, что email не занят
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
-	// TODO: Remove this log after debugging
-	log.Println("GetUserByEmail result", "err", err, "existingUser", existingUser)
 
 	if err == nil && existingUser != nil {
 		return nil, fmt.Errorf("email already exists")
@@ -500,7 +496,7 @@ func (s *Service) hashToken(token string) string {
 }
 
 // ValidateToken валидирует JWT токен и возвращает claims
-func (s *Service) ValidateToken(tokenString string) (*jwt.Claims, error) {
+func (s *Service) ValidateToken(tokenString string) (*jwtmanager.Claims, error) {
 	return s.jwtManager.ValidateToken(tokenString)
 }
 
