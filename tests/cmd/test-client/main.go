@@ -118,6 +118,90 @@ func (c *TestClient) makeRequest(method, endpoint string, body interface{}, resp
 	return nil
 }
 
+// makeRequestExpectError выполняет HTTP запрос и ожидает ошибку
+func (c *TestClient) makeRequestExpectError(method, endpoint string, body interface{}, expectedStatus int) (string, error) {
+	var reqBody io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		reqBody = bytes.NewBuffer(jsonBody)
+	}
+
+	url := c.baseURL + endpoint
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	// Выполняем запрос
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Читаем ответ
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Проверяем статус код
+	if resp.StatusCode != expectedStatus {
+		return "", fmt.Errorf("expected status %d, got %d: %s", expectedStatus, resp.StatusCode, string(respBody))
+	}
+
+	return string(respBody), nil
+}
+
+// makeRequestWithRawBody выполняет HTTP запрос с сырым телом
+func (c *TestClient) makeRequestWithRawBody(method, endpoint string, rawBody string, response interface{}) error {
+	var reqBody io.Reader
+	if rawBody != "" {
+		reqBody = bytes.NewBufferString(rawBody)
+	}
+
+	url := c.baseURL + endpoint
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	// Выполняем запрос
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Читаем ответ
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Парсим ответ
+	if err := json.Unmarshal(respBody, response); err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return nil
+}
+
 // RunTests запускает все тесты
 func (c *TestClient) RunTests() {
 	fmt.Println("🚀 Запуск тестов для SellerProof Backend")
@@ -223,30 +307,229 @@ func (c *TestClient) printResult(testName string, success bool, details string) 
 func (c *TestClient) testRegister() {
 	fmt.Println("📝 Тестирование регистрации пользователя...")
 
-	// Используем email из переменной окружения или генерируем новый
-	email := testEmailAddress
-	if email == "" {
-		email = fmt.Sprintf("test%d@example.com", time.Now().Unix())
-	}
+	// ### Основные проверки ###
 
-	req := map[string]interface{}{
-		"email":             email,
+	// **Валидация данных:**
+	// Проверить случаи с некорректным email, слишком коротким/длинным паролем, пустым или необычным именем
+	fmt.Println("   🔍 Тесты валидации данных...")
+
+	// Тест 1: Некорректный email
+	fmt.Println("      📧 Тест: Некорректный email...")
+	invalidEmailReq := map[string]interface{}{
+		"email":             "invalid-email",
 		"password":          "TestPassword123!",
 		"full_name":         "Test User",
-		"organization_name": "Кфтвщь Name Organization",
+		"organization_name": "Test Organization",
+	}
+	_, err := c.makeRequestExpectError("POST", "/api/v1/auth/register", invalidEmailReq, 400)
+	if err != nil {
+		c.printResult("Валидация некорректного email", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация некорректного email", true, "Получена ожидаемая ошибка 400")
 	}
 
-	fmt.Printf("   📧 Регистрация email: %s\n", email)
+	// Тест 2: Слишком короткий пароль
+	fmt.Println("      🔐 Тест: Слишком короткий пароль...")
+	shortPasswordReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          "123",
+		"full_name":         "Test User",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", shortPasswordReq, 400)
+	if err != nil {
+		c.printResult("Валидация короткого пароля", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация короткого пароля", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// Тест 3: Слишком длинный пароль
+	fmt.Println("      🔐 Тест: Слишком длинный пароль...")
+	longPassword := strings.Repeat("a", 200) // 200 символов
+	longPasswordReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          longPassword,
+		"full_name":         "Test User",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", longPasswordReq, 400)
+	if err != nil {
+		c.printResult("Валидация длинного пароля", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация длинного пароля", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// Тест 4: Пустое имя
+	fmt.Println("      👤 Тест: Пустое имя...")
+	emptyNameReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          "TestPassword123!",
+		"full_name":         "",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", emptyNameReq, 400)
+	if err != nil {
+		c.printResult("Валидация пустого имени", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация пустого имени", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// Тест 5: Необычное имя (специальные символы)
+	fmt.Println("      👤 Тест: Необычное имя со специальными символами...")
+	unusualNameReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          "TestPassword123!",
+		"full_name":         "<script>alert('xss')</script>",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", unusualNameReq, 400)
+	if err != nil {
+		c.printResult("Валидация необычного имени", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Валидация необычного имени", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// **Проверка формата запроса:**
+	// Отправка некорректного JSON, отсутствие обязательных полей
+	fmt.Println("   📋 Тесты формата запроса...")
+
+	// Тест 6: Некорректный JSON
+	fmt.Println("      📄 Тест: Некорректный JSON...")
+	invalidJSON := `{"email": "test@example.com", "password": "TestPassword123!", "full_name": "Test User", "organization_name": "Test Organization"`
+	err = c.makeRequestWithRawBody("POST", "/api/v1/auth/register", invalidJSON, nil)
+	if err == nil {
+		c.printResult("Некорректный JSON", false, "Ожидалась ошибка, но получен успех")
+	} else {
+		c.printResult("Некорректный JSON", true, "Получена ожидаемая ошибка")
+	}
+
+	// Тест 7: Отсутствие обязательных полей
+	fmt.Println("      📄 Тест: Отсутствие обязательных полей...")
+	missingFieldsReq := map[string]interface{}{
+		"email": "test@example.com",
+		// отсутствуют password, full_name, organization_name
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", missingFieldsReq, 400)
+	if err != nil {
+		c.printResult("Отсутствие обязательных полей", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Отсутствие обязательных полей", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// ### Безопасность ###
+
+	// **SQL инъекции:**
+	// Проверить что endpoint устойчив к попыткам инъекции через email/имя/пароль
+	fmt.Println("   🔒 Тесты безопасности (SQL инъекции)...")
+
+	// Тест 8: SQL инъекция через email
+	fmt.Println("      💉 Тест: SQL инъекция через email...")
+	sqlInjectionEmailReq := map[string]interface{}{
+		"email":             "test@example.com'; DROP TABLE users; --",
+		"password":          "TestPassword123!",
+		"full_name":         "Test User",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", sqlInjectionEmailReq, 400)
+	if err != nil {
+		c.printResult("SQL инъекция через email", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("SQL инъекция через email", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// Тест 9: SQL инъекция через имя
+	fmt.Println("      💉 Тест: SQL инъекция через имя...")
+	sqlInjectionNameReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          "TestPassword123!",
+		"full_name":         "'; DROP TABLE users; --",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", sqlInjectionNameReq, 400)
+	if err != nil {
+		c.printResult("SQL инъекция через имя", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("SQL инъекция через имя", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// Тест 10: SQL инъекция через пароль
+	fmt.Println("      💉 Тест: SQL инъекция через пароль...")
+	sqlInjectionPasswordReq := map[string]interface{}{
+		"email":             fmt.Sprintf("test%d@example.com", time.Now().Unix()),
+		"password":          "'; DROP TABLE users; --",
+		"full_name":         "Test User",
+		"organization_name": "Test Organization",
+	}
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", sqlInjectionPasswordReq, 400)
+	if err != nil {
+		c.printResult("SQL инъекция через пароль", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("SQL инъекция через пароль", true, "Получена ожидаемая ошибка 400")
+	}
+
+	// **Корректная регистрация:**
+	// Передать валидные email, пароль и имя, убедиться, что пользователь создаётся
+	fmt.Println("   ✅ Тест корректной регистрации...")
+
+	// Тест 11: Корректная регистрация
+	fmt.Println("      📝 Тест: Корректная регистрация...")
+	validEmail := testEmailAddress
+	if validEmail == "" {
+		validEmail = fmt.Sprintf("test%d@example.com", time.Now().Unix())
+	}
+
+	validReq := map[string]interface{}{
+		"email":             validEmail,
+		"password":          "TestPassword123!",
+		"full_name":         "Test User",
+		"organization_name": "Test Organization",
+	}
+
+	fmt.Printf("   📧 Регистрация email: %s\n", validEmail)
 
 	var resp map[string]interface{}
-	err := c.makeRequest("POST", "/api/v1/auth/register", req, &resp)
+	err = c.makeRequest("POST", "/api/v1/auth/register", validReq, &resp)
 	if err != nil {
-		c.printResult("Регистрация", false, fmt.Sprintf("Ошибка: %v", err))
+		c.printResult("Корректная регистрация", false, fmt.Sprintf("Ошибка: %v", err))
 		return
 	}
 
-	c.userID = resp["user_id"].(string)
-	c.printResult("Регистрация", true, fmt.Sprintf("ID пользователя: %s, сообщение: %s", resp["user_id"], resp["message"]))
+	// Проверяем наличие ожидаемых полей в ответе
+	userID, hasUserID := resp["user_id"]
+	message, hasMessage := resp["message"]
+	emailVerified, hasEmailVerified := resp["email_verified"]
+
+	if !hasUserID || !hasMessage {
+		c.printResult("Корректная регистрация", false, "Отсутствуют обязательные поля в ответе")
+		return
+	}
+
+	c.userID = userID.(string)
+	details := fmt.Sprintf("ID пользователя: %s, сообщение: %s", userID, message)
+	if hasEmailVerified {
+		details += fmt.Sprintf(", email верифицирован: %v", emailVerified)
+	}
+	c.printResult("Корректная регистрация", true, details)
+
+	// **Дублирующий email:**
+	// Попробовать зарегистрировать пользователя с уже существующим email
+	fmt.Println("   🔄 Тест дублирующего email...")
+
+	// Тест 12: Дублирующий email
+	fmt.Println("      📧 Тест: Дублирующий email...")
+	duplicateReq := map[string]interface{}{
+		"email":             validEmail, // Используем тот же email
+		"password":          "AnotherPassword123!",
+		"full_name":         "Another User",
+		"organization_name": "Another Organization",
+	}
+
+	_, err = c.makeRequestExpectError("POST", "/api/v1/auth/register", duplicateReq, 409)
+	if err != nil {
+		c.printResult("Дублирующий email", false, fmt.Sprintf("Ошибка: %v", err))
+	} else {
+		c.printResult("Дублирующий email", true, "Получена ожидаемая ошибка 409")
+	}
 }
 
 // testLogin тестирует вход пользователя

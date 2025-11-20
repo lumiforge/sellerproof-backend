@@ -210,13 +210,49 @@ func (p *PostboxClient) sendEmail(toEmail, subject, body string) error {
 
 // ValidateEmail проверяет корректность email адреса
 func ValidateEmail(email string) bool {
-	// Простая валидация email
+	// Проверка длины
 	if len(email) < 5 || len(email) > 254 {
 		return false
 	}
 
-	// В реальном приложении здесь должна быть более сложная валидация
-	// или использование regexp
+	// Простая валидация формата email
+	// Проверяем наличие @ и точки после @
+	atIndex := -1
+	for i, char := range email {
+		if char == '@' {
+			if atIndex != -1 {
+				// Более одного символа @
+				return false
+			}
+			atIndex = i
+		}
+	}
+
+	// Должен быть ровно один символ @
+	if atIndex == -1 || atIndex == 0 || atIndex == len(email)-1 {
+		return false
+	}
+
+	// Проверяем наличие точки после @
+	dotFound := false
+	for i := atIndex + 1; i < len(email); i++ {
+		if email[i] == '.' {
+			dotFound = true
+			break
+		}
+	}
+
+	if !dotFound {
+		return false
+	}
+
+	// Проверяем, что нет пробелов
+	for _, char := range email {
+		if char == ' ' {
+			return false
+		}
+	}
+
 	return true
 }
 

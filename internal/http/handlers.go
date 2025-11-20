@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
@@ -71,7 +72,19 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.Register(r.Context(), authReq)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
+		// Проверяем тип ошибки и возвращаем соответствующий код
+		errorMsg := err.Error()
+		if errorMsg == "email already exists" {
+			s.writeError(w, http.StatusConflict, errorMsg)
+		} else if strings.Contains(errorMsg, "invalid email format") ||
+			strings.Contains(errorMsg, "password must be") ||
+			strings.Contains(errorMsg, "full_name must be") ||
+			strings.Contains(errorMsg, "is required") ||
+			strings.Contains(errorMsg, "contains invalid characters") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
 		return
 	}
 

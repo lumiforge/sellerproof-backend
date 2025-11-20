@@ -51,9 +51,71 @@ type RegisterResponse struct {
 
 // Register регистрирует нового пользователя
 func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*RegisterResponse, error) {
+	// Валидация обязательных полей
+	if req.Email == "" {
+		return nil, fmt.Errorf("email is required")
+	}
+	if req.Password == "" {
+		return nil, fmt.Errorf("password is required")
+	}
+	if req.FullName == "" {
+		return nil, fmt.Errorf("full_name is required")
+	}
+
 	// Валидация email
 	if !email.ValidateEmail(req.Email) {
 		return nil, fmt.Errorf("invalid email format")
+	}
+
+	// Валидация пароля
+	if len(req.Password) < 8 {
+		return nil, fmt.Errorf("password must be at least 8 characters long")
+	}
+	if len(req.Password) > 72 {
+		return nil, fmt.Errorf("password must be less than 73 characters long")
+	}
+
+	// Валидация имени
+	if len(req.FullName) < 2 {
+		return nil, fmt.Errorf("full_name must be at least 2 characters long")
+	}
+	if len(req.FullName) > 100 {
+		return nil, fmt.Errorf("full_name must be less than 101 characters long")
+	}
+
+	// Проверка на потенциальные XSS/инъекции в имени
+	if strings.Contains(req.FullName, "<script") ||
+		strings.Contains(req.FullName, "</script>") ||
+		strings.Contains(req.FullName, "javascript:") ||
+		strings.Contains(req.FullName, "onerror=") ||
+		strings.Contains(req.FullName, "onload=") {
+		return nil, fmt.Errorf("full_name contains invalid characters")
+	}
+
+	// Проверка на SQL инъекции в email
+	if strings.Contains(req.Email, "'") ||
+		strings.Contains(req.Email, ";") ||
+		strings.Contains(req.Email, "--") ||
+		strings.Contains(req.Email, "/*") ||
+		strings.Contains(req.Email, "*/") ||
+		strings.Contains(strings.ToLower(req.Email), "drop") ||
+		strings.Contains(strings.ToLower(req.Email), "delete") ||
+		strings.Contains(strings.ToLower(req.Email), "insert") ||
+		strings.Contains(strings.ToLower(req.Email), "update") {
+		return nil, fmt.Errorf("email contains invalid characters")
+	}
+
+	// Проверка на SQL инъекции в пароле
+	if strings.Contains(req.Password, "'") ||
+		strings.Contains(req.Password, ";") ||
+		strings.Contains(req.Password, "--") ||
+		strings.Contains(req.Password, "/*") ||
+		strings.Contains(req.Password, "*/") ||
+		strings.Contains(strings.ToLower(req.Password), "drop") ||
+		strings.Contains(strings.ToLower(req.Password), "delete") ||
+		strings.Contains(strings.ToLower(req.Password), "insert") ||
+		strings.Contains(strings.ToLower(req.Password), "update") {
+		return nil, fmt.Errorf("password contains invalid characters")
 	}
 
 	// Проверка, что email не занят
