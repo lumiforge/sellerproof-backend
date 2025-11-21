@@ -43,7 +43,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	})
 
 	// Auth routes (no auth required)
-	mux.HandleFunc("/api/v1/auth/register", chainMiddleware(server.Register, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
+	mux.Handle("/api/v1/auth/register", chainMiddleware(server.Register, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/login", chainMiddleware(server.Login, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/refresh", chainMiddleware(server.RefreshToken, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/verify-email", chainMiddleware(server.VerifyEmail, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))

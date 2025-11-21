@@ -1,7 +1,7 @@
 meta {
-  name: Register invalid email
+  name: Register email already exists
   type: http
-  seq: 9
+  seq: 13
 }
 
 post {
@@ -12,16 +12,16 @@ post {
 
 body:json {
   {
-    "email": "invalid-email@sss",
+    "email": "{{testEmail}}",
     "password": "password123",
     "full_name": "Test User"
   }
 }
 
 tests {
-  test('Should return 400 for invalid email format', function() {
-    expect(res.status).to.equal(400);
+  test('Should return 409 for email already exists', function() {
+    expect(res.status).to.equal(409);
     expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Bad Request');
+    expect(res.body.error).to.include('Conflict');
   });
 }
