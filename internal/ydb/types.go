@@ -20,12 +20,12 @@ type User struct {
 
 // Organization представляет организацию
 type Organization struct {
-	OrgID     string             `db:"org_id"`
-	Name      *string            `db:"name"`
-	OwnerID   *string            `db:"owner_id"`
-	Settings  *map[string]string `db:"settings"`
-	CreatedAt time.Time          `db:"created_at"`
-	UpdatedAt time.Time          `db:"updated_at"`
+	OrgID     string    `db:"org_id"`
+	Name      *string   `db:"name"`
+	OwnerID   *string   `db:"owner_id"`
+	Settings  *string   `db:"settings"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 // Membership представляет членство в организации
@@ -42,15 +42,15 @@ type Membership struct {
 
 // Plan представляет тарифный план
 type Plan struct {
-	PlanID          string             `db:"plan_id"`
-	Name            *string            `db:"name"`
-	StorageLimitGB  *int64             `db:"storage_limit_gb"`
-	VideoCountLimit *int64             `db:"video_count_limit"`
-	PriceRub        *float64           `db:"price_rub"`
-	BillingCycle    *string            `db:"billing_cycle"`
-	Features        *map[string]string `db:"features"`
-	CreatedAt       time.Time          `db:"created_at"`
-	UpdatedAt       time.Time          `db:"updated_at"`
+	PlanID          string    `db:"plan_id"`
+	Name            *string   `db:"name"`
+	StorageLimitGB  *int64    `db:"storage_limit_gb"`
+	VideoCountLimit *int64    `db:"video_count_limit"`
+	PriceRub        *float64  `db:"price_rub"`
+	BillingCycle    *string   `db:"billing_cycle"`
+	Features        *string   `db:"features"`
+	CreatedAt       time.Time `db:"created_at"`
+	UpdatedAt       time.Time `db:"updated_at"`
 }
 
 // Subscription представляет подписку

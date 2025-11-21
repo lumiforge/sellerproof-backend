@@ -3,7 +3,10 @@ package auth
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"log"
+
 	"log/slog"
 	"strings"
 	"time"
@@ -224,11 +227,17 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		orgName = req.FullName
 	}
 	settings := make(map[string]string)
+	settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		slog.Error("Failed to marshal settings", "error", err)
+		return nil, fmt.Errorf("failed to marshal settings: %w", err)
+	}
+	settingsStr := string(settingsJSON)
 	org := &ydb.Organization{
 		OrgID:     uuid.New().String(),
 		Name:      &orgName,
 		OwnerID:   &user.UserID,
-		Settings:  &settings,
+		Settings:  &settingsStr,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -379,8 +388,15 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	}
 
 	// Получение всех членств пользователя
+	// TODO: Remove this log
+
 	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
-	if err != nil || len(memberships) == 0 {
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get user membership: %w", err)
+	}
+	if len(memberships) == 0 {
+
 		return nil, fmt.Errorf("failed to get user membership: membership not found")
 	}
 
@@ -402,6 +418,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 				selectedMembership = m
 			}
 		}
+		log.Println("Debug in loop ", m.OrgID)
 	}
 
 	// Если нет активных, берем первое
@@ -410,27 +427,31 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	}
 
 	// Собираем информацию об организациях для ответа
+	// Собираем информацию об организациях для ответа
 	organizations := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {
-		if m.Status != nil && *m.Status == "active" {
-			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
-			if err == nil {
-				orgName := ""
-				if org.Name != nil {
-					orgName = *org.Name
-				}
-				role := ""
-				if m.Role != nil {
-					role = *m.Role
-				}
-				organizations = append(organizations, &models.OrganizationInfo{
-					OrgID: m.OrgID,
-					Name:  orgName,
-					Role:  role,
-				})
-			}
+		// Получаем информацию об организации для всех членств
+		org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
+		if err != nil {
+			slog.Error("Failed to get organization", "error", err, "org_id", m.OrgID)
+			continue
 		}
+
+		orgName := ""
+		if org.Name != nil {
+			orgName = *org.Name
+		}
+		role := ""
+		if m.Role != nil {
+			role = *m.Role
+		}
+		organizations = append(organizations, &models.OrganizationInfo{
+			OrgID: m.OrgID,
+			Name:  orgName,
+			Role:  role,
+		})
 	}
+	slog.Info("Organizations collected", "count", len(organizations), "user_id", user.UserID)
 
 	// Генерация JWT токенов
 	role := ""

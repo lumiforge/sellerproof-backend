@@ -2,9 +2,9 @@ package ydb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
+
 	"path"
 	"strings"
 	"time"
@@ -172,11 +172,12 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 	if exists, err := c.tableExists(ctx, "refresh_tokens"); err != nil {
 		return fmt.Errorf("failed to check refresh_tokens table existence: %w", err)
 	} else if !exists {
+
 		query := `
 			CREATE TABLE refresh_tokens (
 				token_id Text NOT NULL,
 				user_id Text NOT NULL,
-				token_hash Text NOT NULL,
+				token_hash Optional<Text>,
 				expires_at Optional<Timestamp>,
 				created_at Timestamp,
 				is_revoked Bool DEFAULT false,
@@ -185,6 +186,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				INDEX token_hash_idx GLOBAL ON (token_hash)
 			)
 		`
+
 		err := c.executeSchemeQuery(ctx, query)
 		if err != nil {
 			return fmt.Errorf("failed to create refresh_tokens table: %w", err)
@@ -565,7 +567,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.OptionalWithDefault("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
-			log.Println("Found user:", user.UserID, user.Email, user.PasswordHash, user.FullName, user.EmailVerified, user.VerificationCode, user.VerificationExpiresAt, user.CreatedAt, user.UpdatedAt, user.IsActive)
+
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
@@ -661,14 +663,10 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 		org.UpdatedAt = now
 	}
 
-	// Always marshal settings to JSON, use empty object if nil/empty
+	// Settings is already a JSON string, use it directly or default to empty object
 	var settingsJSON string
-	if org.Settings != nil && len(*org.Settings) > 0 {
-		b, err := json.Marshal(org.Settings)
-		if err != nil {
-			return fmt.Errorf("failed to marshal settings: %w", err)
-		}
-		settingsJSON = string(b)
+	if org.Settings != nil && *org.Settings != "" {
+		settingsJSON = *org.Settings
 	} else {
 		settingsJSON = "{}"
 	}
@@ -1016,7 +1014,7 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 				named.Required("video_count_limit", &plan.VideoCountLimit),
 				named.Required("price_rub", &plan.PriceRub),
 				named.Required("billing_cycle", &plan.BillingCycle),
-				named.Required("features", &plan.Features),
+				named.OptionalWithDefault("features", &plan.Features),
 				named.Required("created_at", &plan.CreatedAt),
 				named.Required("updated_at", &plan.UpdatedAt),
 			)
@@ -1650,7 +1648,7 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 				named.Required("org_id", &org.OrgID),
 				named.Optional("name", &org.Name),
 				named.Optional("owner_id", &org.OwnerID),
-				named.Optional("settings", &org.Settings),
+				named.OptionalWithDefault("settings", &org.Settings),
 				named.Required("created_at", &org.CreatedAt),
 				named.Required("updated_at", &org.UpdatedAt),
 			)
@@ -1699,7 +1697,7 @@ func (c *YDBClient) GetOrganizationsByOwner(ctx context.Context, ownerID string)
 					named.Required("org_id", &org.OrgID),
 					named.Optional("name", &org.Name),
 					named.Optional("owner_id", &org.OwnerID),
-					named.Optional("settings", &org.Settings),
+					named.OptionalWithDefault("settings", &org.Settings),
 					named.Required("created_at", &org.CreatedAt),
 					named.Required("updated_at", &org.UpdatedAt),
 				); err != nil {
@@ -1733,6 +1731,14 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 
 	org.UpdatedAt = time.Now()
 
+	// Settings is already a JSON string, use it directly or default to empty object
+	var settingsJSON string
+	if org.Settings != nil && *org.Settings != "" {
+		settingsJSON = *org.Settings
+	} else {
+		settingsJSON = "{}"
+	}
+
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
@@ -1749,7 +1755,7 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 					}
 					return table.ValueParam("$owner_id", types.OptionalValue(types.TextValue(*org.OwnerID)))
 				}(),
-				table.ValueParam("$settings", types.NullValue(types.TypeJSON)),
+				table.ValueParam("$settings", types.JSONValue(settingsJSON)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(org.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(org.UpdatedAt)),
 			),
@@ -1759,12 +1765,13 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 }
 
 func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]*Membership, error) {
+
 	query := `
-		DECLARE $user_id AS Text;
-		SELECT membership_id, user_id, org_id, role, status, invited_by, created_at, updated_at
-		FROM memberships
-		WHERE user_id = $user_id
-	`
+        DECLARE $user_id AS Text;
+        SELECT membership_id, user_id, org_id, role, status, invited_by, created_at, updated_at
+        FROM memberships
+        WHERE user_id = $user_id
+    `
 
 	var memberships []*Membership
 
@@ -1775,12 +1782,17 @@ func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]
 			),
 		)
 		if err != nil {
+
 			return err
 		}
 		defer res.Close()
 
+		resultSetCount := 0
+		rowCount := 0
 		for res.NextResultSet(ctx) {
+			resultSetCount++
 			for res.NextRow() {
+				rowCount++
 				var membership Membership
 				if err := res.ScanNamed(
 					named.Required("membership_id", &membership.MembershipID),
@@ -1789,18 +1801,22 @@ func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]
 					named.Optional("role", &membership.Role),
 					named.Optional("status", &membership.Status),
 					named.Optional("invited_by", &membership.InvitedBy),
-					named.Required("created_at", &membership.CreatedAt),
-					named.Required("updated_at", &membership.UpdatedAt),
+					named.OptionalWithDefault("created_at", &membership.CreatedAt),
+					named.OptionalWithDefault("updated_at", &membership.UpdatedAt),
 				); err != nil {
+
 					return fmt.Errorf("scan failed: %w", err)
 				}
+
 				memberships = append(memberships, &membership)
 			}
 		}
+
 		return res.Err()
 	})
 
 	if err != nil {
+
 		return nil, err
 	}
 
@@ -1947,7 +1963,8 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 					named.Required("video_count_limit", &plan.VideoCountLimit),
 					named.Required("price_rub", &plan.PriceRub),
 					named.Required("billing_cycle", &plan.BillingCycle),
-					named.Required("features", &plan.Features),
+					named.OptionalWithDefault("features", &plan.Features),
+
 					named.Required("created_at", &plan.CreatedAt),
 					named.Required("updated_at", &plan.UpdatedAt),
 				); err != nil {
