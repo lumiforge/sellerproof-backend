@@ -10,6 +10,7 @@ import (
 
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
+	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
 )
 
@@ -41,7 +42,7 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) 
 
 // writeError writes an error response
 func (s *Server) writeError(w http.ResponseWriter, status int, message string) {
-	s.writeJSON(w, status, ErrorResponse{
+	s.writeJSON(w, status, models.ErrorResponse{
 		Error:   http.StatusText(status),
 		Message: message,
 		Code:    status,
@@ -68,13 +69,13 @@ func (s *Server) validateRequest(r *http.Request, req interface{}) error {
 // @Failure	500	{object}	ErrorResponse
 // @Router		/auth/register [post]
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
+	var req models.RegisterRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
-	authReq := &auth.RegisterRequest{
+	authReq := &models.RegisterRequest{
 		Email:            req.Email,
 		Password:         req.Password,
 		FullName:         req.FullName,
@@ -99,7 +100,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusCreated, RegisterResponse{
+	s.writeJSON(w, http.StatusCreated, models.RegisterResponse{
 		UserID:  resp.UserID,
 		Message: resp.Message,
 	})
@@ -117,13 +118,13 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	ErrorResponse
 // @Router		/auth/verify-email [post]
 func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	var req VerifyEmailRequest
+	var req models.VerifyEmailRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
-	authReq := &auth.VerifyEmailRequest{
+	authReq := &models.VerifyEmailRequest{
 		Email: req.Email,
 		Code:  req.Code,
 	}
@@ -140,7 +141,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, VerifyEmailResponse{
+	s.writeJSON(w, http.StatusOK, models.VerifyEmailResponse{
 		Message: resp.Message,
 		Success: resp.Success,
 	})
@@ -158,13 +159,13 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
+	var req models.LoginRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
-	authReq := &auth.LoginRequest{
+	authReq := &models.LoginRequest{
 		Email:    req.Email,
 		Password: req.Password,
 	}
@@ -187,7 +188,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInfo := &UserInfo{
+	userInfo := &models.UserInfo{
 		UserID:        resp.User.UserID,
 		Email:         resp.User.Email,
 		FullName:      resp.User.FullName,
@@ -198,7 +199,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:     resp.User.UpdatedAt,
 	}
 
-	s.writeJSON(w, http.StatusOK, LoginResponse{
+	s.writeJSON(w, http.StatusOK, models.LoginResponse{
 		AccessToken:  resp.AccessToken,
 		RefreshToken: resp.RefreshToken,
 		ExpiresAt:    resp.ExpiresAt,
@@ -218,13 +219,13 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/refresh [post]
 func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	var req RefreshTokenRequest
+	var req models.RefreshTokenRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
-	authReq := &auth.RefreshTokenRequest{
+	authReq := &models.RefreshTokenRequest{
 		RefreshToken: req.RefreshToken,
 	}
 
@@ -234,7 +235,7 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, RefreshTokenResponse{
+	s.writeJSON(w, http.StatusOK, models.RefreshTokenResponse{
 		AccessToken:  resp.AccessToken,
 		RefreshToken: resp.RefreshToken,
 		ExpiresAt:    resp.ExpiresAt,
@@ -255,13 +256,13 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	ErrorResponse
 // @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
-	var req LogoutRequest
+	var req models.LogoutRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
-	authReq := &auth.LogoutRequest{
+	authReq := &models.LogoutRequest{
 		RefreshToken: req.RefreshToken,
 	}
 
@@ -271,7 +272,7 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, LogoutResponse{
+	s.writeJSON(w, http.StatusOK, models.LogoutResponse{
 		Message: resp.Message,
 	})
 }
@@ -300,7 +301,7 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInfo := &UserInfo{
+	userInfo := &models.UserInfo{
 		UserID:        resp.User.UserID,
 		Email:         resp.User.Email,
 		FullName:      resp.User.FullName,
@@ -333,7 +334,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req UpdateProfileRequest
+	var req models.UpdateProfileRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
@@ -341,7 +342,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Implement profile update logic in auth service
 	// For now, return updated profile
-	userInfo := &UserInfo{
+	userInfo := &models.UserInfo{
 		UserID:        claims.UserID,
 		Email:         claims.Email,
 		FullName:      req.FullName,
@@ -377,7 +378,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req InitiateMultipartUploadRequest
+	var req models.InitiateMultipartUploadRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
@@ -389,7 +390,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, InitiateMultipartUploadResponse{
+	s.writeJSON(w, http.StatusOK, models.InitiateMultipartUploadResponse{
 		VideoID:               resp.VideoID,
 		UploadID:              resp.UploadID,
 		RecommendedPartSizeMB: resp.RecommendedPartSizeMB,
@@ -416,7 +417,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req GetPartUploadURLsRequest
+	var req models.GetPartUploadURLsRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
@@ -428,7 +429,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, GetPartUploadURLsResponse{
+	s.writeJSON(w, http.StatusOK, models.GetPartUploadURLsResponse{
 		PartURLs:  resp.PartURLs,
 		ExpiresAt: resp.ExpiresAt,
 	})
@@ -454,7 +455,7 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req CompleteMultipartUploadRequest
+	var req models.CompleteMultipartUploadRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
@@ -475,7 +476,7 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, CompleteMultipartUploadResponse{
+	s.writeJSON(w, http.StatusOK, models.CompleteMultipartUploadResponse{
 		Message:  resp.Message,
 		VideoURL: resp.VideoURL,
 	})
@@ -514,7 +515,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert VideoInfo to our Video model
-	videoResp := &Video{
+	videoResp := &models.Video{
 		VideoID:         resp.VideoID,
 		FileName:        resp.FileName,
 		FileSizeBytes:   resp.FileSizeBytes,
@@ -573,9 +574,9 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert VideoInfo to our Video model
-	videos := make([]*Video, len(resp.Videos))
+	videos := make([]*models.Video, len(resp.Videos))
 	for i, v := range resp.Videos {
-		videos[i] = &Video{
+		videos[i] = &models.Video{
 			VideoID:         v.VideoID,
 			FileName:        v.FileName,
 			FileSizeBytes:   v.FileSizeBytes,
@@ -585,7 +586,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.writeJSON(w, http.StatusOK, SearchVideosResponse{
+	s.writeJSON(w, http.StatusOK, models.SearchVideosResponse{
 		Videos:     videos,
 		TotalCount: resp.TotalCount,
 	})
@@ -638,7 +639,7 @@ func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req CreateShareLinkRequest
+	var req models.CreateShareLinkRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
@@ -650,7 +651,7 @@ func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, CreateShareLinkResponse{
+	s.writeJSON(w, http.StatusOK, models.CreateShareLinkResponse{
 		ShareURL:  resp.ShareURL,
 		ExpiresAt: resp.ExpiresAt,
 	})
@@ -676,7 +677,7 @@ func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req RevokeShareLinkRequest
+	var req models.RevokeShareLinkRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
@@ -684,7 +685,7 @@ func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: For now, return a placeholder response
 	// This will be implemented when we update the video service
-	s.writeJSON(w, http.StatusOK, RevokeShareLinkResponse{
+	s.writeJSON(w, http.StatusOK, models.RevokeShareLinkResponse{
 		Success: true,
 	})
 }
@@ -698,7 +699,7 @@ func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 // @Success	200	{object}	HealthResponse
 // @Router		/health [get]
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
-	s.writeJSON(w, http.StatusOK, HealthResponse{
+	s.writeJSON(w, http.StatusOK, models.HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now(),
 	})
@@ -712,7 +713,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req SwitchOrganizationRequest
+	var req models.SwitchOrganizationRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return

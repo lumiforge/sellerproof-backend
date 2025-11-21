@@ -63,6 +63,9 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	}, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
+	mux.HandleFunc("/api/v1/auth/switch-organization", chainMiddleware(server.SwitchOrganization, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
 
 	// Video routes
 	// Public video routes (no auth required)

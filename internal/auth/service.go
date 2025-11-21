@@ -13,6 +13,7 @@ import (
 
 	"github.com/lumiforge/sellerproof-backend/internal/email"
 	jwtmanager "github.com/lumiforge/sellerproof-backend/internal/jwt"
+	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
@@ -35,22 +36,8 @@ func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager 
 	}
 }
 
-// RegisterRequest запрос на регистрацию
-type RegisterRequest struct {
-	Email            string `json:"email"`
-	Password         string `json:"password"`
-	FullName         string `json:"full_name"`
-	OrganizationName string `json:"organization_name"`
-}
-
-// RegisterResponse ответ на регистрацию
-type RegisterResponse struct {
-	UserID  string `json:"user_id"`
-	Message string `json:"message"`
-}
-
 // Register регистрирует нового пользователя
-func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*RegisterResponse, error) {
+func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*models.RegisterResponse, error) {
 	// Валидация обязательных полей
 	if req.Email == "" {
 		return nil, fmt.Errorf("email is required")
@@ -301,26 +288,14 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
 	}
 
-	return &RegisterResponse{
+	return &models.RegisterResponse{
 		UserID:  user.UserID,
 		Message: "Registration successful. Please check your email for verification.",
 	}, nil
 }
 
-// VerifyEmailRequest запрос на верификацию email
-type VerifyEmailRequest struct {
-	Email string `json:"email"`
-	Code  string `json:"code"`
-}
-
-// VerifyEmailResponse ответ на верификацию email
-type VerifyEmailResponse struct {
-	Message string `json:"message"`
-	Success bool   `json:"success"`
-}
-
 // VerifyEmail подтверждает email пользователя
-func (s *Service) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*VerifyEmailResponse, error) {
+func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailRequest) (*models.VerifyEmailResponse, error) {
 
 	if !email.ValidateEmail(req.Email) {
 		return nil, fmt.Errorf("invalid email format")
@@ -331,7 +306,7 @@ func (s *Service) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*Ve
 		return nil, fmt.Errorf("user not found")
 	}
 	if *user.VerificationCode == "" {
-		return &VerifyEmailResponse{
+		return &models.VerifyEmailResponse{
 			Message: "Email already verified",
 			Success: true,
 		}, nil
@@ -357,48 +332,14 @@ func (s *Service) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*Ve
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
-	return &VerifyEmailResponse{
+	return &models.VerifyEmailResponse{
 		Message: "Email verified successfully",
 		Success: true,
 	}, nil
 }
 
-// LoginRequest запрос на вход
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// LoginResponse ответ на вход
-type LoginResponse struct {
-	AccessToken   string              `json:"access_token"`
-	RefreshToken  string              `json:"refresh_token"`
-	ExpiresAt     int64               `json:"expires_at"`
-	User          *UserInfo           `json:"user"`
-	Organizations []*OrganizationInfo `json:"organizations"`
-}
-
-// OrganizationInfo информация об организации пользователя
-type OrganizationInfo struct {
-	OrgID string `json:"org_id"`
-	Name  string `json:"name"`
-	Role  string `json:"role"`
-}
-
-// UserInfo информация о пользователе
-type UserInfo struct {
-	UserID        string `json:"user_id"`
-	Email         string `json:"email"`
-	FullName      string `json:"full_name"`
-	Role          string `json:"role"`
-	OrgID         string `json:"org_id"`
-	EmailVerified bool   `json:"email_verified"`
-	CreatedAt     int64  `json:"created_at"`
-	UpdatedAt     int64  `json:"updated_at"`
-}
-
 // Login выполняет вход пользователя
-func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
+func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.LoginResponse, error) {
 	// Валидация обязательных полей
 	if req.Email == "" {
 		return nil, fmt.Errorf("email is required")
@@ -469,7 +410,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	}
 
 	// Собираем информацию об организациях для ответа
-	organizations := make([]*OrganizationInfo, 0, len(memberships))
+	organizations := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {
 		if m.Status != nil && *m.Status == "active" {
 			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
@@ -482,18 +423,13 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 				if m.Role != nil {
 					role = *m.Role
 				}
-				organizations = append(organizations, &OrganizationInfo{
+				organizations = append(organizations, &models.OrganizationInfo{
 					OrgID: m.OrgID,
 					Name:  orgName,
 					Role:  role,
 				})
 			}
 		}
-	}
-
-	// membership, err := s.db.GetMembership(ctx, user.UserID, org.OrgID) // Владелец организации
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user membership: %w", err)
 	}
 
 	// Генерация JWT токенов
@@ -537,11 +473,11 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	if selectedMembership.Role != nil {
 		role = *selectedMembership.Role
 	}
-	return &LoginResponse{
+	return &models.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresAt:    time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
-		User: &UserInfo{
+		User: &models.UserInfo{
 			UserID:        user.UserID,
 			Email:         user.Email,
 			FullName:      fullName,
@@ -555,20 +491,8 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	}, nil
 }
 
-// RefreshTokenRequest запрос на обновление токена
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-// RefreshTokenResponse ответ на обновление токена
-type RefreshTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`
-}
-
 // RefreshToken обновляет access токен
-func (s *Service) RefreshToken(ctx context.Context, req *RefreshTokenRequest) (*RefreshTokenResponse, error) {
+func (s *Service) RefreshToken(ctx context.Context, req *models.RefreshTokenRequest) (*models.RefreshTokenResponse, error) {
 	// Валидация refresh токена
 	claims, err := s.jwtManager.ValidateToken(req.RefreshToken)
 	if err != nil {
@@ -614,25 +538,15 @@ func (s *Service) RefreshToken(ctx context.Context, req *RefreshTokenRequest) (*
 		slog.Error("Failed to save new refresh token", "error", err, "user_id", claims.UserID)
 	}
 
-	return &RefreshTokenResponse{
+	return &models.RefreshTokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresAt:    time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
 	}, nil
 }
 
-// LogoutRequest запрос на выход
-type LogoutRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-// LogoutResponse ответ на выход
-type LogoutResponse struct {
-	Message string `json:"message"`
-}
-
 // Logout выполняет выход пользователя
-func (s *Service) Logout(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
+func (s *Service) Logout(ctx context.Context, req *models.LogoutRequest) (*models.LogoutResponse, error) {
 	// Отзыв refresh токена
 	tokenHash := s.hashToken(req.RefreshToken)
 	err := s.db.RevokeRefreshToken(ctx, tokenHash)
@@ -640,32 +554,44 @@ func (s *Service) Logout(ctx context.Context, req *LogoutRequest) (*LogoutRespon
 		return nil, fmt.Errorf("failed to revoke refresh token: %w", err)
 	}
 
-	return &LogoutResponse{
+	return &models.LogoutResponse{
 		Message: "Logout successful",
 	}, nil
 }
 
-// GetProfileRequest запрос на получение профиля
-type GetProfileRequest struct {
-	UserID string `json:"user_id"`
-}
-
-// GetProfileResponse ответ с информацией о профиле
-type GetProfileResponse struct {
-	User *UserInfo `json:"user"`
-}
-
 // GetProfile получает профиль пользователя
-func (s *Service) GetProfile(ctx context.Context, userID string) (*GetProfileResponse, error) {
+func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetProfileResponse, error) {
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	// Получение членства в организации
-	membership, err := s.db.GetMembership(ctx, user.UserID, user.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user membership: %w", err)
+	// Получение всех членств пользователя
+	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
+	if err != nil || len(memberships) == 0 {
+		return nil, fmt.Errorf("failed to get user membership: membership not found")
+	}
+
+	// Выбираем активное членство (приоритет - где пользователь владелец)
+	var selectedMembership *ydb.Membership
+	for _, m := range memberships {
+		if m.Status != nil && *m.Status == "active" {
+			// Проверяем, является ли пользователь владельцем
+			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
+			if err == nil && org.OwnerID != nil && *org.OwnerID == user.UserID {
+				selectedMembership = m
+				break
+			}
+			// Сохраняем первую активную как запасной вариант
+			if selectedMembership == nil {
+				selectedMembership = m
+			}
+		}
+	}
+
+	// Если нет активных, берем первое
+	if selectedMembership == nil {
+		selectedMembership = memberships[0]
 	}
 
 	fullName := ""
@@ -673,16 +599,16 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*GetProfileRes
 		fullName = *user.FullName
 	}
 	role := ""
-	if membership.Role != nil {
-		role = *membership.Role
+	if selectedMembership.Role != nil {
+		role = *selectedMembership.Role
 	}
-	return &GetProfileResponse{
-		User: &UserInfo{
+	return &models.GetProfileResponse{
+		User: &models.UserInfo{
 			UserID:        user.UserID,
 			Email:         user.Email,
 			FullName:      fullName,
 			Role:          role,
-			OrgID:         membership.OrgID,
+			OrgID:         selectedMembership.OrgID,
 			EmailVerified: user.EmailVerified,
 			CreatedAt:     user.CreatedAt.Unix(),
 			UpdatedAt:     user.UpdatedAt.Unix(),
@@ -690,20 +616,8 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*GetProfileRes
 	}, nil
 }
 
-// SwitchOrganizationRequest запрос на переключение организации
-type SwitchOrganizationRequest struct {
-	OrgID string `json:"org_id"`
-}
-
-// SwitchOrganizationResponse ответ на переключение организации
-type SwitchOrganizationResponse struct {
-	AccessToken string `json:"access_token"`
-	ExpiresAt   int64  `json:"expires_at"`
-	OrgID       string `json:"org_id"`
-}
-
 // SwitchOrganization переключает организацию пользователя
-func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *SwitchOrganizationRequest) (*SwitchOrganizationResponse, error) {
+func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *models.SwitchOrganizationRequest) (*models.SwitchOrganizationResponse, error) {
 	// Проверяем, что пользователь состоит в этой организации
 	membership, err := s.db.GetMembership(ctx, userID, req.OrgID)
 	if err != nil {
@@ -736,7 +650,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *Sw
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	return &SwitchOrganizationResponse{
+	return &models.SwitchOrganizationResponse{
 		AccessToken: accessToken,
 		ExpiresAt:   time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
 		OrgID:       req.OrgID,
