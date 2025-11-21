@@ -1,0 +1,28 @@
+meta {
+  name: Health check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Should return HTTP 200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Should return valid response structure", function() {
+    const responseBody = res.getBody();
+    expect(responseBody).to.be.an('object');
+    
+    // Check if response has status field
+    if (responseBody.hasOwnProperty('status')) {
+      expect(responseBody.status).to.be.a('string');
+      expect(responseBody.status).to.equal('ok');
+    }
+  });
+}

@@ -40,7 +40,7 @@ git:
 
 build-zip:
 	rm $(ZIP)
-	zip -r $(ZIP) . -x 'Makefile' 'README.md' 'patch.diff' 'tests/*' 'schema/*' '*/patch.diff' '.git/*' '*/.git/*' 'git/*' '*/git/*' '/bfe-sl'
+	zip -r $(ZIP) . -x 'Makefile' 'docs' 'instructions' 'README.md' 'patch.diff' 'tests/*' 'schema/*' '*/patch.diff' '.git/*' '*/.git/*' 'git/*' '*/git/*' '/bfe-sl'
 
 
 # Development commands
@@ -59,6 +59,19 @@ test:
 deps:
 	go mod tidy
 	go mod download
+
+# OpenAPI documentation commands
+swag-init:
+	@echo "Generating OpenAPI documentation..."
+	swag init -g main.go -o docs
+
+swag:
+	@echo "Generating OpenAPI documentation..."
+	swag init -g main.go -o docs --parseDependency --parseInternal
+
+docs: swag
+	@echo "OpenAPI documentation generated successfully!"
+	@echo "Available at: http://localhost:8080/openapi.json"
 
 # YDB specific commands
 ydb-init:

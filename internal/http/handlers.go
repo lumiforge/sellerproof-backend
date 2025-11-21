@@ -56,6 +56,17 @@ func (s *Server) validateRequest(r *http.Request, req interface{}) error {
 // Auth Handlers
 
 // Register handles user registration
+// @Summary		Register a new user
+// @Description	Register a new user with email, password, full name and optional organization name
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Param		request	body		RegisterRequest	true	"Registration request"
+// @Success	201	{object}	RegisterResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	409	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/auth/register [post]
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := s.validateRequest(r, &req); err != nil {
@@ -95,6 +106,16 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // VerifyEmail handles email verification
+// @Summary		Verify user email
+// @Description	Verify user email with verification code sent to email
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Param		request	body		VerifyEmailRequest	true	"Email verification request"
+// @Success	200		{object}	VerifyEmailResponse
+// @Failure	400		{object}	ErrorResponse
+// @Failure	500		{object}	ErrorResponse
+// @Router		/auth/verify-email [post]
 func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var req VerifyEmailRequest
 	if err := s.validateRequest(r, &req); err != nil {
@@ -120,6 +141,16 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login handles user login
+// @Summary		User login
+// @Description	Authenticate user with email and password
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Param		request	body		LoginRequest	true	"Login request"
+// @Success	200		{object}	LoginResponse
+// @Failure	401		{object}	ErrorResponse
+// @Failure	400		{object}	ErrorResponse
+// @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := s.validateRequest(r, &req); err != nil {
@@ -158,6 +189,16 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshToken handles token refresh
+// @Summary		Refresh access token
+// @Description	Refresh access token using refresh token
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Param		request	body		RefreshTokenRequest	true	"Refresh token request"
+// @Success	200		{object}	RefreshTokenResponse
+// @Failure	401		{object}	ErrorResponse
+// @Failure	400		{object}	ErrorResponse
+// @Router		/auth/refresh [post]
 func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshTokenRequest
 	if err := s.validateRequest(r, &req); err != nil {
@@ -183,6 +224,18 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout handles user logout
+// @Summary		User logout
+// @Description	Logout user and invalidate refresh token
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Param		request	body		LogoutRequest	true	"Logout request"
+// @Security		BearerAuth
+// @Success	200		{object}	LogoutResponse
+// @Failure	401		{object}	ErrorResponse
+// @Failure	400		{object}	ErrorResponse
+// @Failure	500		{object}	ErrorResponse
+// @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	var req LogoutRequest
 	if err := s.validateRequest(r, &req); err != nil {
@@ -206,6 +259,16 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetProfile handles getting user profile
+// @Summary		Get user profile
+// @Description	Get current user profile information
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Security		BearerAuth
+// @Success	200	{object}	UserInfo
+// @Failure	401	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/auth/profile [get]
 func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -234,6 +297,17 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProfile handles updating user profile
+// @Summary		Update user profile
+// @Description	Update current user profile information
+// @Tags		auth
+// @Accept		json
+// @Produce	json
+// @Param		request	body		UpdateProfileRequest	true	"Profile update request"
+// @Security		BearerAuth
+// @Success	200	{object}	UserInfo
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Router		/auth/profile [put]
 func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -266,6 +340,18 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // Video Handlers
 
 // InitiateMultipartUpload handles initiating multipart upload
+// @Summary		Initiate multipart upload
+// @Description	Initiate multipart upload for video file
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		request	body		InitiateMultipartUploadRequest	true	"Multipart upload initiation request"
+// @Security		BearerAuth
+// @Success	200	{object}	InitiateMultipartUploadResponse
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/upload/initiate [post]
 func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -293,6 +379,18 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 }
 
 // GetPartUploadURLs handles getting part upload URLs
+// @Summary		Get part upload URLs
+// @Description	Get presigned URLs for multipart upload parts
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		request	body		GetPartUploadURLsRequest	true	"Part upload URLs request"
+// @Security		BearerAuth
+// @Success	200	{object}	GetPartUploadURLsResponse
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/upload/urls [post]
 func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -319,6 +417,18 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 }
 
 // CompleteMultipartUpload handles completing multipart upload
+// @Summary		Complete multipart upload
+// @Description	Complete multipart upload and create video record
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		request	body		CompleteMultipartUploadRequest	true	"Multipart upload completion request"
+// @Security		BearerAuth
+// @Success	200	{object}	CompleteMultipartUploadResponse
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/upload/complete [post]
 func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -354,6 +464,18 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 }
 
 // GetVideo handles getting video information
+// @Summary		Get video information
+// @Description	Get video information by video ID
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		video_id	query		string	true	"Video ID"
+// @Security		BearerAuth
+// @Success	200	{object}	Video
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video [get]
 func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -387,6 +509,19 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 }
 
 // SearchVideos handles searching videos
+// @Summary		Search videos
+// @Description	Search videos with query and pagination
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		query		query		string	false	"Search query"
+// @Param		page		query		int		false	"Page number"	default(1)
+// @Param		page_size	query		int		false	"Page size"	default(10)
+// @Security		BearerAuth
+// @Success	200	{object}	SearchVideosResponse
+// @Failure	401	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/search [get]
 func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -439,6 +574,16 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPublicVideo handles getting public video (no authentication required)
+// @Summary		Get public video
+// @Description	Get public video by share token
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		share_token	query		string	true	"Share token"
+// @Success	200	{object}	GetPublicVideoResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/public [get]
 func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	shareToken := r.URL.Query().Get("share_token")
 	if shareToken == "" {
@@ -456,6 +601,18 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreatePublicShareLink handles creating public share link
+// @Summary		Create public share link
+// @Description	Create public share link for video
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		request	body		CreateShareLinkRequest	true	"Share link creation request"
+// @Security		BearerAuth
+// @Success	200	{object}	CreateShareLinkResponse
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/share [post]
 func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -482,6 +639,18 @@ func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // RevokeShareLink handles revoking share link
+// @Summary		Revoke share link
+// @Description	Revoke public share link for video
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		request	body		RevokeShareLinkRequest	true	"Share link revocation request"
+// @Security		BearerAuth
+// @Success	200	{object}	RevokeShareLinkResponse
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/share/revoke [post]
 func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 	_, ok := GetUserClaims(r)
 	if !ok {
@@ -503,6 +672,13 @@ func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // Health handles health check
+// @Summary		Health check
+// @Description	Check API health status
+// @Tags		health
+// @Accept		json
+// @Produce	json
+// @Success	200	{object}	HealthResponse
+// @Router		/health [get]
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, HealthResponse{
 		Status:    "ok",

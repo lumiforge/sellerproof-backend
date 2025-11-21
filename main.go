@@ -19,6 +19,26 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
+// @title			SellerProof API
+// @version		1.0
+// @description	API for SellerProof video management platform
+// @termsOfService	http://swagger.io/terms/
+
+// @contact.name	API Support
+// @contact.url	http://www.swagger.io/support
+// @contact.email	support@swagger.io
+
+// @license.name	Apache 2.0
+// @license.url	http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host		localhost:8080
+// @BasePath	/api/v1
+
+// @securityDefinitions.apikey	BearerAuth
+// @in							header
+// @name						Authorization
+// @description					Bearer token for authentication
+
 var (
 	router http.Handler
 )
@@ -74,13 +94,4 @@ func init() {
 
 func EntryPoint(w http.ResponseWriter, r *http.Request) {
 	router.ServeHTTP(w, r)
-}
-
-func main() {
-	port := config.Load().HTTPPort
-	slog.Info("Starting HTTP server", "port", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
-		slog.Error("Failed to start HTTP server", "error", err)
-		os.Exit(1)
-	}
 }

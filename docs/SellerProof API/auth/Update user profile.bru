@@ -1,0 +1,11 @@
+meta {
+  name: Update user profile
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/auth/profile
+  body: none
+  auth: inherit
+}

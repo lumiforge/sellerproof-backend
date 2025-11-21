@@ -1,7 +1,9 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
@@ -14,6 +16,32 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	// Health check endpoint (no auth required)
 	mux.HandleFunc("/health", server.Health)
 	mux.HandleFunc("/", server.Health)
+
+	// OpenAPI documentation endpoint (no auth required)
+	mux.HandleFunc("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+		// Serve the generated OpenAPI specification
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Read the generated swagger.json file
+		data, err := os.ReadFile("docs/swagger.json")
+		if err != nil {
+			http.Error(w, "OpenAPI documentation not found", http.StatusNotFound)
+			return
+		}
+
+		// Validate it's valid JSON
+		var jsonData interface{}
+		if err := json.Unmarshal(data, &jsonData); err != nil {
+			http.Error(w, "Invalid OpenAPI documentation", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	})
 
 	// Auth routes (no auth required)
 	mux.HandleFunc("/api/v1/auth/register", chainMiddleware(server.Register, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))

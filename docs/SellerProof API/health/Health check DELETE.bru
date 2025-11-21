@@ -1,0 +1,17 @@
+meta {
+  name: Health check DELETE
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Should return HTTP 405 Method Not Allowed", function() {
+    expect(res.getStatus()).to.equal(405);
+  });
+}

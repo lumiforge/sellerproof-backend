@@ -1,0 +1,17 @@
+meta {
+  name: Health check PUT
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Should return HTTP 405 Method Not Allowed", function() {
+    expect(res.getStatus()).to.equal(405);
+  });
+}

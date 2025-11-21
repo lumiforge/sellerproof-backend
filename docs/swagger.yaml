@@ -1,0 +1,834 @@
+basePath: /api/v1
+definitions:
+  http.CompleteMultipartUploadRequest:
+    description: Multipart upload completion request
+    properties:
+      parts:
+        items:
+          $ref: '#/definitions/http.CompletedPart'
+        minItems: 1
+        type: array
+      video_id:
+        type: string
+    required:
+    - parts
+    - video_id
+    type: object
+  http.CompleteMultipartUploadResponse:
+    description: Multipart upload completion response
+    properties:
+      message:
+        type: string
+      video_url:
+        type: string
+    type: object
+  http.CompletedPart:
+    description: Completed multipart upload part
+    properties:
+      etag:
+        type: string
+      part_number:
+        type: integer
+    type: object
+  http.CreateShareLinkRequest:
+    description: Create share link request
+    properties:
+      expires_in_hours:
+        minimum: 0
+        type: integer
+      video_id:
+        type: string
+    required:
+    - video_id
+    type: object
+  http.CreateShareLinkResponse:
+    description: Create share link response
+    properties:
+      expires_at:
+        type: integer
+      share_url:
+        type: string
+    type: object
+  http.ErrorResponse:
+    description: Error response with details
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  http.GetPartUploadURLsRequest:
+    description: Part upload URLs request
+    properties:
+      total_parts:
+        minimum: 1
+        type: integer
+      video_id:
+        type: string
+    required:
+    - total_parts
+    - video_id
+    type: object
+  http.GetPartUploadURLsResponse:
+    description: Part upload URLs response
+    properties:
+      expires_at:
+        type: integer
+      part_urls:
+        items:
+          type: string
+        type: array
+    type: object
+  http.GetPublicVideoResponse:
+    description: Get public video response
+    properties:
+      download_url:
+        type: string
+      expires_at:
+        type: integer
+      file_name:
+        type: string
+      file_size:
+        type: integer
+    type: object
+  http.HealthResponse:
+    description: Health check response
+    properties:
+      status:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
+    type: object
+  http.InitiateMultipartUploadRequest:
+    description: Multipart upload initiation request
+    properties:
+      duration_seconds:
+        minimum: 0
+        type: integer
+      file_name:
+        type: string
+      file_size_bytes:
+        minimum: 1
+        type: integer
+    required:
+    - file_name
+    - file_size_bytes
+    type: object
+  http.InitiateMultipartUploadResponse:
+    description: Multipart upload initiation response
+    properties:
+      recommended_part_size_mb:
+        type: integer
+      upload_id:
+        type: string
+      video_id:
+        type: string
+    type: object
+  http.LoginRequest:
+    description: Login request with email and password
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  http.LoginResponse:
+    description: Login response with tokens and user info
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: integer
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/http.UserInfo'
+    type: object
+  http.LogoutRequest:
+    description: Logout request with refresh token
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  http.LogoutResponse:
+    description: Logout response with message
+    properties:
+      message:
+        type: string
+    type: object
+  http.RefreshTokenRequest:
+    description: Refresh token request
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  http.RefreshTokenResponse:
+    description: Refresh token response with new tokens
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: integer
+      refresh_token:
+        type: string
+    type: object
+  http.RegisterRequest:
+    description: Registration request with user details
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      organization_name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    type: object
+  http.RegisterResponse:
+    description: Registration response with user ID and message
+    properties:
+      message:
+        type: string
+      user_id:
+        type: string
+    type: object
+  http.RevokeShareLinkRequest:
+    description: Revoke share link request
+    properties:
+      video_id:
+        type: string
+    required:
+    - video_id
+    type: object
+  http.RevokeShareLinkResponse:
+    description: Revoke share link response
+    properties:
+      success:
+        type: boolean
+    type: object
+  http.SearchVideosResponse:
+    description: Search videos response
+    properties:
+      total_count:
+        type: integer
+      videos:
+        items:
+          $ref: '#/definitions/http.Video'
+        type: array
+    type: object
+  http.UpdateProfileRequest:
+    description: Profile update request with full name
+    properties:
+      full_name:
+        type: string
+    required:
+    - full_name
+    type: object
+  http.UserInfo:
+    description: User profile information
+    properties:
+      created_at:
+        type: integer
+      email:
+        type: string
+      email_verified:
+        type: boolean
+      full_name:
+        type: string
+      org_id:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  http.VerifyEmailRequest:
+    description: Email verification request with email and code
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+    required:
+    - code
+    - email
+    type: object
+  http.VerifyEmailResponse:
+    description: Email verification response with success status
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  http.Video:
+    description: Video information
+    properties:
+      duration_seconds:
+        type: integer
+      file_name:
+        type: string
+      file_size_bytes:
+        type: integer
+      upload_status:
+        type: string
+      uploaded_at:
+        type: integer
+      video_id:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API for SellerProof video management platform
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: SellerProof API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with email and password
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: User login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user and invalidate refresh token
+      parameters:
+      - description: Logout request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.LogoutResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - auth
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      description: Get current user profile information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UserInfo'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - auth
+    put:
+      consumes:
+      - application/json
+      description: Update current user profile information
+      parameters:
+      - description: Profile update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.UserInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refresh access token using refresh token
+      parameters:
+      - description: Refresh token request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.RefreshTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email, password, full name and optional
+        organization name
+      parameters:
+      - description: Registration request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/http.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - auth
+  /auth/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Verify user email with verification code sent to email
+      parameters:
+      - description: Email verification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.VerifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.VerifyEmailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Verify user email
+      tags:
+      - auth
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check API health status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.HealthResponse'
+      summary: Health check
+      tags:
+      - health
+  /video:
+    get:
+      consumes:
+      - application/json
+      description: Get video information by video ID
+      parameters:
+      - description: Video ID
+        in: query
+        name: video_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.Video'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get video information
+      tags:
+      - video
+  /video/public:
+    get:
+      consumes:
+      - application/json
+      description: Get public video by share token
+      parameters:
+      - description: Share token
+        in: query
+        name: share_token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.GetPublicVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Get public video
+      tags:
+      - video
+  /video/search:
+    get:
+      consumes:
+      - application/json
+      description: Search videos with query and pagination
+      parameters:
+      - description: Search query
+        in: query
+        name: query
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.SearchVideosResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Search videos
+      tags:
+      - video
+  /video/share:
+    post:
+      consumes:
+      - application/json
+      description: Create public share link for video
+      parameters:
+      - description: Share link creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.CreateShareLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CreateShareLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create public share link
+      tags:
+      - video
+  /video/share/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Revoke public share link for video
+      parameters:
+      - description: Share link revocation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.RevokeShareLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.RevokeShareLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke share link
+      tags:
+      - video
+  /video/upload/complete:
+    post:
+      consumes:
+      - application/json
+      description: Complete multipart upload and create video record
+      parameters:
+      - description: Multipart upload completion request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.CompleteMultipartUploadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.CompleteMultipartUploadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete multipart upload
+      tags:
+      - video
+  /video/upload/initiate:
+    post:
+      consumes:
+      - application/json
+      description: Initiate multipart upload for video file
+      parameters:
+      - description: Multipart upload initiation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.InitiateMultipartUploadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.InitiateMultipartUploadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Initiate multipart upload
+      tags:
+      - video
+  /video/upload/urls:
+    post:
+      consumes:
+      - application/json
+      description: Get presigned URLs for multipart upload parts
+      parameters:
+      - description: Part upload URLs request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.GetPartUploadURLsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.GetPartUploadURLsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get part upload URLs
+      tags:
+      - video
+securityDefinitions:
+  BearerAuth:
+    description: Bearer token for authentication
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
