@@ -388,15 +388,13 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	}
 
 	// Получение всех членств пользователя
-	// TODO: Remove this log
-
 	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
 	if err != nil {
-
+		slog.Error("Failed to get user memberships", "error", err, "user_id", user.UserID)
 		return nil, fmt.Errorf("failed to get user membership: %w", err)
 	}
 	if len(memberships) == 0 {
-
+		slog.Error("No memberships found for user", "user_id", user.UserID)
 		return nil, fmt.Errorf("failed to get user membership: membership not found")
 	}
 
@@ -426,7 +424,6 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		selectedMembership = memberships[0]
 	}
 
-	// Собираем информацию об организациях для ответа
 	// Собираем информацию об организациях для ответа
 	organizations := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {

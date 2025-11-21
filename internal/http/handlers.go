@@ -200,10 +200,11 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, models.LoginResponse{
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-		ExpiresAt:    resp.ExpiresAt,
-		User:         userInfo,
+		AccessToken:   resp.AccessToken,
+		RefreshToken:  resp.RefreshToken,
+		ExpiresAt:     resp.ExpiresAt,
+		User:          userInfo,
+		Organizations: resp.Organizations,
 	})
 }
 
