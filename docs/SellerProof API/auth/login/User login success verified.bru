@@ -1,0 +1,26 @@
+meta {
+  name: User login success (verified email)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: inherit
+}
+
+body:json {
+  "email": "{{testEmail}}",
+  "password": "{{testEmailPassword}}"
+}
+
+tests {
+  test("Should return 200 for successful login with verified email", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("access_token");
+    expect(res.body).to.have.property("refresh_token");
+    expect(res.body).to.have.property("user");
+    expect(res.body.user.email_verified).to.equal(true);
+  });
+}

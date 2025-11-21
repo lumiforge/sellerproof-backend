@@ -165,7 +165,18 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.Login(r.Context(), authReq)
 	if err != nil {
-		s.writeError(w, http.StatusUnauthorized, err.Error())
+		// Проверяем тип ошибки и возвращаем соответствующий код
+		errorMsg := err.Error()
+		slog.Error("Login error", "error", errorMsg) // Добавляем логирование для отладки
+		if strings.Contains(errorMsg, "is required") ||
+			strings.Contains(errorMsg, "invalid email format") ||
+			strings.Contains(errorMsg, "must be less than") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else if strings.Contains(strings.ToLower(errorMsg), "email not verified") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else {
+			s.writeError(w, http.StatusUnauthorized, errorMsg)
+		}
 		return
 	}
 

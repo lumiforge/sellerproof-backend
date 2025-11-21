@@ -381,6 +381,23 @@ type UserInfo struct {
 
 // Login выполняет вход пользователя
 func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
+	// Валидация обязательных полей
+	if req.Email == "" {
+		return nil, fmt.Errorf("email is required")
+	}
+	if req.Password == "" {
+		return nil, fmt.Errorf("password is required")
+	}
+
+	// Валидация длины email сначала
+	if len(req.Email) > 254 {
+		return nil, fmt.Errorf("email must be less than 255 characters long")
+	}
+	// Затем валидация формата email
+	if !email.ValidateEmail(req.Email) {
+		return nil, fmt.Errorf("invalid email format")
+	}
+
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")
@@ -394,6 +411,12 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	// Проверка, что пользователь активен
 	if !user.IsActive {
 		return nil, fmt.Errorf("user account is deactivated")
+	}
+
+	// Проверка, что email подтвержден
+	if !user.EmailVerified {
+		slog.Error("Email not verified", "email", req.Email, "emailVerified", user.EmailVerified)
+		return nil, fmt.Errorf("email not verified")
 	}
 
 	// Получение членства в организации
