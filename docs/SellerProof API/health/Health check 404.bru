@@ -1,0 +1,18 @@
+meta {
+  name: 'Health check 404'
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/
+  body: none
+  auth: none
+}
+
+tests {
+  test('Should return 404 for non-existent endpoint', function() {
+    expect(res.status).to.equal(404);
+    expect(res.body).to.be.a('string');
+  });
+}

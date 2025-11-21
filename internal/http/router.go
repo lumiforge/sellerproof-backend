@@ -14,8 +14,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check endpoint (no auth required)
-	mux.HandleFunc("/health", server.Health)
-	mux.HandleFunc("/", server.Health)
+	mux.Handle("/very-secret-health-check", chainMiddleware(server.Health, methodMiddleware("GET")))
 
 	// OpenAPI documentation endpoint (no auth required)
 	mux.HandleFunc("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
