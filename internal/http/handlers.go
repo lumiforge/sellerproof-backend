@@ -129,8 +129,14 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := s.authService.VerifyEmail(r.Context(), authReq)
+	// Заменить текущую обработку ошибки на:
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
+		errorMsg := err.Error()
+		if errorMsg == "invalid email format" || strings.Contains(errorMsg, "invalid email format") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 
@@ -170,6 +176,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Login error", "error", errorMsg) // Добавляем логирование для отладки
 		if strings.Contains(errorMsg, "is required") ||
 			strings.Contains(errorMsg, "invalid email format") ||
+			strings.Contains(errorMsg, "invalid credentials") ||
 			strings.Contains(errorMsg, "must be less than") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else if strings.Contains(strings.ToLower(errorMsg), "email not verified") {
@@ -695,4 +702,27 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 		Status:    "ok",
 		Timestamp: time.Now(),
 	})
+}
+
+// SwitchOrganization handles organization switching
+func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	var req SwitchOrganizationRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	resp, err := s.authService.SwitchOrganization(r.Context(), claims.UserID, &req)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
 }

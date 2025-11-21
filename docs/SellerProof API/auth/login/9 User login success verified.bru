@@ -1,7 +1,7 @@
 meta {
   name: User login success (verified email)
   type: http
-  seq: 7
+  seq: 9
 }
 
 post {
@@ -11,8 +11,10 @@ post {
 }
 
 body:json {
-  "email": "{{testEmail}}",
-  "password": "{{testEmailPassword}}"
+  {
+    "email": "{{testEmail}}",
+    "password": "{{testEmailPassword}}"
+  }
 }
 
 tests {

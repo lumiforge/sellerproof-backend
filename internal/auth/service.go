@@ -321,11 +321,21 @@ type VerifyEmailResponse struct {
 
 // VerifyEmail подтверждает email пользователя
 func (s *Service) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) (*VerifyEmailResponse, error) {
+
+	if !email.ValidateEmail(req.Email) {
+		return nil, fmt.Errorf("invalid email format")
+	}
+
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
-
+	if *user.VerificationCode == "" {
+		return &VerifyEmailResponse{
+			Message: "Email already verified",
+			Success: true,
+		}, nil
+	}
 	// Проверка кода верификации
 	if user.VerificationCode == nil || *user.VerificationCode != req.Code {
 		return nil, fmt.Errorf("invalid verification code")
@@ -361,10 +371,18 @@ type LoginRequest struct {
 
 // LoginResponse ответ на вход
 type LoginResponse struct {
-	AccessToken  string    `json:"access_token"`
-	RefreshToken string    `json:"refresh_token"`
-	ExpiresAt    int64     `json:"expires_at"`
-	User         *UserInfo `json:"user"`
+	AccessToken   string              `json:"access_token"`
+	RefreshToken  string              `json:"refresh_token"`
+	ExpiresAt     int64               `json:"expires_at"`
+	User          *UserInfo           `json:"user"`
+	Organizations []*OrganizationInfo `json:"organizations"`
+}
+
+// OrganizationInfo информация об организации пользователя
+type OrganizationInfo struct {
+	OrgID string `json:"org_id"`
+	Name  string `json:"name"`
+	Role  string `json:"role"`
 }
 
 // UserInfo информация о пользователе
@@ -419,22 +437,75 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 		return nil, fmt.Errorf("email not verified")
 	}
 
-	// Получение членства в организации
-	membership, err := s.db.GetMembership(ctx, user.UserID, user.UserID) // Владелец организации
+	// Получение всех членств пользователя
+	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
+	if err != nil || len(memberships) == 0 {
+		return nil, fmt.Errorf("failed to get user membership: membership not found")
+	}
+
+	// Выбираем организацию по приоритету:
+	// 1. Где пользователь - владелец организации
+	// 2. Первая активная организация
+	var selectedMembership *ydb.Membership
+
+	for _, m := range memberships {
+		if m.Status != nil && *m.Status == "active" {
+			// Проверяем, является ли пользователь владельцем
+			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
+			if err == nil && org.OwnerID != nil && *org.OwnerID == user.UserID {
+				selectedMembership = m
+				break
+			}
+			// Сохраняем первую активную как запасной вариант
+			if selectedMembership == nil {
+				selectedMembership = m
+			}
+		}
+	}
+
+	// Если нет активных, берем первое
+	if selectedMembership == nil {
+		selectedMembership = memberships[0]
+	}
+
+	// Собираем информацию об организациях для ответа
+	organizations := make([]*OrganizationInfo, 0, len(memberships))
+	for _, m := range memberships {
+		if m.Status != nil && *m.Status == "active" {
+			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
+			if err == nil {
+				orgName := ""
+				if org.Name != nil {
+					orgName = *org.Name
+				}
+				role := ""
+				if m.Role != nil {
+					role = *m.Role
+				}
+				organizations = append(organizations, &OrganizationInfo{
+					OrgID: m.OrgID,
+					Name:  orgName,
+					Role:  role,
+				})
+			}
+		}
+	}
+
+	// membership, err := s.db.GetMembership(ctx, user.UserID, org.OrgID) // Владелец организации
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user membership: %w", err)
 	}
 
 	// Генерация JWT токенов
 	role := ""
-	if membership.Role != nil {
-		role = *membership.Role
+	if selectedMembership.Role != nil {
+		role = *selectedMembership.Role
 	}
 	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
 		user.UserID,
 		user.Email,
 		role,
-		membership.OrgID,
+		selectedMembership.OrgID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
@@ -463,8 +534,8 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 		fullName = *user.FullName
 	}
 	role = ""
-	if membership.Role != nil {
-		role = *membership.Role
+	if selectedMembership.Role != nil {
+		role = *selectedMembership.Role
 	}
 	return &LoginResponse{
 		AccessToken:  accessToken,
@@ -475,11 +546,12 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 			Email:         user.Email,
 			FullName:      fullName,
 			Role:          role,
-			OrgID:         membership.OrgID,
+			OrgID:         selectedMembership.OrgID,
 			EmailVerified: user.EmailVerified,
 			CreatedAt:     user.CreatedAt.Unix(),
 			UpdatedAt:     user.UpdatedAt.Unix(),
 		},
+		Organizations: organizations,
 	}, nil
 }
 
@@ -615,6 +687,59 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*GetProfileRes
 			CreatedAt:     user.CreatedAt.Unix(),
 			UpdatedAt:     user.UpdatedAt.Unix(),
 		},
+	}, nil
+}
+
+// SwitchOrganizationRequest запрос на переключение организации
+type SwitchOrganizationRequest struct {
+	OrgID string `json:"org_id"`
+}
+
+// SwitchOrganizationResponse ответ на переключение организации
+type SwitchOrganizationResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresAt   int64  `json:"expires_at"`
+	OrgID       string `json:"org_id"`
+}
+
+// SwitchOrganization переключает организацию пользователя
+func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *SwitchOrganizationRequest) (*SwitchOrganizationResponse, error) {
+	// Проверяем, что пользователь состоит в этой организации
+	membership, err := s.db.GetMembership(ctx, userID, req.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("user is not a member of this organization")
+	}
+
+	if membership.Status == nil || *membership.Status != "active" {
+		return nil, fmt.Errorf("membership is not active")
+	}
+
+	// Получаем информацию о пользователе
+	user, err := s.db.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Генерируем новый токен с новой организацией
+	role := ""
+	if membership.Role != nil {
+		role = *membership.Role
+	}
+
+	accessToken, _, err := s.jwtManager.GenerateTokenPair(
+		user.UserID,
+		user.Email,
+		role,
+		req.OrgID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	return &SwitchOrganizationResponse{
+		AccessToken: accessToken,
+		ExpiresAt:   time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
+		OrgID:       req.OrgID,
 	}, nil
 }
 

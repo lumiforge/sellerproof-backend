@@ -1,5 +1,5 @@
 meta {
-  name: User login success
+  name: User login email not verified
   type: http
   seq: 1
 }
@@ -18,7 +18,7 @@ body:json {
 }
 
 tests {
-  test('Should return 403 for unverified email', function() {
+  test('Should return 403 Forbidden for unverified email', function() {
     expect(res.status).to.equal(403);
     expect(res.body.error).to.equal('Forbidden');
     expect(res.body.message).to.equal('email not verified');

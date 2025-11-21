@@ -50,6 +50,18 @@ type LoginResponse struct {
 	User         *UserInfo `json:"user"`
 }
 
+// SwitchOrganizationRequest представляет запрос на переключение организации
+type SwitchOrganizationRequest struct {
+	OrgID string `json:"org_id"`
+}
+
+// SwitchOrganizationResponse представляет ответ на переключение организации
+type SwitchOrganizationResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresAt   int64  `json:"expires_at"`
+	OrgID       string `json:"org_id"`
+}
+
 // RefreshTokenRequest represents a refresh token request
 // @Description	Refresh token request
 type RefreshTokenRequest struct {
