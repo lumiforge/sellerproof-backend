@@ -1,5 +1,5 @@
 meta {
-  name: Refresh token not found or revoked
+  name: Refresh token expired
   type: http
   seq: 3
 }
@@ -17,7 +17,7 @@ body:json {
 }
 
 tests {
-  test('Should return 401 Unauthorized for refresh token not found or revoked', function() {
+  test('Should return 401 Unauthorized for Refresh token expired', function() {
     expect(res.status).to.equal(401);
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.include('Unauthorized');
