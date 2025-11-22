@@ -1,0 +1,35 @@
+meta {
+  name: Logout empty refresh token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "refresh_token": ""
+  }
+}
+
+tests {
+  test('Should handle empty refresh_token appropriately', function() {
+    // Check for either 400 (validation error) or 200 (successful logout with empty token)
+    if (res.status === 400) {
+      expect(res.body).to.have.property('error');
+      expect(res.body.error).to.include('Bad Request');
+    } else if (res.status === 200) {
+      expect(res.body).to.have.property('message');
+    } else {
+      // If neither 400 nor 200, fail the test
+      expect.fail(`Unexpected status code: ${res.status}. Expected 400 or 200.`);
+    }
+  });
+}
