@@ -1,0 +1,25 @@
+meta {
+  name: Refresh token wrong format
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/refresh
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "refreshToken": 123456
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for wrong refreshToken format (not string)', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+  });
+}
