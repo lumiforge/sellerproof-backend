@@ -226,7 +226,10 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
-
+	if req.RefreshToken == "" {
+		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
+		return
+	}
 	authReq := &models.RefreshTokenRequest{
 		RefreshToken: req.RefreshToken,
 	}
