@@ -1649,10 +1649,10 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 				named.Optional("name", &org.Name),
 				named.Optional("owner_id", &org.OwnerID),
 				named.Optional("settings", &org.Settings),
-
-				named.Required("created_at", &org.CreatedAt),
-				named.Required("updated_at", &org.UpdatedAt),
+				named.OptionalWithDefault("created_at", &org.CreatedAt),
+				named.OptionalWithDefault("updated_at", &org.UpdatedAt),
 			)
+
 			if err != nil {
 				log.Println("Error in loop ", err)
 				return fmt.Errorf("scan failed: %w", err)
