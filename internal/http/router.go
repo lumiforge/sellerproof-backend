@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 )
@@ -134,14 +133,14 @@ func methodMiddleware(method string) func(http.Handler) http.Handler {
 }
 
 // pathMiddleware creates middleware that checks URL path prefix
-func pathMiddleware(prefix string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasPrefix(r.URL.Path, prefix) {
-				http.NotFound(w, r)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
+// func pathMiddleware(prefix string) func(http.Handler) http.Handler {
+// 	return func(next http.Handler) http.Handler {
+// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 			if !strings.HasPrefix(r.URL.Path, prefix) {
+// 				http.NotFound(w, r)
+// 				return
+// 			}
+// 			next.ServeHTTP(w, r)
+// 		})
+// 	}
+// }

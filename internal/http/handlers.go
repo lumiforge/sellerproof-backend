@@ -159,6 +159,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
+
 	var req models.LoginRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
