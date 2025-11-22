@@ -1,0 +1,30 @@
+meta {
+  name: Update profile full_name too short
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{baseUrl}}/api/v1/auth/profile
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "full_name": "A"
+  }
+}
+
+tests {
+  test('Should return 400 for full_name too short', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+    expect(res.body.message).to.include('full_name must be at least 2 characters long');
+  });
+}
