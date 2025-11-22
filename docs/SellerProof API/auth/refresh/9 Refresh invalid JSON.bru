@@ -1,7 +1,7 @@
 meta {
-  name: Refresh missing refresh_token
+  name: Refresh invalid JSON
   type: http
-  seq: 1
+  seq: 9
 }
 
 post {
@@ -11,12 +11,15 @@ post {
 }
 
 body:json {
-  {
-  }
+  {"refresh_token": "valid_refresh_token_string",
+}
+
+headers {
+  Content-Type: application/json
 }
 
 tests {
-  test('Should return 400 Bad Request for missing refresh_token field', function() {
+  test('Should return 400 Bad Request for invalid JSON', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.include('Bad Request');
