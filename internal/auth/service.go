@@ -637,6 +637,71 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 	}, nil
 }
 
+// UpdateProfile обновляет профиль пользователя
+func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.UpdateProfileRequest) (*models.GetProfileResponse, error) {
+	// Валидация обязательных полей
+	if req.FullName == "" {
+		return nil, fmt.Errorf("full_name is required")
+	}
+
+	// Валидация длины имени
+	if len(req.FullName) < 2 {
+		return nil, fmt.Errorf("full_name must be at least 2 characters long")
+	}
+	if len(req.FullName) > 100 {
+		return nil, fmt.Errorf("full_name must be less than 101 characters long")
+	}
+
+	// Проверка на потенциальные XSS/инъекции в имени
+	if strings.Contains(req.FullName, "<script") ||
+		strings.Contains(req.FullName, "</script>") ||
+		strings.Contains(req.FullName, "javascript:") ||
+		strings.Contains(req.FullName, "onerror=") ||
+		strings.Contains(req.FullName, "onload=") ||
+		strings.Contains(req.FullName, "<") ||
+		strings.Contains(req.FullName, ">") {
+		return nil, fmt.Errorf("full_name contains invalid characters")
+	}
+
+	// Улучшенная проверка на SQL инъекции в имени
+	sqlInjectionPatterns := []string{
+		"'", ";", "--", "/*", "*/", "xp_", "sp_",
+		"drop ", "delete ", "insert ", "update ", "select ",
+		"union ", "exec ", "execute ", "truncate ", "alter ",
+		"create ", "table ", "from ", "where ", "or 1=1",
+		"and 1=1", "sleep(", "benchmark(", "waitfor delay",
+		"convert(", "cast(", "char(", "ascii(", "substring(",
+		"concat(", "load_file(", "into outfile", "into dumpfile",
+	}
+
+	// Проверка имени на SQL инъекции
+	nameLower := strings.ToLower(req.FullName)
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(req.FullName, pattern) || strings.Contains(nameLower, pattern) {
+			return nil, fmt.Errorf("full_name contains invalid characters")
+		}
+	}
+
+	// Получаем текущего пользователя
+	user, err := s.db.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	// Обновляем только поле full_name
+	user.FullName = &req.FullName
+	user.UpdatedAt = time.Now()
+
+	// Сохраняем изменения в базе
+	err = s.db.UpdateUser(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	// Получаем обновленный профиль пользователя
+	return s.GetProfile(ctx, userID)
+}
+
 // SwitchOrganization переключает организацию пользователя
 func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *models.SwitchOrganizationRequest) (*models.SwitchOrganizationResponse, error) {
 	// Проверяем, что пользователь состоит в этой организации

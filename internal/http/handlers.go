@@ -357,20 +357,24 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement profile update logic in auth service
-	// For now, return updated profile
-	userInfo := &models.UserInfo{
-		UserID:        claims.UserID,
-		Email:         claims.Email,
-		FullName:      req.FullName,
-		Role:          claims.Role,
-		OrgID:         claims.OrgID,
-		EmailVerified: true, // Assuming email is verified
-		CreatedAt:     0,    // TODO: Get from database
-		UpdatedAt:     0,    // TODO: Get from database
+	resp, err := s.authService.UpdateProfile(r.Context(), claims.UserID, &req)
+	if err != nil {
+		// Проверяем тип ошибки и возвращаем соответствующий код
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "is required") ||
+			strings.Contains(errorMsg, "must be at least") ||
+			strings.Contains(errorMsg, "must be less than") ||
+			strings.Contains(errorMsg, "contains invalid characters") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else if strings.Contains(errorMsg, "user not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
 	}
 
-	s.writeJSON(w, http.StatusOK, userInfo)
+	s.writeJSON(w, http.StatusOK, resp.User)
 }
 
 // Video Handlers
