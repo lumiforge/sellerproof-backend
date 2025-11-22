@@ -1,0 +1,23 @@
+meta {
+  name: Refresh wrong HTTP method PUT
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/api/v1/auth/refresh
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "refresh_token": "valid_refresh_token_string"
+  }
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for PUT request', function() {
+    expect(res.status).to.equal(405);
+  });
+}

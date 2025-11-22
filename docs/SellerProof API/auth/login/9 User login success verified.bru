@@ -24,5 +24,9 @@ tests {
     expect(res.body).to.have.property("refresh_token");
     expect(res.body).to.have.property("user");
     expect(res.body.user.email_verified).to.equal(true);
+    
+    // Update environment variables with new tokens
+    bru.setEnvVar("access_token", res.body.access_token);
+    bru.setEnvVar("refresh_token", res.body.refresh_token);
   });
 }

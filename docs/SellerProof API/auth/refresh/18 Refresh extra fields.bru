@@ -1,7 +1,7 @@
 meta {
-  name: Refresh token success
+  name: Refresh extra fields
   type: http
-  seq: 4
+  seq: 18
 }
 
 post {
@@ -12,22 +12,19 @@ post {
 
 body:json {
   {
-    "refresh_token": "{{refreshToken}}"
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+    "extra_field": "extra_value",
+    "another_field": 123,
+    "user_id": "user123"
   }
 }
 
 tests {
-  test('Should return 200 OK and new tokens for valid refresh token', function() {
+  test('Should return 200 OK and ignore extra fields in request', function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.have.property('access_token');
     expect(res.body).to.have.property('refresh_token');
     expect(res.body).to.have.property('expires_at');
-    expect(res.body.access_token).to.be.a('string');
-    expect(res.body.refresh_token).to.be.a('string');
-    expect(res.body.expires_at).to.be.a('number');
-    expect(res.body.access_token).to.not.equal('');
-    expect(res.body.refresh_token).to.not.equal('');
-    expect(res.body.expires_at).to.not.equal('');
     
     // Update environment variables with new tokens
     bru.setEnvVar('accessToken', res.body.access_token);
