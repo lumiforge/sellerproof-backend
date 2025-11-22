@@ -1,0 +1,17 @@
+meta {
+  name: Get profile without JWT token
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/profile
+  body: none
+  auth: none
+}
+
+tests {
+  test('Should return 401 Unauthorized for missing JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

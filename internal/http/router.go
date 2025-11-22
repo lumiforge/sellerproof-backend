@@ -51,17 +51,26 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/auth/logout", chainMiddleware(server.Logout, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
-	mux.HandleFunc("/api/v1/auth/profile", chainMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			server.GetProfile(w, r)
-		} else if r.Method == "PUT" {
-			server.UpdateProfile(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, next)
-	}))
+	mux.HandleFunc("/api/v1/auth/profile", func(w http.ResponseWriter, r *http.Request) {
+		// Apply basic middleware first
+		CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			RequestIDMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				LoggingMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// Check method first before any auth or content-type validation
+					if r.Method == "GET" {
+						// For GET, apply auth middleware
+						AuthMiddleware(jwtManager, http.HandlerFunc(server.GetProfile)).ServeHTTP(w, r)
+					} else if r.Method == "PUT" {
+						// For PUT, apply content-type and auth middleware
+						ContentTypeMiddleware(AuthMiddleware(jwtManager, http.HandlerFunc(server.UpdateProfile))).ServeHTTP(w, r)
+					} else {
+						// Method not allowed
+						http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					}
+				})).ServeHTTP(w, r)
+			})).ServeHTTP(w, r)
+		})).ServeHTTP(w, r)
+	})
 	mux.HandleFunc("/api/v1/auth/switch-organization", chainMiddleware(server.SwitchOrganization, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))

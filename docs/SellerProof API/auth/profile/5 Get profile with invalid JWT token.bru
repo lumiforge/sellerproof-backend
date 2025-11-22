@@ -1,0 +1,21 @@
+meta {
+  name: Get profile with invalid JWT token
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/profile
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: "invalid.jwt.token"
+}
+
+tests {
+  test('Should return 401 Unauthorized for invalid JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

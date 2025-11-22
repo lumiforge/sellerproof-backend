@@ -1,0 +1,17 @@
+meta {
+  name: Get profile with incorrect HTTP method POST
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/profile
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("Should return HTTP 405 Method Not Allowed", function() {
+    expect(res.getStatus()).to.equal(405);
+  });
+}
