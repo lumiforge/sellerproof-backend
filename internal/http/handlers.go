@@ -2,7 +2,6 @@ package http
 
 import (
 	"encoding/json"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -227,8 +226,13 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
-	// TODO: Remove this log
-	log.Println("Refresh token: ", req.RefreshToken)
+
+	// check if refresh token trailing spaces
+	if strings.TrimSpace(req.RefreshToken) != req.RefreshToken {
+		s.writeError(w, http.StatusBadRequest, "Refresh token cannot contain trailing spaces")
+		return
+	}
+
 	if req.RefreshToken == "" {
 		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
 		return
