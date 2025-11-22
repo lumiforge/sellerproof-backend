@@ -1,0 +1,27 @@
+meta {
+  name: Initiate upload without JWT token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "file_name": "test-video.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 401 Unauthorized for missing JWT token', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Unauthorized');
+  });
+}

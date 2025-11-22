@@ -1,0 +1,47 @@
+meta {
+  name: Initiate upload extra fields
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "test-video.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60,
+    "extra_field": "should_be_ignored",
+    "another_field": 123
+  }
+}
+
+tests {
+  test('Should return 200 OK and ignore extra fields', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    
+    // Validate all required fields exist
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('upload_id');
+    expect(res.body).to.have.property('recommended_part_size_mb');
+    
+    // Validate field types
+    expect(res.body.video_id).to.be.a('string');
+    expect(res.body.upload_id).to.be.a('string');
+    expect(res.body.recommended_part_size_mb).to.be.a('number');
+    
+    // Validate field values are not empty
+    expect(res.body.video_id).to.not.equal('');
+    expect(res.body.upload_id).to.not.equal('');
+    expect(res.body.recommended_part_size_mb).to.be.at.least(1);
+  });
+}

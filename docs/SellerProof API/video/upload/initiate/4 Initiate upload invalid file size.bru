@@ -1,0 +1,31 @@
+meta {
+  name: Initiate upload invalid file size
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "test-video.mp4",
+    "file_size_bytes": -1,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for invalid file size', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+  });
+}
