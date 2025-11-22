@@ -1646,9 +1646,10 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 			found = true
 			err := res.ScanNamed(
 				named.Required("org_id", &org.OrgID),
-				named.Required("name", &org.Name),
-				named.Required("owner_id", &org.OwnerID),
-				named.Required("settings", &org.Settings),
+				named.Optional("name", &org.Name),
+				named.Optional("owner_id", &org.OwnerID),
+				named.Optional("settings", &org.Settings),
+
 				named.Required("created_at", &org.CreatedAt),
 				named.Required("updated_at", &org.UpdatedAt),
 			)
