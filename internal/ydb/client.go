@@ -1646,16 +1646,20 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 			found = true
 			err := res.ScanNamed(
 				named.Required("org_id", &org.OrgID),
-				named.Optional("name", &org.Name),
-				named.Optional("owner_id", &org.OwnerID),
-				named.Optional("settings", &org.Settings),
+				named.Required("name", &org.Name),
+				named.Required("owner_id", &org.OwnerID),
+				named.Required("settings", &org.Settings),
 				named.Required("created_at", &org.CreatedAt),
 				named.Required("updated_at", &org.UpdatedAt),
 			)
 			if err != nil {
+				log.Println("Error in loop ", err)
 				return fmt.Errorf("scan failed: %w", err)
 			}
 		}
+		// TODO: Remove this log
+		log.Println("Debug in loop ", org.OrgID, org.Name, org.OwnerID, org.Settings, org.CreatedAt, org.UpdatedAt)
+
 		return res.Err()
 	})
 
@@ -1665,7 +1669,7 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 	if !found {
 		return nil, fmt.Errorf("organization not found")
 	}
-
+	log.Println("Organization found ", org.OrgID, org.Name)
 	return &org, nil
 }
 
@@ -1782,12 +1786,17 @@ func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]
 			),
 		)
 		if err != nil {
+
 			return err
 		}
 		defer res.Close()
 
+		resultSetCount := 0
+		rowCount := 0
 		for res.NextResultSet(ctx) {
+			resultSetCount++
 			for res.NextRow() {
+				rowCount++
 				var membership Membership
 				if err := res.ScanNamed(
 					named.Required("membership_id", &membership.MembershipID),
@@ -1799,6 +1808,7 @@ func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]
 					named.OptionalWithDefault("created_at", &membership.CreatedAt),
 					named.OptionalWithDefault("updated_at", &membership.UpdatedAt),
 				); err != nil {
+
 					return fmt.Errorf("scan failed: %w", err)
 				}
 
@@ -1810,6 +1820,7 @@ func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]
 	})
 
 	if err != nil {
+
 		return nil, err
 	}
 

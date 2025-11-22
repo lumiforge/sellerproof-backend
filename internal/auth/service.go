@@ -388,13 +388,14 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	}
 
 	// Получение всех членств пользователя
+
 	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
 	if err != nil {
-		slog.Error("Failed to get user memberships", "error", err, "user_id", user.UserID)
+
 		return nil, fmt.Errorf("failed to get user membership: %w", err)
 	}
 	if len(memberships) == 0 {
-		slog.Error("No memberships found for user", "user_id", user.UserID)
+
 		return nil, fmt.Errorf("failed to get user membership: membership not found")
 	}
 
@@ -425,6 +426,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	}
 
 	// Собираем информацию об организациях для ответа
+	// Собираем информацию об организациях для ответа
 	organizations := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {
 		// Получаем информацию об организации для всех членств
@@ -442,6 +444,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		if m.Role != nil {
 			role = *m.Role
 		}
+		log.Println("Organization added ", m.OrgID, orgName)
 		organizations = append(organizations, &models.OrganizationInfo{
 			OrgID: m.OrgID,
 			Name:  orgName,
