@@ -1,0 +1,32 @@
+meta {
+  name: Refresh token success
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/refresh
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "refresh_token": "{{refreshToken}}"
+  }
+}
+
+tests {
+  test('Should return 200 OK and new tokens for valid refresh token', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('access_token');
+    expect(res.body).to.have.property('refresh_token');
+    expect(res.body).to.have.property('expires_at');
+    expect(res.body.access_token).to.be.a('string');
+    expect(res.body.refresh_token).to.be.a('string');
+    expect(res.body.expires_at).to.be.a('number');
+    expect(res.body.access_token).to.not.equal('');
+    expect(res.body.refresh_token).to.not.equal('');
+    expect(res.body.expires_at).to.not.equal('');
+  });
+}

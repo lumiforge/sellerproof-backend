@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -226,6 +227,8 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
+	// TODO: Remove this log
+	log.Println("Refresh token: ", req.RefreshToken)
 	if req.RefreshToken == "" {
 		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
 		return

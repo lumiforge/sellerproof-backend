@@ -886,12 +886,15 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 			err := res.ScanNamed(
 				named.Required("token_id", &token.TokenID),
 				named.Required("user_id", &token.UserID),
-				named.Required("token_hash", &token.TokenHash),
+				named.Optional("token_hash", &token.TokenHash),
 				named.Optional("expires_at", &token.ExpiresAt),
-				named.Required("created_at", &token.CreatedAt),
+				named.Optional("created_at", &token.CreatedAt),
 				named.Required("is_revoked", &token.IsRevoked),
 			)
+
 			if err != nil {
+				// TODO: Remove this log
+				log.Println("Error in loop ", err)
 				return fmt.Errorf("scan failed: %w", err)
 			}
 		}
@@ -899,12 +902,18 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 	})
 
 	if err != nil {
+		// TODO: Remove this log
+		log.Println("Error in GetRefreshToken ", err)
 		return nil, err
 	}
 	if !found {
+		// TODO: Remove this log
+		log.Println("Error in GetRefreshToken ", "not found")
 		return nil, fmt.Errorf("refresh token not found")
 	}
 
+	// TODO: Remove this log
+	log.Println("Debug in GetRefreshToken ", token.TokenID)
 	return &token, nil
 }
 
