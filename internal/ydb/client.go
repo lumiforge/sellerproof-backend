@@ -508,8 +508,8 @@ func (c *YDBClient) GetUserByID(ctx context.Context, userID string) (*User, erro
 				named.Required("email_verified", &user.EmailVerified),
 				named.Optional("verification_code", &user.VerificationCode),
 				named.Optional("verification_expires_at", &user.VerificationExpiresAt),
-				named.Required("created_at", &user.CreatedAt),
-				named.Required("updated_at", &user.UpdatedAt),
+				named.OptionalWithDefault("created_at", &user.CreatedAt),
+				named.OptionalWithDefault("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
 			if err != nil {
@@ -596,13 +596,14 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 		DECLARE $email_verified AS Bool;
 		DECLARE $verification_code AS Optional<Text>;
 		DECLARE $verification_expires_at AS Optional<Timestamp>;
+		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 		DECLARE $is_active AS Bool;
 
 		REPLACE INTO users (
 			user_id, email, password_hash, full_name, email_verified,
-			verification_code, verification_expires_at, updated_at, is_active
-		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $updated_at, $is_active)
+			verification_code, verification_expires_at, created_at, updated_at, is_active
+		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $created_at, $updated_at, $is_active)
 	`
 
 	user.UpdatedAt = time.Now()
@@ -633,6 +634,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 					}
 					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
 				}(),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
 			),
