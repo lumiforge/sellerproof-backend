@@ -2027,8 +2027,8 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
-				named.Required("video_count_limit", &subscription.VideoCountLimit),
+				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),
+				named.Optional("video_count_limit", &subscription.VideoCountLimit),
 				named.Required("is_active", &subscription.IsActive),
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
 				named.Required("started_at", &subscription.StartedAt),
@@ -2037,6 +2037,7 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Required("created_at", &subscription.CreatedAt),
 				named.Required("updated_at", &subscription.UpdatedAt),
 			)
+
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
