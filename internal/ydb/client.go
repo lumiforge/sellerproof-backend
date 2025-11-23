@@ -282,7 +282,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				storage_limit_gb Int64,
 				video_count_limit Int64,
 				is_active Bool DEFAULT true,
-				trial_ends_at Optional<Timestamp>, 
+				trial_ends_at Timestamp,
 				started_at Timestamp,
 				expires_at Optional<Timestamp>,
 				billing_cycle Text,
@@ -1013,8 +1013,8 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 			err := res.ScanNamed(
 				named.Required("plan_id", &plan.PlanID),
 				named.Required("name", &plan.Name),
-				named.Optional("storage_limit_gb", &plan.StorageLimitGB),
-				named.Optional("video_count_limit", &plan.VideoCountLimit),
+				named.Required("storage_limit_gb", &plan.StorageLimitGB),
+				named.Required("video_count_limit", &plan.VideoCountLimit),
 				named.Required("price_rub", &plan.PriceRub),
 				named.Required("billing_cycle", &plan.BillingCycle),
 				named.OptionalWithDefault("features", &plan.Features),
@@ -1096,12 +1096,11 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 					return table.ValueParam("$is_active", types.OptionalValue(types.BoolValue(*subscription.IsActive)))
 				}(),
 				func() table.ParameterOption {
-					if subscription.TrialEndsAt == nil || subscription.TrialEndsAt.IsZero() {
+					if subscription.TrialEndsAt.IsZero() {
 						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
 					}
 					return table.ValueParam("$trial_ends_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.TrialEndsAt)))
 				}(),
-
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
 					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
@@ -1155,17 +1154,16 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),   // *int64
-				named.Optional("video_count_limit", &subscription.VideoCountLimit), // *int64
-				named.Optional("is_active", &subscription.IsActive),                // *bool
-				named.Optional("trial_ends_at", &subscription.TrialEndsAt),         // *time.Time
-				named.OptionalWithDefault("started_at", &subscription.StartedAt),   // time.Time
-				named.Optional("expires_at", &subscription.ExpiresAt),              // *time.Time
-				named.Required("billing_cycle", &subscription.BillingCycle),        // string
-				named.OptionalWithDefault("created_at", &subscription.CreatedAt),   // time.Time
-				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),   // time.Time
+				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
+				named.Required("video_count_limit", &subscription.VideoCountLimit),
+				named.Required("is_active", &subscription.IsActive),
+				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
+				named.Required("started_at", &subscription.StartedAt),
+				named.Optional("expires_at", &subscription.ExpiresAt),
+				named.Required("billing_cycle", &subscription.BillingCycle),
+				named.Required("created_at", &subscription.CreatedAt),
+				named.Required("updated_at", &subscription.UpdatedAt),
 			)
-
 			if err != nil {
 				// TODO: Remove this log
 				log.Println("SCAN FOR SUBSCRIPTIONS FAILED 2 ", err)
@@ -1975,8 +1973,8 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 				if err := res.ScanNamed(
 					named.Required("plan_id", &plan.PlanID),
 					named.Required("name", &plan.Name),
-					named.Optional("storage_limit_gb", &plan.StorageLimitGB),
-					named.Optional("video_count_limit", &plan.VideoCountLimit),
+					named.Required("storage_limit_gb", &plan.StorageLimitGB),
+					named.Required("video_count_limit", &plan.VideoCountLimit),
 					named.Required("price_rub", &plan.PriceRub),
 					named.Required("billing_cycle", &plan.BillingCycle),
 					named.OptionalWithDefault("features", &plan.Features),
@@ -2029,17 +2027,16 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),   // *int64
-				named.Optional("video_count_limit", &subscription.VideoCountLimit), // *int64
-				named.Optional("is_active", &subscription.IsActive),                // *bool
-				named.Optional("trial_ends_at", &subscription.TrialEndsAt),         // *time.Time
-				named.OptionalWithDefault("started_at", &subscription.StartedAt),   // time.Time
-				named.Optional("expires_at", &subscription.ExpiresAt),              // *time.Time
-				named.Required("billing_cycle", &subscription.BillingCycle),        // string
-				named.OptionalWithDefault("created_at", &subscription.CreatedAt),   // time.Time
-				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),   // time.Time
+				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
+				named.Required("video_count_limit", &subscription.VideoCountLimit),
+				named.Required("is_active", &subscription.IsActive),
+				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
+				named.Required("started_at", &subscription.StartedAt),
+				named.Optional("expires_at", &subscription.ExpiresAt),
+				named.Required("billing_cycle", &subscription.BillingCycle),
+				named.Required("created_at", &subscription.CreatedAt),
+				named.Required("updated_at", &subscription.UpdatedAt),
 			)
-
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
@@ -2089,17 +2086,16 @@ func (c *YDBClient) GetSubscriptionByOrg(ctx context.Context, orgID string) (*Su
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),   // *int64
-				named.Optional("video_count_limit", &subscription.VideoCountLimit), // *int64
-				named.Optional("is_active", &subscription.IsActive),                // *bool
-				named.Optional("trial_ends_at", &subscription.TrialEndsAt),         // *time.Time
-				named.OptionalWithDefault("started_at", &subscription.StartedAt),   // time.Time
-				named.Optional("expires_at", &subscription.ExpiresAt),              // *time.Time
-				named.Required("billing_cycle", &subscription.BillingCycle),        // string
-				named.OptionalWithDefault("created_at", &subscription.CreatedAt),   // time.Time
-				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),   // time.Time
+				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
+				named.Required("video_count_limit", &subscription.VideoCountLimit),
+				named.Required("is_active", &subscription.IsActive),
+				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
+				named.Required("started_at", &subscription.StartedAt),
+				named.Optional("expires_at", &subscription.ExpiresAt),
+				named.Required("billing_cycle", &subscription.BillingCycle),
+				named.Required("created_at", &subscription.CreatedAt),
+				named.Required("updated_at", &subscription.UpdatedAt),
 			)
-
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
@@ -2168,12 +2164,11 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 					return table.ValueParam("$is_active", types.OptionalValue(types.BoolValue(*subscription.IsActive)))
 				}(),
 				func() table.ParameterOption {
-					if subscription.TrialEndsAt == nil || subscription.TrialEndsAt.IsZero() {
+					if subscription.TrialEndsAt.IsZero() {
 						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
 					}
 					return table.ValueParam("$trial_ends_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.TrialEndsAt)))
 				}(),
-
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
 					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
@@ -2276,8 +2271,8 @@ func (c *YDBClient) GetSubscriptionHistory(ctx context.Context, subscriptionID s
 					named.Required("history_id", &history.HistoryID),
 					named.Required("subscription_id", &history.SubscriptionID),
 					named.Required("plan_id", &history.PlanID),
-					named.Optional("storage_limit_gb", &history.StorageLimitGB),
-					named.Optional("video_count_limit", &history.VideoCountLimit),
+					named.Required("storage_limit_gb", &history.StorageLimitGB),
+					named.Required("video_count_limit", &history.VideoCountLimit),
 					named.Required("event_type", &history.EventType),
 					named.Required("changed_at", &history.ChangedAt),
 				); err != nil {
