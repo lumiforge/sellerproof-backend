@@ -1159,12 +1159,13 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Optional("video_count_limit", &subscription.VideoCountLimit),
 				named.Optional("is_active", &subscription.IsActive),
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
-				named.Required("started_at", &subscription.StartedAt),
+				named.OptionalWithDefault("started_at", &subscription.StartedAt),
 				named.Optional("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
-				named.Required("created_at", &subscription.CreatedAt),
-				named.Required("updated_at", &subscription.UpdatedAt),
+				named.OptionalWithDefault("created_at", &subscription.CreatedAt),
+				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),
 			)
+
 			if err != nil {
 				// TODO: Remove this log
 				log.Println("SCAN FOR SUBSCRIPTIONS FAILED 2 ", err)
@@ -2030,13 +2031,13 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Required("plan_id", &subscription.PlanID),
 				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),
 				named.Optional("video_count_limit", &subscription.VideoCountLimit),
-				named.Required("is_active", &subscription.IsActive),
+				named.Optional("is_active", &subscription.IsActive),
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
-				named.Required("started_at", &subscription.StartedAt),
+				named.OptionalWithDefault("started_at", &subscription.StartedAt),
 				named.Optional("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
-				named.Required("created_at", &subscription.CreatedAt),
-				named.Required("updated_at", &subscription.UpdatedAt),
+				named.OptionalWithDefault("created_at", &subscription.CreatedAt),
+				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),
 			)
 
 			if err != nil {
@@ -2090,14 +2091,15 @@ func (c *YDBClient) GetSubscriptionByOrg(ctx context.Context, orgID string) (*Su
 				named.Required("plan_id", &subscription.PlanID),
 				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),
 				named.Optional("video_count_limit", &subscription.VideoCountLimit),
-				named.Required("is_active", &subscription.IsActive),
+				named.Optional("is_active", &subscription.IsActive),
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
-				named.Required("started_at", &subscription.StartedAt),
+				named.OptionalWithDefault("started_at", &subscription.StartedAt),
 				named.Optional("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
-				named.Required("created_at", &subscription.CreatedAt),
-				named.Required("updated_at", &subscription.UpdatedAt),
+				named.OptionalWithDefault("created_at", &subscription.CreatedAt),
+				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),
 			)
+
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
