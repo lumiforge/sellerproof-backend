@@ -1016,7 +1016,7 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 				named.Optional("storage_limit_gb", &plan.StorageLimitGB),
 				named.Optional("video_count_limit", &plan.VideoCountLimit),
 				named.Required("price_rub", &plan.PriceRub),
-				named.Required("billing_cycle", &plan.BillingCycle),
+				named.Optional("billing_cycle", &plan.BillingCycle),
 				named.OptionalWithDefault("features", &plan.Features),
 				named.Required("created_at", &plan.CreatedAt),
 				named.Required("updated_at", &plan.UpdatedAt),
@@ -1161,7 +1161,7 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
 				named.OptionalWithDefault("started_at", &subscription.StartedAt),
 				named.Optional("expires_at", &subscription.ExpiresAt),
-				named.Required("billing_cycle", &subscription.BillingCycle),
+				named.Optional("billing_cycle", &subscription.BillingCycle),
 				named.OptionalWithDefault("created_at", &subscription.CreatedAt),
 				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),
 			)
@@ -1978,7 +1978,7 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 					named.Optional("storage_limit_gb", &plan.StorageLimitGB),
 					named.Optional("video_count_limit", &plan.VideoCountLimit),
 					named.Required("price_rub", &plan.PriceRub),
-					named.Required("billing_cycle", &plan.BillingCycle),
+					named.Optional("billing_cycle", &plan.BillingCycle),
 					named.OptionalWithDefault("features", &plan.Features),
 
 					named.Required("created_at", &plan.CreatedAt),
@@ -2035,7 +2035,7 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
 				named.OptionalWithDefault("started_at", &subscription.StartedAt),
 				named.Optional("expires_at", &subscription.ExpiresAt),
-				named.Required("billing_cycle", &subscription.BillingCycle),
+				named.Optional("billing_cycle", &subscription.BillingCycle),
 				named.OptionalWithDefault("created_at", &subscription.CreatedAt),
 				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),
 			)
@@ -2095,7 +2095,7 @@ func (c *YDBClient) GetSubscriptionByOrg(ctx context.Context, orgID string) (*Su
 				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
 				named.OptionalWithDefault("started_at", &subscription.StartedAt),
 				named.Optional("expires_at", &subscription.ExpiresAt),
-				named.Required("billing_cycle", &subscription.BillingCycle),
+				named.Optional("billing_cycle", &subscription.BillingCycle),
 				named.OptionalWithDefault("created_at", &subscription.CreatedAt),
 				named.OptionalWithDefault("updated_at", &subscription.UpdatedAt),
 			)
