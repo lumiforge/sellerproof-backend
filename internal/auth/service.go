@@ -268,7 +268,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 	// Создание триальной подписки
 	planID := "free"
-	storageLimitGB := int64(1)
+	storageLimitMB := int64(1024) // 1GB = 1024MB
 	videoCountLimit := int64(10)
 	isActive := true
 	trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
@@ -277,7 +277,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		UserID:          user.UserID,
 		OrgID:           org.OrgID,
 		PlanID:          planID,
-		StorageLimitGB:  storageLimitGB,
+		StorageLimitMB:  storageLimitMB,
 		VideoCountLimit: videoCountLimit,
 		IsActive:        isActive,
 		TrialEndsAt:     trialEndsAt,

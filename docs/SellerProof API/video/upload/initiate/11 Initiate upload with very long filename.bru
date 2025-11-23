@@ -1,0 +1,31 @@
+meta {
+  name: Initiate upload with very long filename
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "this_is_a_very_long_filename_that_exceeds_the_maximum_allowed_length_for_a_filename_in_this_system_and_should_trigger_a_400_bad_request_error_because_it_is_way_too_long_to_be_accepted_by_the_validation_logic_in_the_backend123456789012345678901234567890123.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for very long filename', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+  });
+}

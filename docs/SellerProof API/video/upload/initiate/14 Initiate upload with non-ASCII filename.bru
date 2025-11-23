@@ -1,0 +1,49 @@
+meta {
+  name: Initiate upload with non-ASCII filename
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "тестовое-видео-кириллица.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 200 OK for successful upload initiation with non-ASCII filename', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    
+    // Validate all required fields exist
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('upload_id');
+    expect(res.body).to.have.property('recommended_part_size_mb');
+    
+    // Validate field types
+    expect(res.body.video_id).to.be.a('string');
+    expect(res.body.upload_id).to.be.a('string');
+    expect(res.body.recommended_part_size_mb).to.be.a('number');
+    
+    // Validate field values are not empty
+    expect(res.body.video_id).to.not.equal('');
+    expect(res.body.upload_id).to.not.equal('');
+    expect(res.body.recommended_part_size_mb).to.be.at.least(1);
+    
+    // Store video_id for subsequent tests
+    bru.setEnvVar("testVideoId", res.body.video_id);
+    bru.setEnvVar("testUploadId", res.body.upload_id);
+  });
+}

@@ -34,6 +34,17 @@ type Config struct {
 	AppLoginURL           string
 	SPYDBAutoCreateTables int
 
+	// Plan configuration
+	StorageLimitFree          int64
+	StorageLimitPro           int64
+	StorageLimitEnterprise    int64
+	VideoCountLimitFree       int64
+	VideoCountLimitPro        int64
+	VideoCountLimitEnterprise int64
+	PriceRubFree              float64
+	PriceRubPro               float64
+	PriceRubEnterprise        float64
+
 	// HTTP configuration
 	HTTPPort string
 }
@@ -81,6 +92,17 @@ func Load() *Config {
 		SESSecretAccessKey: getEnv("SP_POSTBOX_SECRET_ACCESS_KEY", ""),
 		EmailFrom:          getEnv("SP_EMAIL_FROM", ""),
 		AppLoginURL:        getEnv("SP_APP_LOGIN_URL", ""),
+
+		// Plan configuration
+		StorageLimitFree:          int64(getEnvInt("storage_limit_free", 1024, 0, 0)),
+		StorageLimitPro:           int64(getEnvInt("storage_limit_pro", 102400, 0, 0)),
+		StorageLimitEnterprise:    int64(getEnvInt("storage_limit_enterprise", 1024000, 0, 0)),
+		VideoCountLimitFree:       int64(getEnvInt("video_count_limit_free", 10, 0, 0)),
+		VideoCountLimitPro:        int64(getEnvInt("video_count_limit_pro", 1000, 0, 0)),
+		VideoCountLimitEnterprise: int64(getEnvInt("video_count_limit_enterprise", 10000, 0, 0)),
+		PriceRubFree:              float64(getEnvInt("price_rub_free", 0, 0, 0)),
+		PriceRubPro:               float64(getEnvInt("price_rub_pro", 990, 0, 0)),
+		PriceRubEnterprise:        float64(getEnvInt("price_rub_enterprise", 4990, 0, 0)),
 
 		// HTTP configuration
 		HTTPPort: getEnv("SP_HTTP_PORT", "8080"),

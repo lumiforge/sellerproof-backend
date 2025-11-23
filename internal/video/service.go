@@ -75,8 +75,8 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, fmt.Errorf("failed to get storage usage: %w", err)
 	}
 
-	var limitBytes int64 = sub.StorageLimitGB * 1024 * 1024 * 1024
-	if sub.StorageLimitGB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
+	var limitBytes int64 = sub.StorageLimitMB * 1024 * 1024
+	if sub.StorageLimitMB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
 		// TODO: delete this log
 		log.Println("Storage limit exceeded")
 		return nil, fmt.Errorf("storage limit exceeded")

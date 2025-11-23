@@ -1,0 +1,32 @@
+meta {
+  name: Initiate upload storage limit exceeded
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "large-video-file.mp4",
+    "file_size_bytes": 2147483648,
+    "duration_seconds": 3600
+  }
+}
+
+tests {
+  test('Should return 500 Internal Server Error for storage limit exceeded', function() {
+    expect(res.status).to.equal(500);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.equal('Internal Server Error');
+    expect(res.body.message).to.include('storage limit exceeded');
+  });
+}
