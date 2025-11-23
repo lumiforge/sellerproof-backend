@@ -399,6 +399,9 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// TODO: Remove this log
+	log.Println("InitiateMultipartUpload START", claims.UserID, claims.OrgID)
+
 	var req models.InitiateMultipartUploadRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())

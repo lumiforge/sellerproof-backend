@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -54,6 +55,8 @@ type SearchVideosResult struct {
 
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
+	// TODO: Remove this log
+	log.Println("InitiateMultipartUploadDirect START", userID, orgID, fileName, fileSizeBytes, durationSeconds)
 	// Проверка прав
 	// TODO: Реализовать проверку прав через RBAC
 

@@ -1141,12 +1141,16 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 	var found bool
 
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		// TODO: Remove this log
+		log.Println("SCAN FOR SUBSCRIPTIONS START", userID)
 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$user_id", types.TextValue(userID)),
 			),
 		)
 		if err != nil {
+			// TODO: Remove this log
+			log.Println("SCAN FOR SUBSCRIPTIONS FAILED 1 ", err)
 			return err
 		}
 		defer res.Close()
@@ -1169,9 +1173,11 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("updated_at", &subscription.UpdatedAt),
 			)
 			if err != nil {
-				log.Println("SCAN FOR SUBSCRIPTIONS FAILED", err)
+				// TODO: Remove this log
+				log.Println("SCAN FOR SUBSCRIPTIONS FAILED 2 ", err)
 				return fmt.Errorf("scan failed: %w", err)
 			}
+			// TODO: Remove this log
 			log.Println("SCAN FOR SUBSCRIPTIONS OK")
 		}
 		return res.Err()
