@@ -2,8 +2,6 @@ module github.com/lumiforge/sellerproof-backend
 
 go 1.23
 
-toolchain go1.23.0
-
 replace golang.org/x/crypto => golang.org/x/crypto v0.31.0
 
 require (
@@ -37,6 +35,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/jonboulle/clockwork v0.3.0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/yandex-cloud/go-genproto v0.0.0-20240819112322-98a264d392f6 // indirect
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20240528144234-5d5a685e41f7 // indirect
 	github.com/ydb-platform/ydb-go-yc-metadata v0.6.1 // indirect

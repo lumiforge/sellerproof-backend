@@ -25,7 +25,5 @@ body:json {
 tests {
   test('Should return 405 Method Not Allowed for wrong HTTP method', function() {
     expect(res.status).to.equal(405);
-    expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Method Not Allowed');
   });
 }

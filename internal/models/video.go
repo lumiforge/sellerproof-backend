@@ -5,9 +5,9 @@ package models
 // InitiateMultipartUploadRequest represents a request to initiate multipart upload
 // @Description	Multipart upload initiation request
 type InitiateMultipartUploadRequest struct {
-	FileName        string `json:"file_name" validate:"required"`
+	FileName        string `json:"file_name" validate:"required,max=255"`
 	FileSizeBytes   int64  `json:"file_size_bytes" validate:"required,min=1"`
-	DurationSeconds int32  `json:"duration_seconds" validate:"min=0"`
+	DurationSeconds int32  `json:"duration_seconds" validate:"required,min=1"`
 }
 
 // InitiateMultipartUploadResponse represents a response for initiated multipart upload

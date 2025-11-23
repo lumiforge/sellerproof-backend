@@ -400,6 +400,87 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Manual validation of all required fields
+	var validationErrors []string
+
+	// Validate FileName
+	if req.FileName == "" {
+		validationErrors = append(validationErrors, "file_name is required")
+	} else if len(req.FileName) > 255 {
+		validationErrors = append(validationErrors, "file_name must be at most 255 characters")
+	} else {
+		// Check for SQL injection patterns
+		sqlInjectionPatterns := []string{
+			"'",
+			"\"",
+			";",
+			"--",
+			"/*",
+			"*/",
+			"xp_",
+			"DROP",
+			"DELETE",
+			"INSERT",
+			"UPDATE",
+			"SELECT",
+			"UNION",
+			"EXEC",
+			"EXECUTE",
+		}
+
+		fileNameUpper := strings.ToUpper(req.FileName)
+		for _, pattern := range sqlInjectionPatterns {
+			if strings.Contains(fileNameUpper, pattern) {
+				validationErrors = append(validationErrors, "file_name contains invalid characters")
+				break
+			}
+		}
+
+		// Check for XSS patterns
+		xssPatterns := []string{
+			"<script",
+			"</script>",
+			"javascript:",
+			"onload=",
+			"onerror=",
+			"onclick=",
+			"onmouseover=",
+			"onfocus=",
+			"onblur=",
+			"<iframe",
+			"<object",
+			"<embed",
+			"<form",
+			"<input",
+			"<img",
+		}
+
+		fileNameLower := strings.ToLower(req.FileName)
+		for _, pattern := range xssPatterns {
+			if strings.Contains(fileNameLower, pattern) {
+				validationErrors = append(validationErrors, "file_name contains invalid characters")
+				break
+			}
+		}
+	}
+
+	// Validate FileSizeBytes
+	if req.FileSizeBytes <= 0 {
+		validationErrors = append(validationErrors, "file_size_bytes must be greater than 0")
+	}
+
+	// Validate DurationSeconds
+	if req.DurationSeconds <= 0 {
+		validationErrors = append(validationErrors, "duration_seconds must be greater than 0")
+	}
+
+	// If there are validation errors, return them
+	if len(validationErrors) > 0 {
+		errorMessage := strings.Join(validationErrors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Validation error: "+errorMessage)
+		return
+	}
+
 	resp, err := s.videoService.InitiateMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, req.FileName, req.FileSizeBytes, req.DurationSeconds)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, err.Error())
