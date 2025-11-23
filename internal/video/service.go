@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -54,26 +55,30 @@ type SearchVideosResult struct {
 
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
-
+	// TODO: delete this log
+	log.Println("InitiateMultipartUploadDirect started")
 	// Проверка прав
 	// TODO: Реализовать проверку прав через RBAC
 
 	// Проверка квоты
 	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
 	if err != nil {
+		// TODO: delete this log
+		log.Println("Failed to get subscription", err)
 		return nil, fmt.Errorf("failed to get subscription: %w", err)
 	}
 
 	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
 	if err != nil {
+		// TODO: delete this log
+		log.Println("Failed to get storage usage", err)
 		return nil, fmt.Errorf("failed to get storage usage: %w", err)
 	}
 
-	var limitBytes int64
-	if sub.StorageLimitGB != nil {
-		limitBytes = *sub.StorageLimitGB * 1024 * 1024 * 1024
-	}
-	if sub.StorageLimitGB != nil && *sub.StorageLimitGB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
+	var limitBytes int64 = sub.StorageLimitGB * 1024 * 1024 * 1024
+	if sub.StorageLimitGB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
+		// TODO: delete this log
+		log.Println("Storage limit exceeded")
 		return nil, fmt.Errorf("storage limit exceeded")
 	}
 
@@ -82,26 +87,33 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, "video/mp4")
 	if err != nil {
+		// TODO: delete this log
+		log.Println("Failed to initiate s3 upload", err)
 		return nil, fmt.Errorf("failed to initiate s3 upload: %w", err)
 	}
 
 	fileNameSearch := strings.ToLower(fileName)
 	uploadStatus := "pending"
+
+	createdAt := time.Now()
 	video := &ydb.Video{
 		VideoID:         videoID,
 		OrgID:           orgID,
 		UploadedBy:      userID,
-		FileName:        &fileName,
-		FileNameSearch:  &fileNameSearch,
-		FileSizeBytes:   &fileSizeBytes,
-		StoragePath:     &objectKey,
-		DurationSeconds: &durationSeconds,
-		UploadID:        &uploadID,
-		UploadStatus:    &uploadStatus,
+		FileName:        fileName,
+		FileNameSearch:  fileNameSearch,
+		FileSizeBytes:   fileSizeBytes,
+		StoragePath:     objectKey,
+		DurationSeconds: durationSeconds,
+		UploadID:        uploadID,
+		UploadStatus:    uploadStatus,
 		IsDeleted:       false,
+		CreatedAt:       createdAt,
 	}
 
 	if err := s.db.CreateVideo(ctx, video); err != nil {
+		// TODO: delete this log
+		log.Println("Failed to create video record", err)
 		return nil, fmt.Errorf("failed to create video record: %w", err)
 	}
 
@@ -132,14 +144,8 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 
 	urls := make([]string, totalParts)
 	for i := 0; i < int(totalParts); i++ {
-		storagePath := ""
-		uploadID := ""
-		if video.StoragePath != nil {
-			storagePath = *video.StoragePath
-		}
-		if video.UploadID != nil {
-			uploadID = *video.UploadID
-		}
+		storagePath := video.StoragePath
+		uploadID := video.UploadID
 		url, err := s.storage.GeneratePresignedPartURL(ctx, storagePath, uploadID, int32(i+1), 1*time.Hour)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate url for part %d: %w", i+1, err)
@@ -149,7 +155,7 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 
 	video.TotalParts = &totalParts
 	uploadStatus := "uploading"
-	video.UploadStatus = &uploadStatus
+	video.UploadStatus = uploadStatus
 	s.db.UpdateVideo(ctx, video)
 
 	return &GetPartUploadURLsResult{
@@ -183,20 +189,14 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		}
 	}
 
-	storagePath := ""
-	uploadID := ""
-	if video.StoragePath != nil {
-		storagePath = *video.StoragePath
-	}
-	if video.UploadID != nil {
-		uploadID = *video.UploadID
-	}
+	storagePath := video.StoragePath
+	uploadID := video.UploadID
 	if err := s.storage.CompleteMultipartUpload(ctx, storagePath, uploadID, s3Parts); err != nil {
 		return nil, fmt.Errorf("failed to complete s3 upload: %w", err)
 	}
 
 	uploadStatus := "completed"
-	video.UploadStatus = &uploadStatus
+	video.UploadStatus = uploadStatus
 	now := time.Now()
 	video.UploadedAt = &now
 	s.db.UpdateVideo(ctx, video)
@@ -230,23 +230,10 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, videoID str
 	if video.UploadedAt != nil {
 		uploadedAt = video.UploadedAt.Unix()
 	}
-
-	fileName := ""
-	if video.FileName != nil {
-		fileName = *video.FileName
-	}
-	var fileSizeBytes int64
-	if video.FileSizeBytes != nil {
-		fileSizeBytes = *video.FileSizeBytes
-	}
-	var durationSeconds int32
-	if video.DurationSeconds != nil {
-		durationSeconds = *video.DurationSeconds
-	}
-	uploadStatus := ""
-	if video.UploadStatus != nil {
-		uploadStatus = *video.UploadStatus
-	}
+	fileName := video.FileName
+	fileSizeBytes := video.FileSizeBytes
+	durationSeconds := video.DurationSeconds
+	uploadStatus := video.UploadStatus
 	return &VideoInfo{
 		VideoID:         video.VideoID,
 		FileName:        fileName,
@@ -273,7 +260,7 @@ func (s *Service) CreatePublicShareLinkDirect(ctx context.Context, userID, orgID
 	}
 
 	var expiresAt int64
-	if video.ShareExpiresAt != nil {
+	if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() {
 		expiresAt = video.ShareExpiresAt.Unix()
 	}
 
@@ -309,27 +296,18 @@ func (s *Service) GetPublicVideoDirect(ctx context.Context, shareToken string) (
 		return nil, fmt.Errorf("video not found or link invalid")
 	}
 
-	if video.ShareExpiresAt != nil && time.Now().After(*video.ShareExpiresAt) {
+	if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() && time.Now().After(*video.ShareExpiresAt) {
 		return nil, fmt.Errorf("link expired")
 	}
 
-	storagePath := ""
-	if video.StoragePath != nil {
-		storagePath = *video.StoragePath
-	}
+	storagePath := video.StoragePath
 	url, err := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
 	if err != nil {
 		return nil, err
 	}
 
-	fileName := ""
-	if video.FileName != nil {
-		fileName = *video.FileName
-	}
-	var fileSize int64
-	if video.FileSizeBytes != nil {
-		fileSize = *video.FileSizeBytes
-	}
+	fileName := video.FileName
+	fileSize := video.FileSizeBytes
 	return &GetPublicVideoResult{
 		FileName:    fileName,
 		FileSize:    fileSize,
@@ -361,8 +339,7 @@ func (s *Service) RevokeShareLinkDirect(ctx context.Context, userID, orgID, role
 		return fmt.Errorf("access denied: can only revoke own videos")
 	}
 
-	emptyStr := ""
-	video.PublicShareToken = &emptyStr
+	video.PublicShareToken = nil
 	video.ShareExpiresAt = nil
 
 	return s.db.UpdateVideo(ctx, video)
@@ -399,23 +376,10 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 		if v.UploadedAt != nil {
 			uploadedAt = v.UploadedAt.Unix()
 		}
-
-		fileName := ""
-		if v.FileName != nil {
-			fileName = *v.FileName
-		}
-		var fileSizeBytes int64
-		if v.FileSizeBytes != nil {
-			fileSizeBytes = *v.FileSizeBytes
-		}
-		var durationSeconds int32
-		if v.DurationSeconds != nil {
-			durationSeconds = *v.DurationSeconds
-		}
-		uploadStatus := ""
-		if v.UploadStatus != nil {
-			uploadStatus = *v.UploadStatus
-		}
+		fileName := v.FileName
+		fileSizeBytes := v.FileSizeBytes
+		durationSeconds := v.DurationSeconds
+		uploadStatus := v.UploadStatus
 		videoInfos[i] = &VideoInfo{
 			VideoID:         v.VideoID,
 			FileName:        fileName,

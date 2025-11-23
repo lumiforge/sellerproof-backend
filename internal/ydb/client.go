@@ -87,12 +87,12 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				user_id Text NOT NULL,
 				email Text NOT NULL,
 				password_hash Text NOT NULL,
-				full_name Text,
+				full_name Text NOT NULL,
 				email_verified Bool DEFAULT false,
-				verification_code Text,
-				verification_expires_at Optional<Timestamp>,
-				created_at Timestamp,
-				updated_at Timestamp,
+				verification_code Text NOT NULL,
+				verification_expires_at Timestamp NOT NULL,
+				created_at Timestamp NOT NULL,
+				updated_at Timestamp NOT NULL,
 				is_active Bool DEFAULT true,
 				PRIMARY KEY (user_id),
 				INDEX email_idx GLOBAL UNIQUE ON (email) COVER (password_hash, full_name, email_verified, is_active)
@@ -117,11 +117,11 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		query := `
 			CREATE TABLE organizations (
 				org_id Text NOT NULL,
-				name Text,
-				owner_id Text,
-				settings Json,
-				created_at Timestamp,
-				updated_at Timestamp,
+				name Text NOT NULL,
+				owner_id Text NOT NULL,
+				settings Json NOT NULL,
+				created_at Timestamp NOT NULL,
+				updated_at Timestamp NOT NULL,
 				PRIMARY KEY (org_id),
 				INDEX owner_idx GLOBAL ON (owner_id)
 			)
@@ -146,11 +146,11 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				membership_id Text NOT NULL,
 				user_id Text NOT NULL,
 				org_id Text NOT NULL,
-				role Text,
-				status Text,
-				invited_by Text,
-				created_at Timestamp,
-				updated_at Timestamp,
+				role Text NOT NULL,
+				status Text NOT NULL,
+				invited_by Text NOT NULL,
+				created_at Timestamp NOT NULL,
+				updated_at Timestamp NOT NULL,
 				PRIMARY KEY (membership_id),
 				INDEX user_idx GLOBAL ON (user_id),
 				INDEX org_idx GLOBAL ON (org_id),
@@ -177,9 +177,9 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			CREATE TABLE refresh_tokens (
 				token_id Text NOT NULL,
 				user_id Text NOT NULL,
-				token_hash Optional<Text>,
-				expires_at Optional<Timestamp>,
-				created_at Timestamp,
+				token_hash Text NOT NULL,
+				expires_at Timestamp NOT NULL,
+				created_at Timestamp NOT NULL,
 				is_revoked Bool DEFAULT false,
 				PRIMARY KEY (token_id),
 				INDEX user_idx GLOBAL ON (user_id),
@@ -206,13 +206,13 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			CREATE TABLE email_logs (
 				email_id Text NOT NULL,
 				user_id Text NOT NULL,
-				email_type Text,
-				recipient Text,
-				status Text,
-				postbox_message_id Text,
-				sent_at Timestamp,
-				delivered_at Optional<Timestamp>,
-				error_message Text,
+				email_type Text NOT NULL,
+				recipient Text NOT NULL,
+				status Text NOT NULL,
+				postbox_message_id Text NOT NULL,
+				sent_at Timestamp NOT NULL,
+				delivered_at Timestamp NOT NULL,
+				error_message Text NOT NULL,
 				PRIMARY KEY (email_id),
 				INDEX user_idx GLOBAL ON (user_id)
 			)
@@ -235,14 +235,14 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		query := `
 			CREATE TABLE plans (
 				plan_id Text NOT NULL,
-				name Text,
-				storage_limit_gb Int64,
-				video_count_limit Int64,
-				price_rub Double,
-				billing_cycle Text,
-				features Json,
-				created_at Timestamp,
-				updated_at Timestamp,
+				name Text NOT NULL,
+				storage_limit_gb Int64 NOT NULL,
+				video_count_limit Int64 NOT NULL,
+				price_rub Double NOT NULL,
+				billing_cycle Text NOT NULL,
+				features Json NOT NULL,
+				created_at Timestamp NOT NULL,
+				updated_at Timestamp NOT NULL,
 				PRIMARY KEY (plan_id)
 			)
 		`
@@ -279,15 +279,15 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				user_id Text NOT NULL,
 				org_id Text NOT NULL,
 				plan_id Text NOT NULL,
-				storage_limit_gb Int64,
-				video_count_limit Int64,
+				storage_limit_gb Int64 NOT NULL,
+				video_count_limit Int64 NOT NULL,
 				is_active Bool DEFAULT true,
-				trial_ends_at Timestamp,
-				started_at Timestamp,
-				expires_at Optional<Timestamp>,
-				billing_cycle Text,
-				created_at Timestamp,
-				updated_at Timestamp,
+				trial_ends_at Timestamp NOT NULL,
+				started_at Timestamp NOT NULL,
+				expires_at Timestamp NOT NULL,
+				billing_cycle Text NOT NULL,
+				created_at Timestamp NOT NULL,
+				updated_at Timestamp NOT NULL,
 				PRIMARY KEY (subscription_id),
 				INDEX user_idx GLOBAL ON (user_id),
 				INDEX org_idx GLOBAL ON (org_id)
@@ -313,19 +313,19 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				video_id Text NOT NULL,
 				org_id Text NOT NULL,
 				uploaded_by Text NOT NULL,
-				file_name Text,
-				file_name_search Text,
-				file_size_bytes Int64,
-				storage_path Text,
-				duration_seconds Int32,
-				upload_id Text,
-				upload_status Text,
-				parts_uploaded Int32 DEFAULT 0,
-				total_parts Int32 DEFAULT 0,
-				public_share_token Text,
+				file_name Text NOT NULL,
+				file_name_search Text NOT NULL,
+				file_size_bytes Int64 NOT NULL,
+				storage_path Text NOT NULL,
+				duration_seconds Int32 NOT NULL,
+				upload_id Text NOT NULL,
+				upload_status Text NOT NULL,
+				parts_uploaded Optional<Int32>,
+				total_parts Optional<Int32>,
+				public_share_token Optional<Text>,
 				share_expires_at Optional<Timestamp>,
-				uploaded_at Timestamp,
-				created_at Timestamp,
+				uploaded_at Optional<Timestamp>,
+				created_at Timestamp NOT NULL,
 				is_deleted Bool DEFAULT false,
 				PRIMARY KEY (video_id),
 				INDEX org_idx GLOBAL ON (org_id),
@@ -354,10 +354,10 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				history_id Text NOT NULL,
 				subscription_id Text NOT NULL,
 				plan_id Text NOT NULL,
-				storage_limit_gb Int64,
-				video_count_limit Int64,
-				event_type Text,
-				changed_at Timestamp,
+				storage_limit_gb Int64 NOT NULL,
+				video_count_limit Int64 NOT NULL,
+				event_type Text NOT NULL,
+				changed_at Timestamp NOT NULL,
 				PRIMARY KEY (history_id),
 				INDEX subscription_idx GLOBAL ON (subscription_id)
 			)
@@ -419,10 +419,10 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 		DECLARE $user_id AS Text;
 		DECLARE $email AS Text;
 		DECLARE $password_hash AS Text;
-		DECLARE $full_name AS Optional<Text>;
+		DECLARE $full_name AS Text;
 		DECLARE $email_verified AS Bool;
-		DECLARE $verification_code AS Optional<Text>;
-		DECLARE $verification_expires_at AS Optional<Timestamp>;
+		DECLARE $verification_code AS Text;
+		DECLARE $verification_expires_at AS Timestamp;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 		DECLARE $is_active AS Bool;
@@ -434,9 +434,7 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 	`
 
 	now := time.Now()
-
 	user.CreatedAt = now
-
 	user.UpdatedAt = now
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -445,26 +443,10 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 				table.ValueParam("$user_id", types.TextValue(user.UserID)),
 				table.ValueParam("$email", types.TextValue(user.Email)),
 				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
-
-				func() table.ParameterOption {
-					if user.FullName == nil {
-						return table.ValueParam("$full_name", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$full_name", types.OptionalValue(types.TextValue(*user.FullName)))
-				}(),
+				table.ValueParam("$full_name", types.TextValue(user.FullName)),
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
-				func() table.ParameterOption {
-					if user.VerificationCode == nil {
-						return table.ValueParam("$verification_code", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(*user.VerificationCode)))
-				}(),
-				func() table.ParameterOption {
-					if user.VerificationExpiresAt == nil {
-						return table.ValueParam("$verification_expires_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
-				}(),
+				table.ValueParam("$verification_code", types.TextValue(user.VerificationCode)),
+				table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(user.VerificationExpiresAt)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -504,12 +486,12 @@ func (c *YDBClient) GetUserByID(ctx context.Context, userID string) (*User, erro
 				named.Required("user_id", &user.UserID),
 				named.Required("email", &user.Email),
 				named.Required("password_hash", &user.PasswordHash),
-				named.Optional("full_name", &user.FullName),
+				named.Required("full_name", &user.FullName),
 				named.Required("email_verified", &user.EmailVerified),
-				named.Optional("verification_code", &user.VerificationCode),
-				named.Optional("verification_expires_at", &user.VerificationExpiresAt),
-				named.OptionalWithDefault("created_at", &user.CreatedAt),
-				named.OptionalWithDefault("updated_at", &user.UpdatedAt),
+				named.Required("verification_code", &user.VerificationCode),
+				named.Required("verification_expires_at", &user.VerificationExpiresAt),
+				named.Required("created_at", &user.CreatedAt),
+				named.Required("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
 			if err != nil {
@@ -559,12 +541,12 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.Required("user_id", &user.UserID),
 				named.Required("email", &user.Email),
 				named.Required("password_hash", &user.PasswordHash),
-				named.Optional("full_name", &user.FullName),
+				named.Required("full_name", &user.FullName),
 				named.Required("email_verified", &user.EmailVerified),
-				named.Optional("verification_code", &user.VerificationCode),
-				named.Optional("verification_expires_at", &user.VerificationExpiresAt),
-				named.OptionalWithDefault("created_at", &user.CreatedAt),
-				named.OptionalWithDefault("updated_at", &user.UpdatedAt),
+				named.Required("verification_code", &user.VerificationCode),
+				named.Required("verification_expires_at", &user.VerificationExpiresAt),
+				named.Required("created_at", &user.CreatedAt),
+				named.Required("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
 			)
 
@@ -592,10 +574,10 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 		DECLARE $user_id AS Text;
 		DECLARE $email AS Text;
 		DECLARE $password_hash AS Text;
-		DECLARE $full_name AS Optional<Text>;
+		DECLARE $full_name AS Text;
 		DECLARE $email_verified AS Bool;
-		DECLARE $verification_code AS Optional<Text>;
-		DECLARE $verification_expires_at AS Optional<Timestamp>;
+		DECLARE $verification_code AS Text;
+		DECLARE $verification_expires_at AS Timestamp;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 		DECLARE $is_active AS Bool;
@@ -614,26 +596,10 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 				table.ValueParam("$user_id", types.TextValue(user.UserID)),
 				table.ValueParam("$email", types.TextValue(user.Email)),
 				table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
-
-				func() table.ParameterOption {
-					if user.FullName == nil {
-						return table.ValueParam("$full_name", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$full_name", types.OptionalValue(types.TextValue(*user.FullName)))
-				}(),
+				table.ValueParam("$full_name", types.TextValue(user.FullName)),
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
-				func() table.ParameterOption {
-					if user.VerificationCode == nil {
-						return table.ValueParam("$verification_code", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$verification_code", types.OptionalValue(types.TextValue(*user.VerificationCode)))
-				}(),
-				func() table.ParameterOption {
-					if user.VerificationExpiresAt == nil {
-						return table.ValueParam("$verification_expires_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$verification_expires_at", types.OptionalValue(types.TimestampValueFromTime(*user.VerificationExpiresAt)))
-				}(),
+				table.ValueParam("$verification_code", types.TextValue(user.VerificationCode)),
+				table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(user.VerificationExpiresAt)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -647,8 +613,8 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) error {
 	query := `
 		DECLARE $org_id AS Text;
-		DECLARE $name AS Optional<Text>;
-		DECLARE $owner_id AS Optional<Text>;
+		DECLARE $name AS Text;
+		DECLARE $owner_id AS Text;
 		DECLARE $settings AS Json;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -667,8 +633,8 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 
 	// Settings is already a JSON string, use it directly or default to empty object
 	var settingsJSON string
-	if org.Settings != nil && *org.Settings != "" {
-		settingsJSON = *org.Settings
+	if org.Settings != "" {
+		settingsJSON = org.Settings
 	} else {
 		settingsJSON = "{}"
 	}
@@ -677,18 +643,8 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$org_id", types.TextValue(org.OrgID)),
-				func() table.ParameterOption {
-					if org.Name == nil {
-						return table.ValueParam("$name", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$name", types.OptionalValue(types.TextValue(*org.Name)))
-				}(),
-				func() table.ParameterOption {
-					if org.OwnerID == nil {
-						return table.ValueParam("$owner_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$owner_id", types.OptionalValue(types.TextValue(*org.OwnerID)))
-				}(),
+				table.ValueParam("$name", types.TextValue(org.Name)),
+				table.ValueParam("$owner_id", types.TextValue(org.OwnerID)),
 				table.ValueParam("$settings", types.JSONValue(settingsJSON)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(org.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(org.UpdatedAt)),
@@ -704,9 +660,9 @@ func (c *YDBClient) CreateMembership(ctx context.Context, membership *Membership
 		DECLARE $membership_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $role AS Optional<Text>;
-		DECLARE $status AS Optional<Text>;
-		DECLARE $invited_by AS Optional<Text>;
+		DECLARE $role AS Text;
+		DECLARE $status AS Text;
+		DECLARE $invited_by AS Text;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 
@@ -729,24 +685,9 @@ func (c *YDBClient) CreateMembership(ctx context.Context, membership *Membership
 				table.ValueParam("$membership_id", types.TextValue(membership.MembershipID)),
 				table.ValueParam("$user_id", types.TextValue(membership.UserID)),
 				table.ValueParam("$org_id", types.TextValue(membership.OrgID)),
-				func() table.ParameterOption {
-					if membership.Role == nil {
-						return table.ValueParam("$role", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$role", types.OptionalValue(types.TextValue(*membership.Role)))
-				}(),
-				func() table.ParameterOption {
-					if membership.Status == nil {
-						return table.ValueParam("$status", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$status", types.OptionalValue(types.TextValue(*membership.Status)))
-				}(),
-				func() table.ParameterOption {
-					if membership.InvitedBy == nil {
-						return table.ValueParam("$invited_by", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$invited_by", types.OptionalValue(types.TextValue(*membership.InvitedBy)))
-				}(),
+				table.ValueParam("$role", types.TextValue(membership.Role)),
+				table.ValueParam("$status", types.TextValue(membership.Status)),
+				table.ValueParam("$invited_by", types.TextValue(membership.InvitedBy)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(membership.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(membership.UpdatedAt)),
 			),
@@ -814,9 +755,9 @@ func (c *YDBClient) CreateRefreshToken(ctx context.Context, token *RefreshToken)
 	query := `
 		DECLARE $token_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $token_hash AS Optional<Text>;
-		DECLARE $expires_at AS Optional<Timestamp>;
-		DECLARE $created_at AS Optional<Timestamp>;
+		DECLARE $token_hash AS Text;
+		DECLARE $expires_at AS Timestamp;
+		DECLARE $created_at AS Timestamp;
 
 		REPLACE INTO refresh_tokens (token_id, user_id, token_hash, expires_at, created_at)
 		VALUES ($token_id, $user_id, $token_hash, $expires_at, $created_at)
@@ -824,11 +765,7 @@ func (c *YDBClient) CreateRefreshToken(ctx context.Context, token *RefreshToken)
 
 	now := time.Now()
 	if token.CreatedAt.IsZero() {
-		if token.CreatedAt == nil {
-			token.CreatedAt = &now
-		} else {
-			*token.CreatedAt = now
-		}
+		token.CreatedAt = now
 	}
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -836,24 +773,9 @@ func (c *YDBClient) CreateRefreshToken(ctx context.Context, token *RefreshToken)
 			table.NewQueryParameters(
 				table.ValueParam("$token_id", types.TextValue(token.TokenID)),
 				table.ValueParam("$user_id", types.TextValue(token.UserID)),
-				func() table.ParameterOption {
-					if token.TokenHash == nil {
-						return table.ValueParam("$token_hash", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$token_hash", types.OptionalValue(types.TextValue(*token.TokenHash)))
-				}(),
-				func() table.ParameterOption {
-					if token.ExpiresAt == nil {
-						return table.ValueParam("$expires_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(*token.ExpiresAt)))
-				}(),
-				func() table.ParameterOption {
-					if token.CreatedAt == nil {
-						return table.ValueParam("$created_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$created_at", types.OptionalValue(types.TimestampValueFromTime(*token.CreatedAt)))
-				}(),
+				table.ValueParam("$token_hash", types.TextValue(token.TokenHash)),
+				table.ValueParam("$expires_at", types.TimestampValueFromTime(token.ExpiresAt)),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(token.CreatedAt)),
 			),
 		)
 		return err
@@ -888,9 +810,9 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 			err := res.ScanNamed(
 				named.Required("token_id", &token.TokenID),
 				named.Required("user_id", &token.UserID),
-				named.Optional("token_hash", &token.TokenHash),
-				named.Optional("expires_at", &token.ExpiresAt),
-				named.Optional("created_at", &token.CreatedAt),
+				named.Required("token_hash", &token.TokenHash),
+				named.Required("expires_at", &token.ExpiresAt),
+				named.Required("created_at", &token.CreatedAt),
 				named.Required("is_revoked", &token.IsRevoked),
 			)
 
@@ -933,10 +855,10 @@ func (c *YDBClient) CreateEmailLog(ctx context.Context, log *EmailLog) error {
 	query := `
 		DECLARE $email_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $email_type AS Optional<Text>;
-		DECLARE $recipient AS Optional<Text>;
-		DECLARE $status AS Optional<Text>;
-		DECLARE $postbox_message_id AS Optional<Text>;
+		DECLARE $email_type AS Text;
+		DECLARE $recipient AS Text;
+		DECLARE $status AS Text;
+		DECLARE $postbox_message_id AS Text;
 		DECLARE $sent_at AS Timestamp;
 
 		REPLACE INTO email_logs (
@@ -954,30 +876,10 @@ func (c *YDBClient) CreateEmailLog(ctx context.Context, log *EmailLog) error {
 			table.NewQueryParameters(
 				table.ValueParam("$email_id", types.TextValue(log.EmailID)),
 				table.ValueParam("$user_id", types.TextValue(log.UserID)),
-				func() table.ParameterOption {
-					if log.EmailType == nil {
-						return table.ValueParam("$email_type", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$email_type", types.OptionalValue(types.TextValue(*log.EmailType)))
-				}(),
-				func() table.ParameterOption {
-					if log.Recipient == nil {
-						return table.ValueParam("$recipient", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$recipient", types.OptionalValue(types.TextValue(*log.Recipient)))
-				}(),
-				func() table.ParameterOption {
-					if log.Status == nil {
-						return table.ValueParam("$status", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$status", types.OptionalValue(types.TextValue(*log.Status)))
-				}(),
-				func() table.ParameterOption {
-					if log.PostboxMessageID == nil {
-						return table.ValueParam("$postbox_message_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$postbox_message_id", types.OptionalValue(types.TextValue(*log.PostboxMessageID)))
-				}(),
+				table.ValueParam("$email_type", types.TextValue(log.EmailType)),
+				table.ValueParam("$recipient", types.TextValue(log.Recipient)),
+				table.ValueParam("$status", types.TextValue(log.Status)),
+				table.ValueParam("$postbox_message_id", types.TextValue(log.PostboxMessageID)),
 				table.ValueParam("$sent_at", types.TimestampValueFromTime(log.SentAt)),
 			),
 		)
@@ -1017,7 +919,7 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 				named.Required("video_count_limit", &plan.VideoCountLimit),
 				named.Required("price_rub", &plan.PriceRub),
 				named.Required("billing_cycle", &plan.BillingCycle),
-				named.OptionalWithDefault("features", &plan.Features),
+				named.Required("features", &plan.Features),
 				named.Required("created_at", &plan.CreatedAt),
 				named.Required("updated_at", &plan.UpdatedAt),
 			)
@@ -1045,12 +947,12 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_gb AS Optional<Int64>;
-		DECLARE $video_count_limit AS Optional<Int64>;
-		DECLARE $is_active AS Optional<Bool>;
-		DECLARE $trial_ends_at AS Optional<Timestamp>;
+		DECLARE $storage_limit_gb AS Int64;
+		DECLARE $video_count_limit AS Int64;
+		DECLARE $is_active AS Bool;
+		DECLARE $trial_ends_at AS Timestamp;
 		DECLARE $started_at AS Timestamp;
-		DECLARE $expires_at AS Optional<Timestamp>;
+		DECLARE $expires_at AS Timestamp;
 		DECLARE $billing_cycle AS Text;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -1076,38 +978,12 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-
-				func() table.ParameterOption {
-					if subscription.StorageLimitGB == nil {
-						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$storage_limit_gb", types.OptionalValue(types.Int64Value(*subscription.StorageLimitGB)))
-				}(),
-				func() table.ParameterOption {
-					if subscription.VideoCountLimit == nil {
-						return table.ValueParam("$video_count_limit", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$video_count_limit", types.OptionalValue(types.Int64Value(*subscription.VideoCountLimit)))
-				}(),
-				func() table.ParameterOption {
-					if subscription.IsActive == nil {
-						return table.ValueParam("$is_active", types.NullValue(types.TypeBool))
-					}
-					return table.ValueParam("$is_active", types.OptionalValue(types.BoolValue(*subscription.IsActive)))
-				}(),
-				func() table.ParameterOption {
-					if subscription.TrialEndsAt.IsZero() {
-						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$trial_ends_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.TrialEndsAt)))
-				}(),
+				table.ValueParam("$storage_limit_gb", types.Int64Value(subscription.StorageLimitGB)),
+				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
+				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
+				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
-				func() table.ParameterOption {
-					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
-						return table.ValueParam("$expires_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.ExpiresAt)))
-				}(),
+				table.ValueParam("$expires_at", types.TimestampValueFromTime(subscription.ExpiresAt)),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(subscription.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(subscription.UpdatedAt)),
@@ -1133,16 +1009,14 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 	var found bool
 
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		// TODO: Remove this log
-		log.Println("SCAN FOR SUBSCRIPTIONS START", userID)
+
 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$user_id", types.TextValue(userID)),
 			),
 		)
 		if err != nil {
-			// TODO: Remove this log
-			log.Println("SCAN FOR SUBSCRIPTIONS FAILED 1 ", err)
+
 			return err
 		}
 		defer res.Close()
@@ -1156,23 +1030,19 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("plan_id", &subscription.PlanID),
 				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
 				named.Required("video_count_limit", &subscription.VideoCountLimit),
-				named.Required("is_active", &subscription.IsActive),
-				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
-
-				named.Optional("started_at", &subscription.StartedAt),
-				named.Optional("expires_at", &subscription.ExpiresAt),
+				named.Required("trial_ends_at", &subscription.TrialEndsAt),
+				named.Required("started_at", &subscription.StartedAt),
+				named.Required("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
 				named.Required("created_at", &subscription.CreatedAt),
 				named.Required("updated_at", &subscription.UpdatedAt),
 			)
 
 			if err != nil {
-				// TODO: Remove this log
-				log.Println("SCAN FOR SUBSCRIPTIONS FAILED 2 ", err)
+
 				return fmt.Errorf("scan failed: %w", err)
 			}
-			// TODO: Remove this log
-			log.Println("SCAN FOR SUBSCRIPTIONS OK")
+
 		}
 		return res.Err()
 	})
@@ -1193,20 +1063,26 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $uploaded_by AS Text;
-		DECLARE $file_name AS Optional<Text>;
-		DECLARE $file_name_search AS Optional<Text>;
-		DECLARE $file_size_bytes AS Optional<Int64>;
-		DECLARE $storage_path AS Optional<Text>;
-		DECLARE $duration_seconds AS Optional<Int32>;
-		DECLARE $upload_id AS Optional<Text>;
-		DECLARE $upload_status AS Optional<Text>;
+		DECLARE $file_name AS Text;
+		DECLARE $file_name_search AS Text;
+		DECLARE $file_size_bytes AS Int64;
+		DECLARE $storage_path AS Text;
+		DECLARE $duration_seconds AS Int32;
+		DECLARE $upload_id AS Text;
+		DECLARE $upload_status AS Text;
+		DECLARE $parts_uploaded AS Optional<Int32>;
+		DECLARE $total_parts AS Optional<Int32>;
+		DECLARE $public_share_token AS Optional<Text>;
+		DECLARE $share_expires_at AS Optional<Timestamp>;
+		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
 
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
-			storage_path, duration_seconds, upload_id, upload_status, created_at, is_deleted
-		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $created_at, $is_deleted)
+			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
+		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1215,42 +1091,42 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$video_id", types.TextValue(video.VideoID)),
 				table.ValueParam("$org_id", types.TextValue(video.OrgID)),
 				table.ValueParam("$uploaded_by", types.TextValue(video.UploadedBy)),
+				table.ValueParam("$file_name", types.TextValue(video.FileName)),
+				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
+				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
+				table.ValueParam("$storage_path", types.TextValue(video.StoragePath)),
+				table.ValueParam("$duration_seconds", types.Int32Value(video.DurationSeconds)),
+				table.ValueParam("$upload_id", types.TextValue(video.UploadID)),
+				table.ValueParam("$upload_status", types.TextValue(video.UploadStatus)),
 				func() table.ParameterOption {
-					if video.FileName == nil {
-						return table.ValueParam("$file_name", types.NullValue(types.TypeText))
+					if video.PartsUploaded == nil {
+						return table.ValueParam("$parts_uploaded", types.NullValue(types.TypeInt32))
 					}
-					return table.ValueParam("$file_name", types.OptionalValue(types.TextValue(*video.FileName)))
+					return table.ValueParam("$parts_uploaded", types.OptionalValue(types.Int32Value(*video.PartsUploaded)))
 				}(),
 				func() table.ParameterOption {
-					if video.FileName == nil {
-						return table.ValueParam("$file_name_search", types.NullValue(types.TypeText))
+					if video.TotalParts == nil {
+						return table.ValueParam("$total_parts", types.NullValue(types.TypeInt32))
 					}
-					return table.ValueParam("$file_name_search", types.OptionalValue(types.TextValue(strings.ToLower(*video.FileName))))
+					return table.ValueParam("$total_parts", types.OptionalValue(types.Int32Value(*video.TotalParts)))
 				}(),
 				func() table.ParameterOption {
-					if video.FileSizeBytes == nil {
-						return table.ValueParam("$file_size_bytes", types.NullValue(types.TypeInt64))
+					if video.PublicShareToken == nil {
+						return table.ValueParam("$public_share_token", types.NullValue(types.TypeText))
 					}
-					return table.ValueParam("$file_size_bytes", types.OptionalValue(types.Int64Value(*video.FileSizeBytes)))
+					return table.ValueParam("$public_share_token", types.OptionalValue(types.TextValue(*video.PublicShareToken)))
 				}(),
 				func() table.ParameterOption {
-					if video.StoragePath == nil {
-						return table.ValueParam("$storage_path", types.NullValue(types.TypeText))
+					if video.ShareExpiresAt == nil {
+						return table.ValueParam("$share_expires_at", types.NullValue(types.TypeTimestamp))
 					}
-					return table.ValueParam("$storage_path", types.OptionalValue(types.TextValue(*video.StoragePath)))
-				}(),
-				table.ValueParam("$duration_seconds", types.NullValue(types.TypeInt32)),
-				func() table.ParameterOption {
-					if video.UploadID == nil {
-						return table.ValueParam("$upload_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$upload_id", types.OptionalValue(types.TextValue(*video.UploadID)))
+					return table.ValueParam("$share_expires_at", types.OptionalValue(types.TimestampValueFromTime(*video.ShareExpiresAt)))
 				}(),
 				func() table.ParameterOption {
-					if video.UploadStatus == nil {
-						return table.ValueParam("$upload_status", types.NullValue(types.TypeText))
+					if video.UploadedAt == nil {
+						return table.ValueParam("$uploaded_at", types.NullValue(types.TypeTimestamp))
 					}
-					return table.ValueParam("$upload_status", types.OptionalValue(types.TextValue(*video.UploadStatus)))
+					return table.ValueParam("$uploaded_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadedAt)))
 				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
@@ -1289,12 +1165,12 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
-				named.Optional("file_name", &v.FileName),
-				named.Optional("file_size_bytes", &v.FileSizeBytes),
-				named.Optional("storage_path", &v.StoragePath),
-				named.Optional("duration_seconds", &v.DurationSeconds),
-				named.Optional("upload_id", &v.UploadID),
-				named.Optional("upload_status", &v.UploadStatus),
+				named.Required("file_name", &v.FileName),
+				named.Required("file_size_bytes", &v.FileSizeBytes),
+				named.Required("storage_path", &v.StoragePath),
+				named.Required("duration_seconds", &v.DurationSeconds),
+				named.Required("upload_id", &v.UploadID),
+				named.Required("upload_status", &v.UploadStatus),
 				named.Optional("total_parts", &v.TotalParts),
 				named.Optional("public_share_token", &v.PublicShareToken),
 				named.Optional("share_expires_at", &v.ShareExpiresAt),
@@ -1323,13 +1199,13 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $uploaded_by AS Text;
-		DECLARE $file_name AS Optional<Text>;
-		DECLARE $file_name_search AS Optional<Text>;
-		DECLARE $file_size_bytes AS Optional<Int64>;
-		DECLARE $storage_path AS Optional<Text>;
-		DECLARE $duration_seconds AS Optional<Int32>;
-		DECLARE $upload_id AS Optional<Text>;
-		DECLARE $upload_status AS Optional<Text>;
+		DECLARE $file_name AS Text;
+		DECLARE $file_name_search AS Text;
+		DECLARE $file_size_bytes AS Int64;
+		DECLARE $storage_path AS Text;
+		DECLARE $duration_seconds AS Int32;
+		DECLARE $upload_id AS Text;
+		DECLARE $upload_status AS Text;
 		DECLARE $parts_uploaded AS Optional<Int32>;
 		DECLARE $total_parts AS Optional<Int32>;
 		DECLARE $public_share_token AS Optional<Text>;
@@ -1351,43 +1227,13 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$video_id", types.TextValue(video.VideoID)),
 				table.ValueParam("$org_id", types.TextValue(video.OrgID)),
 				table.ValueParam("$uploaded_by", types.TextValue(video.UploadedBy)),
-				func() table.ParameterOption {
-					if video.FileName == nil {
-						return table.ValueParam("$file_name", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$file_name", types.OptionalValue(types.TextValue(*video.FileName)))
-				}(),
-				func() table.ParameterOption {
-					if video.FileName == nil {
-						return table.ValueParam("$file_name_search", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$file_name_search", types.OptionalValue(types.TextValue(strings.ToLower(*video.FileName))))
-				}(),
-				func() table.ParameterOption {
-					if video.FileSizeBytes == nil {
-						return table.ValueParam("$file_size_bytes", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$file_size_bytes", types.OptionalValue(types.Int64Value(*video.FileSizeBytes)))
-				}(),
-				func() table.ParameterOption {
-					if video.StoragePath == nil {
-						return table.ValueParam("$storage_path", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$storage_path", types.OptionalValue(types.TextValue(*video.StoragePath)))
-				}(),
-				table.ValueParam("$duration_seconds", types.NullValue(types.TypeInt32)),
-				func() table.ParameterOption {
-					if video.UploadID == nil {
-						return table.ValueParam("$upload_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$upload_id", types.OptionalValue(types.TextValue(*video.UploadID)))
-				}(),
-				func() table.ParameterOption {
-					if video.UploadStatus == nil {
-						return table.ValueParam("$upload_status", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$upload_status", types.OptionalValue(types.TextValue(*video.UploadStatus)))
-				}(),
+				table.ValueParam("$file_name", types.TextValue(video.FileName)),
+				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
+				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
+				table.ValueParam("$storage_path", types.TextValue(video.StoragePath)),
+				table.ValueParam("$duration_seconds", types.Int32Value(video.DurationSeconds)),
+				table.ValueParam("$upload_id", types.TextValue(video.UploadID)),
+				table.ValueParam("$upload_status", types.TextValue(video.UploadStatus)),
 				func() table.ParameterOption {
 					if video.PartsUploaded == nil {
 						return table.ValueParam("$parts_uploaded", types.NullValue(types.TypeInt32))
@@ -1400,9 +1246,24 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 					}
 					return table.ValueParam("$total_parts", types.OptionalValue(types.Int32Value(*video.TotalParts)))
 				}(),
-				table.ValueParam("$public_share_token", types.NullValue(types.TypeText)),
-				table.ValueParam("$share_expires_at", types.NullValue(types.TypeTimestamp)),
-				table.ValueParam("$uploaded_at", types.NullValue(types.TypeTimestamp)),
+				func() table.ParameterOption {
+					if video.PublicShareToken == nil {
+						return table.ValueParam("$public_share_token", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$public_share_token", types.OptionalValue(types.TextValue(*video.PublicShareToken)))
+				}(),
+				func() table.ParameterOption {
+					if video.ShareExpiresAt == nil {
+						return table.ValueParam("$share_expires_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$share_expires_at", types.OptionalValue(types.TimestampValueFromTime(*video.ShareExpiresAt)))
+				}(),
+				func() table.ParameterOption {
+					if video.UploadedAt == nil {
+						return table.ValueParam("$uploaded_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$uploaded_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadedAt)))
+				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
 			),
@@ -1435,7 +1296,7 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			err := res.ScanNamed(
-				named.Optional("column0", &usage),
+				named.OptionalWithDefault("column0", &usage),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1478,9 +1339,9 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			err := res.ScanNamed(
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
-				named.Optional("file_name", &v.FileName),
-				named.Optional("file_size_bytes", &v.FileSizeBytes),
-				named.Optional("storage_path", &v.StoragePath),
+				named.Required("file_name", &v.FileName),
+				named.Required("file_size_bytes", &v.FileSizeBytes),
+				named.Required("storage_path", &v.StoragePath),
 				named.Optional("share_expires_at", &v.ShareExpiresAt),
 			)
 			if err != nil {
@@ -1597,11 +1458,11 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					named.Required("video_id", &v.VideoID),
 					named.Required("org_id", &v.OrgID),
 					named.Required("uploaded_by", &v.UploadedBy),
-					named.Optional("file_name", &v.FileName),
-					named.Optional("file_size_bytes", &v.FileSizeBytes),
-					named.Optional("storage_path", &v.StoragePath),
-					named.Optional("duration_seconds", &v.DurationSeconds),
-					named.Optional("upload_status", &v.UploadStatus),
+					named.Required("file_name", &v.FileName),
+					named.Required("file_size_bytes", &v.FileSizeBytes),
+					named.Required("storage_path", &v.StoragePath),
+					named.Required("duration_seconds", &v.DurationSeconds),
+					named.Required("upload_status", &v.UploadStatus),
 					named.Optional("uploaded_at", &v.UploadedAt),
 				); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
@@ -1659,11 +1520,11 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 			found = true
 			err := res.ScanNamed(
 				named.Required("org_id", &org.OrgID),
-				named.Optional("name", &org.Name),
-				named.Optional("owner_id", &org.OwnerID),
-				named.Optional("settings", &org.Settings),
-				named.OptionalWithDefault("created_at", &org.CreatedAt),
-				named.OptionalWithDefault("updated_at", &org.UpdatedAt),
+				named.Required("name", &org.Name),
+				named.Required("owner_id", &org.OwnerID),
+				named.Required("settings", &org.Settings),
+				named.Required("created_at", &org.CreatedAt),
+				named.Required("updated_at", &org.UpdatedAt),
 			)
 
 			if err != nil {
@@ -1711,9 +1572,9 @@ func (c *YDBClient) GetOrganizationsByOwner(ctx context.Context, ownerID string)
 				var org Organization
 				if err := res.ScanNamed(
 					named.Required("org_id", &org.OrgID),
-					named.Optional("name", &org.Name),
-					named.Optional("owner_id", &org.OwnerID),
-					named.OptionalWithDefault("settings", &org.Settings),
+					named.Required("name", &org.Name),
+					named.Required("owner_id", &org.OwnerID),
+					named.Required("settings", &org.Settings),
 					named.Required("created_at", &org.CreatedAt),
 					named.Required("updated_at", &org.UpdatedAt),
 				); err != nil {
@@ -1735,8 +1596,8 @@ func (c *YDBClient) GetOrganizationsByOwner(ctx context.Context, ownerID string)
 func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) error {
 	query := `
 		DECLARE $org_id AS Text;
-		DECLARE $name AS Optional<Text>;
-		DECLARE $owner_id AS Optional<Text>;
+		DECLARE $name AS Text;
+		DECLARE $owner_id AS Text;
 		DECLARE $settings AS Json;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -1749,8 +1610,8 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 
 	// Settings is already a JSON string, use it directly or default to empty object
 	var settingsJSON string
-	if org.Settings != nil && *org.Settings != "" {
-		settingsJSON = *org.Settings
+	if org.Settings != "" {
+		settingsJSON = org.Settings
 	} else {
 		settingsJSON = "{}"
 	}
@@ -1759,18 +1620,8 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$org_id", types.TextValue(org.OrgID)),
-				func() table.ParameterOption {
-					if org.Name == nil {
-						return table.ValueParam("$name", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$name", types.OptionalValue(types.TextValue(*org.Name)))
-				}(),
-				func() table.ParameterOption {
-					if org.OwnerID == nil {
-						return table.ValueParam("$owner_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$owner_id", types.OptionalValue(types.TextValue(*org.OwnerID)))
-				}(),
+				table.ValueParam("$name", types.TextValue(org.Name)),
+				table.ValueParam("$owner_id", types.TextValue(org.OwnerID)),
 				table.ValueParam("$settings", types.JSONValue(settingsJSON)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(org.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(org.UpdatedAt)),
@@ -1814,11 +1665,11 @@ func (c *YDBClient) GetMembershipsByUser(ctx context.Context, userID string) ([]
 					named.Required("membership_id", &membership.MembershipID),
 					named.Required("user_id", &membership.UserID),
 					named.Required("org_id", &membership.OrgID),
-					named.Optional("role", &membership.Role),
-					named.Optional("status", &membership.Status),
-					named.Optional("invited_by", &membership.InvitedBy),
-					named.OptionalWithDefault("created_at", &membership.CreatedAt),
-					named.OptionalWithDefault("updated_at", &membership.UpdatedAt),
+					named.Required("role", &membership.Role),
+					named.Required("status", &membership.Status),
+					named.Required("invited_by", &membership.InvitedBy),
+					named.Required("created_at", &membership.CreatedAt),
+					named.Required("updated_at", &membership.UpdatedAt),
 				); err != nil {
 
 					return fmt.Errorf("scan failed: %w", err)
@@ -1867,9 +1718,9 @@ func (c *YDBClient) GetMembershipsByOrg(ctx context.Context, orgID string) ([]*M
 					named.Required("membership_id", &membership.MembershipID),
 					named.Required("user_id", &membership.UserID),
 					named.Required("org_id", &membership.OrgID),
-					named.Optional("role", &membership.Role),
-					named.Optional("status", &membership.Status),
-					named.Optional("invited_by", &membership.InvitedBy),
+					named.Required("role", &membership.Role),
+					named.Required("status", &membership.Status),
+					named.Required("invited_by", &membership.InvitedBy),
 					named.Required("created_at", &membership.CreatedAt),
 					named.Required("updated_at", &membership.UpdatedAt),
 				); err != nil {
@@ -1893,9 +1744,9 @@ func (c *YDBClient) UpdateMembership(ctx context.Context, membership *Membership
 		DECLARE $membership_id AS Text;
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
-		DECLARE $role AS Optional<Text>;
-		DECLARE $status AS Optional<Text>;
-		DECLARE $invited_by AS Optional<Text>;
+		DECLARE $role AS Text;
+		DECLARE $status AS Text;
+		DECLARE $invited_by AS Text;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 
@@ -1912,24 +1763,9 @@ func (c *YDBClient) UpdateMembership(ctx context.Context, membership *Membership
 				table.ValueParam("$membership_id", types.TextValue(membership.MembershipID)),
 				table.ValueParam("$user_id", types.TextValue(membership.UserID)),
 				table.ValueParam("$org_id", types.TextValue(membership.OrgID)),
-				func() table.ParameterOption {
-					if membership.Role == nil {
-						return table.ValueParam("$role", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$role", types.OptionalValue(types.TextValue(*membership.Role)))
-				}(),
-				func() table.ParameterOption {
-					if membership.Status == nil {
-						return table.ValueParam("$status", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$status", types.OptionalValue(types.TextValue(*membership.Status)))
-				}(),
-				func() table.ParameterOption {
-					if membership.InvitedBy == nil {
-						return table.ValueParam("$invited_by", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$invited_by", types.OptionalValue(types.TextValue(*membership.InvitedBy)))
-				}(),
+				table.ValueParam("$role", types.TextValue(membership.Role)),
+				table.ValueParam("$status", types.TextValue(membership.Status)),
+				table.ValueParam("$invited_by", types.TextValue(membership.InvitedBy)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(membership.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(membership.UpdatedAt)),
 			),
@@ -1979,8 +1815,7 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 					named.Required("video_count_limit", &plan.VideoCountLimit),
 					named.Required("price_rub", &plan.PriceRub),
 					named.Required("billing_cycle", &plan.BillingCycle),
-					named.OptionalWithDefault("features", &plan.Features),
-
+					named.Required("features", &plan.Features),
 					named.Required("created_at", &plan.CreatedAt),
 					named.Required("updated_at", &plan.UpdatedAt),
 				); err != nil {
@@ -2029,12 +1864,12 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),
-				named.Optional("video_count_limit", &subscription.VideoCountLimit),
-				named.Optional("is_active", &subscription.IsActive),
-				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
+				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
+				named.Required("video_count_limit", &subscription.VideoCountLimit),
+				named.Required("is_active", &subscription.IsActive),
+				named.Required("trial_ends_at", &subscription.TrialEndsAt),
 				named.Required("started_at", &subscription.StartedAt),
-				named.Optional("expires_at", &subscription.ExpiresAt),
+				named.Required("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
 				named.Required("created_at", &subscription.CreatedAt),
 				named.Required("updated_at", &subscription.UpdatedAt),
@@ -2088,12 +1923,12 @@ func (c *YDBClient) GetSubscriptionByOrg(ctx context.Context, orgID string) (*Su
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Optional("storage_limit_gb", &subscription.StorageLimitGB),
-				named.Optional("video_count_limit", &subscription.VideoCountLimit),
-				named.Optional("is_active", &subscription.IsActive),
-				named.Optional("trial_ends_at", &subscription.TrialEndsAt),
+				named.Required("storage_limit_gb", &subscription.StorageLimitGB),
+				named.Required("video_count_limit", &subscription.VideoCountLimit),
+				named.Required("is_active", &subscription.IsActive),
+				named.Required("trial_ends_at", &subscription.TrialEndsAt),
 				named.Required("started_at", &subscription.StartedAt),
-				named.Optional("expires_at", &subscription.ExpiresAt),
+				named.Required("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
 				named.Required("created_at", &subscription.CreatedAt),
 				named.Required("updated_at", &subscription.UpdatedAt),
@@ -2121,12 +1956,12 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_gb AS Optional<Int64>;
-		DECLARE $video_count_limit AS Optional<Int64>;
-		DECLARE $is_active AS Optional<Bool>;
-		DECLARE $trial_ends_at AS Optional<Timestamp>;
+		DECLARE $storage_limit_gb AS Int64;
+		DECLARE $video_count_limit AS Int64;
+		DECLARE $is_active AS Bool;
+		DECLARE $trial_ends_at AS Timestamp;
 		DECLARE $started_at AS Timestamp;
-		DECLARE $expires_at AS Optional<Timestamp>;
+		DECLARE $expires_at AS Timestamp;
 		DECLARE $billing_cycle AS Text;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
@@ -2146,38 +1981,12 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-
-				func() table.ParameterOption {
-					if subscription.StorageLimitGB == nil {
-						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$storage_limit_gb", types.OptionalValue(types.Int64Value(*subscription.StorageLimitGB)))
-				}(),
-				func() table.ParameterOption {
-					if subscription.VideoCountLimit == nil {
-						return table.ValueParam("$video_count_limit", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$video_count_limit", types.OptionalValue(types.Int64Value(*subscription.VideoCountLimit)))
-				}(),
-				func() table.ParameterOption {
-					if subscription.IsActive == nil {
-						return table.ValueParam("$is_active", types.NullValue(types.TypeBool))
-					}
-					return table.ValueParam("$is_active", types.OptionalValue(types.BoolValue(*subscription.IsActive)))
-				}(),
-				func() table.ParameterOption {
-					if subscription.TrialEndsAt.IsZero() {
-						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$trial_ends_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.TrialEndsAt)))
-				}(),
+				table.ValueParam("$storage_limit_gb", types.Int64Value(subscription.StorageLimitGB)),
+				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
+				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
+				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
-				func() table.ParameterOption {
-					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
-						return table.ValueParam("$expires_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$expires_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.ExpiresAt)))
-				}(),
+				table.ValueParam("$expires_at", types.TimestampValueFromTime(subscription.ExpiresAt)),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(subscription.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(subscription.UpdatedAt)),
@@ -2191,11 +2000,11 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 	historyID := uuid.New().String()
 	query := `
 		DECLARE $history_id AS Text;
-		DECLARE $subscription_id AS Optional<Text>;
-		DECLARE $plan_id AS Optional<Text>;
-		DECLARE $storage_limit_gb AS Optional<Int64>;
-		DECLARE $video_count_limit AS Optional<Int64>;
-		DECLARE $event_type AS Optional<Text>;
+		DECLARE $subscription_id AS Text;
+		DECLARE $plan_id AS Text;
+		DECLARE $storage_limit_gb AS Int64;
+		DECLARE $video_count_limit AS Int64;
+		DECLARE $event_type AS Text;
 		DECLARE $changed_at AS Timestamp;
 
 		REPLACE INTO subscription_history (
@@ -2207,36 +2016,11 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$history_id", types.TextValue(historyID)),
-				func() table.ParameterOption {
-					if history.SubscriptionID == nil {
-						return table.ValueParam("$subscription_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$subscription_id", types.OptionalValue(types.TextValue(*history.SubscriptionID)))
-				}(),
-				func() table.ParameterOption {
-					if history.PlanID == nil {
-						return table.ValueParam("$plan_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$plan_id", types.OptionalValue(types.TextValue(*history.PlanID)))
-				}(),
-				func() table.ParameterOption {
-					if history.StorageLimitGB == nil {
-						return table.ValueParam("$storage_limit_gb", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$storage_limit_gb", types.OptionalValue(types.Int64Value(*history.StorageLimitGB)))
-				}(),
-				func() table.ParameterOption {
-					if history.VideoCountLimit == nil {
-						return table.ValueParam("$video_count_limit", types.NullValue(types.TypeInt64))
-					}
-					return table.ValueParam("$video_count_limit", types.OptionalValue(types.Int64Value(*history.VideoCountLimit)))
-				}(),
-				func() table.ParameterOption {
-					if history.EventType == nil {
-						return table.ValueParam("$event_type", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$event_type", types.OptionalValue(types.TextValue(*history.EventType)))
-				}(),
+				table.ValueParam("$subscription_id", types.TextValue(history.SubscriptionID)),
+				table.ValueParam("$plan_id", types.TextValue(history.PlanID)),
+				table.ValueParam("$storage_limit_gb", types.Int64Value(history.StorageLimitGB)),
+				table.ValueParam("$video_count_limit", types.Int64Value(history.VideoCountLimit)),
+				table.ValueParam("$event_type", types.TextValue(history.EventType)),
 				table.ValueParam("$changed_at", types.TimestampValueFromTime(history.ChangedAt)),
 			),
 		)
@@ -2324,10 +2108,10 @@ func (c *YDBClient) GetEmailLogsByUser(ctx context.Context, userID string) ([]*E
 					named.Required("email_type", &log.EmailType),
 					named.Required("recipient", &log.Recipient),
 					named.Required("status", &log.Status),
-					named.Optional("postbox_message_id", &log.PostboxMessageID),
+					named.Required("postbox_message_id", &log.PostboxMessageID),
 					named.Required("sent_at", &log.SentAt),
-					named.Optional("delivered_at", &log.DeliveredAt),
-					named.Optional("error_message", &log.ErrorMessage),
+					named.Required("delivered_at", &log.DeliveredAt),
+					named.Required("error_message", &log.ErrorMessage),
 				); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
 				}
@@ -2348,13 +2132,13 @@ func (c *YDBClient) UpdateEmailLog(ctx context.Context, log *EmailLog) error {
 	query := `
 		DECLARE $email_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $email_type AS Optional<Text>;
-		DECLARE $recipient AS Optional<Text>;
-		DECLARE $status AS Optional<Text>;
-		DECLARE $postbox_message_id AS Optional<Text>;
+		DECLARE $email_type AS Text;
+		DECLARE $recipient AS Text;
+		DECLARE $status AS Text;
+		DECLARE $postbox_message_id AS Text;
 		DECLARE $sent_at AS Timestamp;
-		DECLARE $delivered_at AS Optional<Timestamp>;
-		DECLARE $error_message AS Optional<Text>;
+		DECLARE $delivered_at AS Timestamp;
+		DECLARE $error_message AS Text;
 
 		REPLACE INTO email_logs (
 			email_id, user_id, email_type, recipient, status, postbox_message_id, sent_at, delivered_at, error_message
@@ -2366,33 +2150,13 @@ func (c *YDBClient) UpdateEmailLog(ctx context.Context, log *EmailLog) error {
 			table.NewQueryParameters(
 				table.ValueParam("$email_id", types.TextValue(log.EmailID)),
 				table.ValueParam("$user_id", types.TextValue(log.UserID)),
-				func() table.ParameterOption {
-					if log.EmailType == nil {
-						return table.ValueParam("$email_type", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$email_type", types.OptionalValue(types.TextValue(*log.EmailType)))
-				}(),
-				func() table.ParameterOption {
-					if log.Recipient == nil {
-						return table.ValueParam("$recipient", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$recipient", types.OptionalValue(types.TextValue(*log.Recipient)))
-				}(),
-				func() table.ParameterOption {
-					if log.Status == nil {
-						return table.ValueParam("$status", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$status", types.OptionalValue(types.TextValue(*log.Status)))
-				}(),
-				func() table.ParameterOption {
-					if log.PostboxMessageID == nil {
-						return table.ValueParam("$postbox_message_id", types.NullValue(types.TypeText))
-					}
-					return table.ValueParam("$postbox_message_id", types.OptionalValue(types.TextValue(*log.PostboxMessageID)))
-				}(),
+				table.ValueParam("$email_type", types.TextValue(log.EmailType)),
+				table.ValueParam("$recipient", types.TextValue(log.Recipient)),
+				table.ValueParam("$status", types.TextValue(log.Status)),
+				table.ValueParam("$postbox_message_id", types.TextValue(log.PostboxMessageID)),
 				table.ValueParam("$sent_at", types.TimestampValueFromTime(log.SentAt)),
-				table.ValueParam("$delivered_at", types.NullValue(types.TypeTimestamp)),
-				table.ValueParam("$error_message", types.NullValue(types.TypeText)),
+				table.ValueParam("$delivered_at", types.TimestampValueFromTime(log.DeliveredAt)),
+				table.ValueParam("$error_message", types.TextValue(log.ErrorMessage)),
 			),
 		)
 		return err
@@ -2428,7 +2192,7 @@ func (c *YDBClient) GetRefreshTokensByUser(ctx context.Context, userID string) (
 					named.Required("token_id", &token.TokenID),
 					named.Required("user_id", &token.UserID),
 					named.Required("token_hash", &token.TokenHash),
-					named.Optional("expires_at", &token.ExpiresAt),
+					named.Required("expires_at", &token.ExpiresAt),
 					named.Required("created_at", &token.CreatedAt),
 					named.Required("is_revoked", &token.IsRevoked),
 				); err != nil {

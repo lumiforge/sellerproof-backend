@@ -172,15 +172,14 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		UserID:                uuid.New().String(),
 		Email:                 req.Email,
 		PasswordHash:          passwordHashStr,
-		FullName:              &req.FullName,
+		FullName:              req.FullName,
 		EmailVerified:         false,
-		VerificationCode:      &verificationCode,
-		VerificationExpiresAt: &time.Time{},
+		VerificationCode:      verificationCode,
+		VerificationExpiresAt: time.Now().Add(24 * time.Hour),
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 		IsActive:              true,
 	}
-	*user.VerificationExpiresAt = time.Now().Add(24 * time.Hour)
 
 	err = s.db.CreateUser(ctx, user)
 	if err != nil {
@@ -201,19 +200,19 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			// Сохраняем лог email в базу
 			emailType := string(email.EmailTypeVerification)
 			status := string(emailMessage.Status)
-			var errorMessage *string
+			errorMessage := ""
 			if emailMessage.Error != "" {
-				errorMessage = &emailMessage.Error
+				errorMessage = emailMessage.Error
 			}
 			emailLog := &ydb.EmailLog{
 				EmailID:          emailMessage.ID,
 				UserID:           user.UserID,
-				EmailType:        &emailType,
-				Recipient:        &req.Email,
-				Status:           &status,
-				PostboxMessageID: &emailMessage.MessageID,
+				EmailType:        emailType,
+				Recipient:        req.Email,
+				Status:           status,
+				PostboxMessageID: emailMessage.MessageID,
 				SentAt:           emailMessage.SentAt,
-				DeliveredAt:      nil,
+				DeliveredAt:      time.Time{}, // Zero value for non-nullable time
 				ErrorMessage:     errorMessage,
 			}
 			s.db.CreateEmailLog(ctx, emailLog)
@@ -235,9 +234,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	settingsStr := string(settingsJSON)
 	org := &ydb.Organization{
 		OrgID:     uuid.New().String(),
-		Name:      &orgName,
-		OwnerID:   &user.UserID,
-		Settings:  &settingsStr,
+		Name:      orgName,
+		OwnerID:   user.UserID,
+		Settings:  settingsStr,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -255,9 +254,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		MembershipID: uuid.New().String(),
 		UserID:       user.UserID,
 		OrgID:        org.OrgID,
-		Role:         &role,
-		Status:       &status,
-		InvitedBy:    &user.UserID,
+		Role:         role,
+		Status:       status,
+		InvitedBy:    user.UserID,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -273,25 +272,21 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	videoCountLimit := int64(10)
 	isActive := true
 	trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
-	expiresAt := time.Now().Add(30 * 24 * time.Hour) // 30 дней
 	subscription := &ydb.Subscription{
 		SubscriptionID:  uuid.New().String(),
 		UserID:          user.UserID,
 		OrgID:           org.OrgID,
 		PlanID:          planID,
-		StorageLimitGB:  &storageLimitGB,
-		VideoCountLimit: &videoCountLimit,
-		IsActive:        &isActive,
-		TrialEndsAt:     &trialEndsAt,
+		StorageLimitGB:  storageLimitGB,
+		VideoCountLimit: videoCountLimit,
+		IsActive:        isActive,
+		TrialEndsAt:     trialEndsAt,
 		StartedAt:       time.Now(),
-		ExpiresAt:       &expiresAt,
+		ExpiresAt:       time.Now().Add(30 * 24 * time.Hour), // 30 дней
 		BillingCycle:    "monthly",
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
-
-	subscription.ExpiresAt = &time.Time{}
-	*subscription.ExpiresAt = time.Now().Add(30 * 24 * time.Hour) // 30 дней
 	err = s.db.CreateSubscription(ctx, subscription)
 	if err != nil {
 		slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
@@ -314,26 +309,25 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
-	if *user.VerificationCode == "" {
+	if user.VerificationCode == "" {
 		return &models.VerifyEmailResponse{
 			Message: "Email already verified",
 			Success: true,
 		}, nil
 	}
 	// Проверка кода верификации
-	if user.VerificationCode == nil || *user.VerificationCode != req.Code {
+	if user.VerificationCode != req.Code {
 		return nil, fmt.Errorf("invalid verification code")
 	}
 
 	// Проверка срока действия кода
-	if user.VerificationExpiresAt == nil || time.Now().After(*user.VerificationExpiresAt) {
+	if time.Now().After(user.VerificationExpiresAt) {
 		return nil, fmt.Errorf("verification code expired")
 	}
 
 	// Обновление статуса верификации
 	user.EmailVerified = true
-	emptyStr := ""
-	user.VerificationCode = &emptyStr // Очищаем код
+	user.VerificationCode = "" // Очищаем код
 	user.UpdatedAt = time.Now()
 
 	err = s.db.UpdateUser(ctx, user)
@@ -405,10 +399,10 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	var selectedMembership *ydb.Membership
 
 	for _, m := range memberships {
-		if m.Status != nil && *m.Status == "active" {
+		if m.Status == "active" {
 			// Проверяем, является ли пользователь владельцем
 			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
-			if err == nil && org.OwnerID != nil && *org.OwnerID == user.UserID {
+			if err == nil && org.OwnerID == user.UserID {
 				selectedMembership = m
 				break
 			}
@@ -436,14 +430,8 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 			continue
 		}
 
-		orgName := ""
-		if org.Name != nil {
-			orgName = *org.Name
-		}
-		role := ""
-		if m.Role != nil {
-			role = *m.Role
-		}
+		orgName := org.Name
+		role := m.Role
 		log.Println("Organization added ", m.OrgID, orgName)
 		organizations = append(organizations, &models.OrganizationInfo{
 			OrgID: m.OrgID,
@@ -454,10 +442,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	slog.Info("Organizations collected", "count", len(organizations), "user_id", user.UserID)
 
 	// Генерация JWT токенов
-	role := ""
-	if selectedMembership.Role != nil {
-		role = *selectedMembership.Role
-	}
+	role := selectedMembership.Role
 	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
 		user.UserID,
 		user.Email,
@@ -475,9 +460,9 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	refreshTokenRecord := &ydb.RefreshToken{
 		TokenID:   uuid.New().String(),
 		UserID:    user.UserID,
-		TokenHash: &tokenHash,
-		ExpiresAt: &expiresAt,
-		CreatedAt: &createdAt,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+		CreatedAt: createdAt,
 		IsRevoked: false,
 	}
 
@@ -486,14 +471,8 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		slog.Error("Failed to save refresh token", "error", err, "user_id", user.UserID)
 	}
 
-	fullName := ""
-	if user.FullName != nil {
-		fullName = *user.FullName
-	}
-	role = ""
-	if selectedMembership.Role != nil {
-		role = *selectedMembership.Role
-	}
+	fullName := user.FullName
+	role = selectedMembership.Role
 	return &models.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -548,9 +527,9 @@ func (s *Service) RefreshToken(ctx context.Context, req *models.RefreshTokenRequ
 	newTokenRecord := &ydb.RefreshToken{
 		TokenID:   uuid.New().String(),
 		UserID:    claims.UserID,
-		TokenHash: &newTokenHash,
-		ExpiresAt: &newExpiresAt,
-		CreatedAt: &newCreatedAt,
+		TokenHash: newTokenHash,
+		ExpiresAt: newExpiresAt,
+		CreatedAt: newCreatedAt,
 		IsRevoked: false,
 	}
 
@@ -596,10 +575,10 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 	// Выбираем активное членство (приоритет - где пользователь владелец)
 	var selectedMembership *ydb.Membership
 	for _, m := range memberships {
-		if m.Status != nil && *m.Status == "active" {
+		if m.Status == "active" {
 			// Проверяем, является ли пользователь владельцем
 			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
-			if err == nil && org.OwnerID != nil && *org.OwnerID == user.UserID {
+			if err == nil && org.OwnerID == user.UserID {
 				selectedMembership = m
 				break
 			}
@@ -615,14 +594,8 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 		selectedMembership = memberships[0]
 	}
 
-	fullName := ""
-	if user.FullName != nil {
-		fullName = *user.FullName
-	}
-	role := ""
-	if selectedMembership.Role != nil {
-		role = *selectedMembership.Role
-	}
+	fullName := user.FullName
+	role := selectedMembership.Role
 	return &models.GetProfileResponse{
 		User: &models.UserInfo{
 			UserID:        user.UserID,
@@ -689,7 +662,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.
 	}
 
 	// Обновляем только поле full_name
-	user.FullName = &req.FullName
+	user.FullName = req.FullName
 	user.UpdatedAt = time.Now()
 
 	// Сохраняем изменения в базе
@@ -710,7 +683,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 		return nil, fmt.Errorf("user is not a member of this organization")
 	}
 
-	if membership.Status == nil || *membership.Status != "active" {
+	if membership.Status != "active" {
 		return nil, fmt.Errorf("membership is not active")
 	}
 
@@ -721,10 +694,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	}
 
 	// Генерируем новый токен с новой организацией
-	role := ""
-	if membership.Role != nil {
-		role = *membership.Role
-	}
+	role := membership.Role
 
 	accessToken, _, err := s.jwtManager.GenerateTokenPair(
 		user.UserID,
@@ -762,10 +732,7 @@ func (s *Service) CheckPermission(ctx context.Context, userID, orgID string, per
 		return false, fmt.Errorf("failed to get user membership: %w", err)
 	}
 
-	roleStr := ""
-	if membership.Role != nil {
-		roleStr = *membership.Role
-	}
+	roleStr := membership.Role
 	role := rbac.Role(roleStr)
 	return s.rbac.CheckPermissionWithRole(role, permission), nil
 }
