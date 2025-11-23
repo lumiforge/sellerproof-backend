@@ -282,7 +282,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				storage_limit_gb Int64,
 				video_count_limit Int64,
 				is_active Bool DEFAULT true,
-				trial_ends_at Timestamp,
+				trial_ends_at Optional<Timestamp>, 
 				started_at Timestamp,
 				expires_at Optional<Timestamp>,
 				billing_cycle Text,
@@ -1096,11 +1096,12 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 					return table.ValueParam("$is_active", types.OptionalValue(types.BoolValue(*subscription.IsActive)))
 				}(),
 				func() table.ParameterOption {
-					if subscription.TrialEndsAt.IsZero() {
+					if subscription.TrialEndsAt == nil || subscription.TrialEndsAt.IsZero() {
 						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
 					}
 					return table.ValueParam("$trial_ends_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.TrialEndsAt)))
 				}(),
+
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
 					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
@@ -2165,11 +2166,12 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 					return table.ValueParam("$is_active", types.OptionalValue(types.BoolValue(*subscription.IsActive)))
 				}(),
 				func() table.ParameterOption {
-					if subscription.TrialEndsAt.IsZero() {
+					if subscription.TrialEndsAt == nil || subscription.TrialEndsAt.IsZero() {
 						return table.ValueParam("$trial_ends_at", types.NullValue(types.TypeTimestamp))
 					}
 					return table.ValueParam("$trial_ends_at", types.OptionalValue(types.TimestampValueFromTime(*subscription.TrialEndsAt)))
 				}(),
+
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				func() table.ParameterOption {
 					if subscription.ExpiresAt == nil || subscription.ExpiresAt.IsZero() {
