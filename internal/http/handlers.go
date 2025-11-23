@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -69,6 +70,13 @@ func (s *Server) validateRequest(r *http.Request, req interface{}) error {
 // @Failure	500	{object}	ErrorResponse
 // @Router		/auth/register [post]
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.RegisterRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -118,6 +126,13 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	ErrorResponse
 // @Router		/auth/verify-email [post]
 func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.VerifyEmailRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -159,6 +174,12 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
 
 	var req models.LoginRequest
 	if err := s.validateRequest(r, &req); err != nil {
@@ -221,6 +242,13 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/refresh [post]
 func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.RefreshTokenRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -268,6 +296,13 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	ErrorResponse
 // @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.LogoutRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -346,6 +381,13 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.UpdateProfileRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -388,14 +430,50 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	ErrorResponse
 // @Router		/video/upload/initiate [post]
 func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request) {
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
+	// Read the body once
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "Failed to read request body: "+err.Error())
+		return
+	}
+
+	// Parse raw JSON to check data types
+	var rawBody map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid JSON format: "+err.Error())
+		return
+	}
+
+	// Check for string values instead of numbers
+	if fileSizeStr, ok := rawBody["file_size_bytes"].(string); ok {
+		if _, err := strconv.ParseInt(fileSizeStr, 10, 64); err != nil {
+			s.writeError(w, http.StatusBadRequest, "file_size_bytes must be a number, not a string")
+			return
+		}
+	}
+	if durationStr, ok := rawBody["duration_seconds"].(string); ok {
+		if _, err := strconv.ParseInt(durationStr, 10, 64); err != nil {
+			s.writeError(w, http.StatusBadRequest, "duration_seconds must be a number, not a string")
+			return
+		}
+	}
+
+	// Now decode into the struct
 	var req models.InitiateMultipartUploadRequest
-	if err := s.validateRequest(r, &req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -514,6 +592,13 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.GetPartUploadURLsRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -549,6 +634,13 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
 		return
 	}
 
@@ -736,6 +828,13 @@ func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.CreateShareLinkRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -774,6 +873,13 @@ func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+		return
+	}
+
 	var req models.RevokeShareLinkRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
@@ -807,6 +913,13 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Validate Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
 		return
 	}
 
