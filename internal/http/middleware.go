@@ -45,7 +45,9 @@ func AuthMiddleware(jwtManager *jwt.JWTManager, next http.Handler) http.Handler 
 
 		// Validate token
 		claims, err := jwtManager.ValidateToken(tokenString)
+
 		if err != nil {
+
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}

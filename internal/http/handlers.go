@@ -2,7 +2,6 @@ package http
 
 import (
 	"encoding/json"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -307,13 +306,9 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
-	// TODO: Remove this log
-	log.Println("GetProfile ", claims.UserID, claims.Email)
 
 	resp, err := s.authService.GetProfile(r.Context(), claims.UserID)
 	if err != nil {
-		// TODO: Remove this log
-		log.Println("Error in GetProfile ", err)
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -398,9 +393,6 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
-
-	// TODO: Remove this log
-	log.Println("InitiateMultipartUpload START", claims.UserID, claims.OrgID)
 
 	var req models.InitiateMultipartUploadRequest
 	if err := s.validateRequest(r, &req); err != nil {

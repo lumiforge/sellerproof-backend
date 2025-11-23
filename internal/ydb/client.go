@@ -895,8 +895,6 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 			)
 
 			if err != nil {
-				// TODO: Remove this log
-				log.Println("Error in loop ", err)
 				return fmt.Errorf("scan failed: %w", err)
 			}
 		}
@@ -904,18 +902,12 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 	})
 
 	if err != nil {
-		// TODO: Remove this log
-		log.Println("Error in GetRefreshToken ", err)
 		return nil, err
 	}
 	if !found {
-		// TODO: Remove this log
-		log.Println("Error in GetRefreshToken ", "not found")
 		return nil, fmt.Errorf("refresh token not found")
 	}
 
-	// TODO: Remove this log
-	log.Println("Debug in GetRefreshToken ", token.TokenID)
 	return &token, nil
 }
 
@@ -1677,8 +1669,6 @@ func (c *YDBClient) GetOrganizationByID(ctx context.Context, orgID string) (*Org
 				return fmt.Errorf("scan failed: %w", err)
 			}
 		}
-		// TODO: Remove this log
-		log.Println("Debug in loop ", org.OrgID, org.Name, org.OwnerID, org.Settings, org.CreatedAt, org.UpdatedAt)
 
 		return res.Err()
 	})
