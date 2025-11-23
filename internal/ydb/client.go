@@ -1169,8 +1169,10 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("updated_at", &subscription.UpdatedAt),
 			)
 			if err != nil {
+				log.Println("SCAN FOR SUBSCRIPTIONS FAILED", err)
 				return fmt.Errorf("scan failed: %w", err)
 			}
+			log.Println("SCAN FOR SUBSCRIPTIONS OK")
 		}
 		return res.Err()
 	})
