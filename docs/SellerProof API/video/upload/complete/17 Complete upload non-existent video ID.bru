@@ -1,0 +1,35 @@
+meta {
+  name: Complete upload non-existent video ID
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "non-existent-video-id",
+    "parts": [
+      {
+        "part_number": 1,
+        "etag": "test-etag-1"
+      }
+    ]
+  }
+}
+
+tests {
+  test('Should return 404 for non-existent video ID', function() {
+    expect(res.status).to.equal(404);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('not found');
+  });
+}

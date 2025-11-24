@@ -1,0 +1,30 @@
+meta {
+  name: Complete upload empty parts array
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "test-video-id",
+    "parts": []
+  }
+}
+
+tests {
+  test('Should return 400 for empty parts array', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('parts');
+  });
+}

@@ -59,8 +59,8 @@ git:
 
 build-zip:
 	rm $(ZIP)
-	zip -r $(ZIP) . -x 'Makefile' 'docs' 'instructions' 'README.md' 'patch.diff' 'tests/*' 'schema/*' '*/patch.diff' '.git/*' '*/.git/*' 'git/*' '*/git/*' '/bfe-sl'
-
+	zip -r $(ZIP) internal go.mod main.go
+	
 
 # Development commands
 run:

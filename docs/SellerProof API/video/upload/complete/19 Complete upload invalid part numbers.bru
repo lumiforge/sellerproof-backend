@@ -1,0 +1,39 @@
+meta {
+  name: Complete upload invalid part numbers
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "test-video-id",
+    "parts": [
+      {
+        "part_number": 0,
+        "etag": "test-etag-1"
+      },
+      {
+        "part_number": -1,
+        "etag": "test-etag-2"
+      }
+    ]
+  }
+}
+
+tests {
+  test('Should return 400 for invalid part numbers', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('part_number');
+  });
+}

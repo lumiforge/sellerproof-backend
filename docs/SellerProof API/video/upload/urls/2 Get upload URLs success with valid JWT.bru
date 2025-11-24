@@ -17,7 +17,7 @@ auth:bearer {
 body:json {
   {
     "video_id": "{{testVideoId}}",
-    "total_parts": 5
+    "total_parts": 3
   }
 }
 
@@ -35,9 +35,14 @@ tests {
     expect(res.body.expires_at).to.be.a('number');
     
     // Validate field values are not empty
-    expect(res.body.part_urls).to.have.length(5);
+    expect(res.body.part_urls).to.have.length(3);
     expect(res.body.part_urls[0]).to.be.a('string');
     expect(res.body.part_urls[0]).to.not.equal('');
     expect(res.body.expires_at).to.be.at.least(Date.now() / 1000);
+    
+    // Store all part URLs for subsequent tests
+    for (let i = 0; i < res.body.part_urls.length; i++) {
+      bru.setEnvVar("partUrl" + (i + 1), res.body.part_urls[i]);
+    }
   });
 }

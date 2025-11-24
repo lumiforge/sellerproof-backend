@@ -1,0 +1,33 @@
+meta {
+  name: Complete upload wrong HTTP method
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "test-video-id",
+    "parts": [
+      {
+        "part_number": 1,
+        "etag": "test-etag-1"
+      }
+    ]
+  }
+}
+
+tests {
+  test('Should return 405 for wrong HTTP method', function() {
+    expect(res.status).to.equal(405);
+  });
+}

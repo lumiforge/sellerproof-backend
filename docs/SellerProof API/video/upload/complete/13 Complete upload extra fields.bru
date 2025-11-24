@@ -1,0 +1,40 @@
+meta {
+  name: Complete upload extra fields
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "test-video-id",
+    "parts": [
+      {
+        "part_number": 1,
+        "etag": "test-etag-1"
+      }
+    ],
+    "extra_field": "should_be_ignored",
+    "another_extra": 123
+  }
+}
+
+tests {
+  test('Should return 200 OK and ignore extra fields', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    
+    // Validate that extra fields are ignored
+    expect(res.body).to.not.have.property('extra_field');
+    expect(res.body).to.not.have.property('another_extra');
+  });
+}

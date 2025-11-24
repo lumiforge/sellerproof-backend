@@ -1,0 +1,37 @@
+meta {
+  name: Get upload URLs another user's video
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{secondUserAccessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "total_parts": 5
+  }
+}
+
+tests {
+  test("Should return 403 or 404 for attempting to access another user's video", function() {
+    expect(res.status).to.be.oneOf([403, 404]);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    
+    // Check for appropriate error message
+    if (res.status === 403) {
+      expect(res.body.message).to.include("access denied");
+    } else if (res.status === 404) {
+      expect(res.body.message).to.include("not found");
+    }
+  });
+}

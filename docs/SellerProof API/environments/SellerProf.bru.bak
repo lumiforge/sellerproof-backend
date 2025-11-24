@@ -16,9 +16,10 @@ vars {
   secondUserVerificationCode: 474019
   secondUserAccessToken: ""
   secondUserRefreshToken: ""
-  headerEtag1: 9dba4e6cd8ec31dc99345a2ee3a5dc4f
-  headerEtag2: 9dba4e6cd8ec31dc99345a2ee3a5dc4f
-  headerEtag3: 9dba4e6cd8ec31dc99345a2ee3a5dc4f
+  
+  headerEtag1: ""
+  headerEtag2: ""
+  headerEtag3: ""
   partUrl1: ""
   partUrl2: ""
   partUrl3: ""

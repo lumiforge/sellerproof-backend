@@ -1,0 +1,27 @@
+meta {
+  name: Register invalid email
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "invalid-email@sss",
+    "password": "password123",
+    "full_name": "Test User"
+  }
+}
+
+tests {
+  test('Should return 400 for invalid email format', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+  });
+}
