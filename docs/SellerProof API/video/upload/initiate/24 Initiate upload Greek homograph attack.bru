@@ -1,0 +1,33 @@
+meta {
+  name: Initiate upload Greek homograph attack
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "gοοgle.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 400 for Greek homograph attack', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    expect(res.body.message).to.include("Validation error");
+    expect(res.body.message).to.include("confusing characters");
+  });
+}

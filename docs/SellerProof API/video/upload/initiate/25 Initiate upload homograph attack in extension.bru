@@ -1,0 +1,33 @@
+meta {
+  name: Initiate upload homograph attack in extension
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "video.mр4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 400 for homograph attack in file extension', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    expect(res.body.message).to.include("Validation error");
+    expect(res.body.message).to.include("extension contains potentially confusing characters");
+  });
+}

@@ -490,6 +490,16 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		// Step 1: Unicode normalization (NFC) to handle composed/decomposed characters
 		normalizedName := norm.NFC.String(req.FileName)
 
+		// Step 1.5: Check for Unicode normalization attacks
+		// If the original string differs from normalized, it might be an attempt to bypass filters
+		if req.FileName != normalizedName {
+			slog.Warn("Unicode normalization attack attempt",
+				"filename", req.FileName,
+				"user_id", claims.UserID,
+				"normalized_filename", normalizedName)
+			validationErrors = append(validationErrors, "file_name contains invalid Unicode character sequences")
+		}
+
 		// Step 2: Check length after normalization
 		if len(normalizedName) > 255 {
 			validationErrors = append(validationErrors, "file_name must be at most 255 characters")
@@ -509,6 +519,10 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		for _, char := range normalizedName {
 			for _, forbidden := range forbiddenInvisible {
 				if char == forbidden {
+					slog.Warn("Zero-width/invisible character attack attempt",
+						"filename", req.FileName,
+						"user_id", claims.UserID,
+						"forbidden_char", string([]rune{forbidden}))
 					validationErrors = append(validationErrors, "file_name contains invalid invisible characters")
 					break
 				}
@@ -536,6 +550,10 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		for _, char := range normalizedName {
 			for _, rtlChar := range rtlOverrideChars {
 				if char == rtlChar {
+					slog.Warn("RTL-override attack attempt",
+						"filename", req.FileName,
+						"user_id", claims.UserID,
+						"rtl_char", string([]rune{rtlChar}))
 					validationErrors = append(validationErrors, "file_name contains invalid text direction characters")
 					break
 				}
@@ -567,6 +585,10 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		fileNameUpper := strings.ToUpper(normalizedName)
 		for _, pattern := range sqlInjectionPatterns {
 			if strings.Contains(fileNameUpper, pattern) {
+				slog.Warn("SQL injection attempt in filename",
+					"filename", req.FileName,
+					"user_id", claims.UserID,
+					"pattern", pattern)
 				validationErrors = append(validationErrors, "file_name contains invalid characters")
 				break
 			}
@@ -594,6 +616,10 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		fileNameLower := strings.ToLower(normalizedName)
 		for _, pattern := range xssPatterns {
 			if strings.Contains(fileNameLower, pattern) {
+				slog.Warn("XSS attempt in filename",
+					"filename", req.FileName,
+					"user_id", claims.UserID,
+					"pattern", pattern)
 				validationErrors = append(validationErrors, "file_name contains invalid characters")
 				break
 			}
@@ -697,6 +723,10 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 		// Only flag as attack if both homograph characters AND Latin characters are present
 		if hasHomographChars && hasLatinChars {
+			slog.Warn("Homograph attack attempt detected",
+				"filename", req.FileName,
+				"user_id", claims.UserID,
+				"normalized_filename", normalizedName)
 			validationErrors = append(validationErrors, "file_name contains potentially confusing characters")
 		}
 
@@ -710,8 +740,28 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 				}
 			}
 			if hasExtensionHomographs {
+				slog.Warn("Homograph attack attempt in file extension",
+					"filename", req.FileName,
+					"extension", extension,
+					"user_id", claims.UserID)
 				validationErrors = append(validationErrors, "file extension contains potentially confusing characters")
 			}
+		}
+
+		// Step 7.5: Check for fullwidth characters (should be blocked even without Latin mixing)
+		hasFullwidthChars := false
+		for _, char := range normalizedName {
+			if char >= 0xFF00 && char <= 0xFFEF { // Fullwidth character range
+				hasFullwidthChars = true
+				slog.Warn("Fullwidth character attack attempt",
+					"filename", req.FileName,
+					"user_id", claims.UserID,
+					"fullwidth_char", string([]rune{char}))
+				break
+			}
+		}
+		if hasFullwidthChars {
+			validationErrors = append(validationErrors, "file_name contains invalid fullwidth characters")
 		}
 
 		// Step 8: Validate allowed characters (whitelist approach)
