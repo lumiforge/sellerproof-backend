@@ -8,11 +8,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
+	"golang.org/x/text/unicode/norm"
 )
 
 // Server represents HTTP server
@@ -484,10 +486,66 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	// Validate FileName
 	if req.FileName == "" {
 		validationErrors = append(validationErrors, "file_name is required")
-	} else if len(req.FileName) > 255 {
-		validationErrors = append(validationErrors, "file_name must be at most 255 characters")
 	} else {
-		// Check for SQL injection patterns
+		// Step 1: Unicode normalization (NFC) to handle composed/decomposed characters
+		normalizedName := norm.NFC.String(req.FileName)
+
+		// Step 2: Check length after normalization
+		if len(normalizedName) > 255 {
+			validationErrors = append(validationErrors, "file_name must be at most 255 characters")
+		}
+
+		// Step 3: Filter zero-width and invisible characters
+		forbiddenInvisible := []rune{
+			0x200B, // Zero Width Space
+			0x200C, // Zero Width Non-Joiner
+			0x200D, // Zero Width Joiner
+			0xFEFF, // Zero Width No-Break Space (BOM)
+			0x2060, // Word Joiner
+			0x180E, // Mongolian Vowel Separator
+			0x061C, // Arabic Letter Mark
+		}
+
+		for _, char := range normalizedName {
+			for _, forbidden := range forbiddenInvisible {
+				if char == forbidden {
+					validationErrors = append(validationErrors, "file_name contains invalid invisible characters")
+					break
+				}
+			}
+			if len(validationErrors) > 0 && strings.Contains(validationErrors[len(validationErrors)-1], "invisible characters") {
+				break
+			}
+		}
+
+		// Step 4: Check for RTL-override attacks - Unicode characters that change text direction
+		rtlOverrideChars := []rune{
+			0x202A, // Left-to-Right Embedding
+			0x202B, // Right-to-Left Embedding
+			0x202C, // Pop Directional Formatting
+			0x202D, // Left-to-Right Override
+			0x202E, // Right-to-Left Override
+			0x2066, // Left-to-Right Isolate
+			0x2067, // Right-to-Left Isolate
+			0x2068, // First Strong Isolate
+			0x2069, // Pop Directional Isolate
+			0x200E, // Left-to-Right Mark
+			0x200F, // Right-to-Left Mark
+		}
+
+		for _, char := range normalizedName {
+			for _, rtlChar := range rtlOverrideChars {
+				if char == rtlChar {
+					validationErrors = append(validationErrors, "file_name contains invalid text direction characters")
+					break
+				}
+			}
+			if len(validationErrors) > 0 && strings.Contains(validationErrors[len(validationErrors)-1], "text direction") {
+				break
+			}
+		}
+
+		// Step 5: Check for SQL injection patterns
 		sqlInjectionPatterns := []string{
 			"'",
 			"\"",
@@ -506,7 +564,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 			"EXECUTE",
 		}
 
-		fileNameUpper := strings.ToUpper(req.FileName)
+		fileNameUpper := strings.ToUpper(normalizedName)
 		for _, pattern := range sqlInjectionPatterns {
 			if strings.Contains(fileNameUpper, pattern) {
 				validationErrors = append(validationErrors, "file_name contains invalid characters")
@@ -514,7 +572,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		// Check for XSS patterns
+		// Step 6: Check for XSS patterns
 		xssPatterns := []string{
 			"<script",
 			"</script>",
@@ -533,7 +591,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 			"<img",
 		}
 
-		fileNameLower := strings.ToLower(req.FileName)
+		fileNameLower := strings.ToLower(normalizedName)
 		for _, pattern := range xssPatterns {
 			if strings.Contains(fileNameLower, pattern) {
 				validationErrors = append(validationErrors, "file_name contains invalid characters")
@@ -541,46 +599,95 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		// Check for homograph attacks - visually similar characters from different alphabets
-		// Only flag as attack if there's a mix of Cyrillic and Latin characters that could be confusing
-		// Pure Cyrillic or pure Latin filenames are allowed
-
-		// Cyrillic characters that look like Latin ones
+		// Step 7: Check for homograph attacks - visually similar characters from different alphabets
+		// Extended list including Cyrillic, Greek, and other alphabets
 		homographPairs := map[rune]rune{
-			'а': 'a', // Cyrillic 'a' vs Latin 'a'
-			'А': 'A', // Cyrillic 'A' vs Latin 'A'
-			'е': 'e', // Cyrillic 'e' vs Latin 'e'
-			'Е': 'E', // Cyrillic 'E' vs Latin 'E'
-			'о': 'o', // Cyrillic 'o' vs Latin 'o'
-			'О': 'O', // Cyrillic 'O' vs Latin 'O'
-			'р': 'p', // Cyrillic 'r' vs Latin 'p'
-			'Р': 'P', // Cyrillic 'P' vs Latin 'P'
-			'с': 'c', // Cyrillic 'c' vs Latin 'c'
-			'С': 'C', // Cyrillic 'C' vs Latin 'C'
-			'у': 'y', // Cyrillic 'y' vs Latin 'y'
-			'У': 'Y', // Cyrillic 'Y' vs Latin 'Y'
-			'х': 'x', // Cyrillic 'x' vs Latin 'x'
-			'Х': 'X', // Cyrillic 'X' vs Latin 'X'
-			'і': 'i', // Ukrainian/Cyrillic 'i' vs Latin 'i'
-			'І': 'I', // Ukrainian/Cyrillic 'I' vs Latin 'I'
-			'ј': 'j', // Macedonian 'j' vs Latin 'j'
-			'Ј': 'J', // Macedonian 'J' vs Latin 'J'
+			// Cyrillic
+			'а': 'a', 'А': 'A', // Cyrillic a/A
+			'е': 'e', 'Е': 'E', // Cyrillic e/E
+			'о': 'o', 'О': 'O', // Cyrillic o/O
+			'р': 'p', 'Р': 'P', // Cyrillic r/P
+			'с': 'c', 'С': 'C', // Cyrillic c/C
+			'у': 'y', 'У': 'Y', // Cyrillic y/Y
+			'х': 'x', 'Х': 'X', // Cyrillic x/X
+			'і': 'i', 'І': 'I', // Ukrainian i/I
+			'ј': 'j', 'Ј': 'J', // Macedonian j/J
+			'һ': 'h', 'Һ': 'H', // Cyrillic h/H
+			'ѡ': 'w', 'Ѡ': 'W', // Cyrillic w/W
+			'ԁ': 'd', 'Ԁ': 'D', // Cyrillic d/D
+			'ԋ': 'h', 'Ԋ': 'H', // Cyrillic h/H alternative
+
+			// Greek
+			'ο': 'o', 'Ο': 'O', // Greek omicron
+			'ι': 'i', 'Ι': 'I', // Greek iota
+			'ν': 'v', 'Ν': 'N', // Greek nu
+			'α': 'a', 'Α': 'A', // Greek alpha
+			'ε': 'e', 'Ε': 'E', // Greek epsilon
+			'ρ': 'p', 'Ρ': 'P', // Greek rho
+			'τ': 't', 'Τ': 'T', // Greek tau
+			'κ': 'k', 'Κ': 'K', // Greek kappa
+			'γ': 'y', 'Γ': 'Y', // Greek gamma (looks like y)
+			'υ': 'u', 'Υ': 'Y', // Greek upsilon
+			'χ': 'x', 'Χ': 'X', // Greek chi
+			'λ': 'l', 'Λ': 'L', // Greek lambda
+			'μ': 'm', 'Μ': 'M', // Greek mu
+			'η': 'n', 'Η': 'H', // Greek eta (looks like n)
+			'π': 'n', 'Π': 'N', // Greek pi (looks like n)
+
+			// Armenian
+			'ա': 'a', 'Ա': 'A', // Armenian a/A
+			'օ': 'o', 'Օ': 'O', // Armenian o/O
+			'ս': 's', 'Ս': 'S', // Armenian s/S
+			'վ': 'v', 'Վ': 'V', // Armenian v/V
+			'կ': 'k', 'Կ': 'K', // Armenian k/K
+			'հ': 'h', 'Հ': 'H', // Armenian h/H
+			'մ': 'm', 'Մ': 'M', // Armenian m/M
+			'ն': 'n', 'Ն': 'N', // Armenian n/N
+
+			// Other lookalikes
+			'ａ': 'a', 'Ａ': 'A', // Fullwidth a/A
+			'ｂ': 'b', 'Ｂ': 'B', // Fullwidth b/B
+			'ｃ': 'c', 'Ｃ': 'C', // Fullwidth c/C
+			'ｄ': 'd', 'Ｄ': 'D', // Fullwidth d/D
+			'ｅ': 'e', 'Ｅ': 'E', // Fullwidth e/E
+			'ｆ': 'f', 'Ｆ': 'F', // Fullwidth f/F
+			'ｇ': 'g', 'Ｇ': 'G', // Fullwidth g/G
+			'ｈ': 'h', 'Ｈ': 'H', // Fullwidth h/H
+			'ｉ': 'i', 'Ｉ': 'I', // Fullwidth i/I
+			'ｊ': 'j', 'Ｊ': 'J', // Fullwidth j/J
+			'ｋ': 'k', 'Ｋ': 'K', // Fullwidth k/K
+			'ｌ': 'l', 'Ｌ': 'L', // Fullwidth l/L
+			'ｍ': 'm', 'Ｍ': 'M', // Fullwidth m/M
+			'ｎ': 'n', 'Ｎ': 'N', // Fullwidth n/N
+			'ｏ': 'o', 'Ｏ': 'O', // Fullwidth o/O
+			'ｐ': 'p', 'Ｐ': 'P', // Fullwidth p/P
+			'ｑ': 'q', 'Ｑ': 'Q', // Fullwidth q/Q
+			'ｒ': 'r', 'Ｒ': 'R', // Fullwidth r/R
+			'ｓ': 's', 'Ｓ': 'S', // Fullwidth s/S
+			'ｔ': 't', 'Ｔ': 'T', // Fullwidth t/T
+			'ｕ': 'u', 'Ｕ': 'U', // Fullwidth u/U
+			'ｖ': 'v', 'Ｖ': 'V', // Fullwidth v/V
+			'ｗ': 'w', 'Ｗ': 'W', // Fullwidth w/W
+			'ｘ': 'x', 'Ｘ': 'X', // Fullwidth x/X
+			'ｙ': 'y', 'Ｙ': 'Y', // Fullwidth y/Y
+			'ｚ': 'z', 'Ｚ': 'Z', // Fullwidth z/Z
 		}
 
-		// Check for potential homograph attacks only if there's a mix of character sets
-		// Exclude file extension from the check to avoid false positives with legitimate Unicode filenames
-		hasCyrillicHomograph := false
+		// Check for potential homograph attacks in filename body and extension separately
+		filenameWithoutExt := normalizedName
+		extension := ""
+		if lastDot := strings.LastIndex(normalizedName, "."); lastDot != -1 {
+			filenameWithoutExt = normalizedName[:lastDot]
+			extension = normalizedName[lastDot+1:]
+		}
+
+		// Check filename body for homograph attacks
+		hasHomographChars := false
 		hasLatinChars := false
-
-		// Extract filename without extension
-		filenameWithoutExt := req.FileName
-		if lastDot := strings.LastIndex(req.FileName, "."); lastDot != -1 {
-			filenameWithoutExt = req.FileName[:lastDot]
-		}
 
 		for _, char := range filenameWithoutExt {
 			if _, isHomograph := homographPairs[char]; isHomograph {
-				hasCyrillicHomograph = true
+				hasHomographChars = true
 			}
 			// Check for basic Latin characters (a-z, A-Z)
 			if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') {
@@ -588,37 +695,37 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		// Only flag as attack if both Cyrillic homograph characters AND Latin characters are present
-		// This allows pure Cyrillic filenames (even with homograph characters) and pure Latin filenames
-		if hasCyrillicHomograph && hasLatinChars {
+		// Only flag as attack if both homograph characters AND Latin characters are present
+		if hasHomographChars && hasLatinChars {
 			validationErrors = append(validationErrors, "file_name contains potentially confusing characters")
 		}
 
-		// Check for RTL-override attacks - Unicode characters that change text direction
-		rtlOverrideChars := []rune{
-			0x202A, // Left-to-Right Embedding
-			0x202B, // Right-to-Left Embedding
-			0x202C, // Pop Directional Formatting
-			0x202D, // Left-to-Right Override
-			0x202E, // Right-to-Left Override
-			0x2066, // Left-to-Right Isolate
-			0x2067, // Right-to-Left Isolate
-			0x2068, // First Strong Isolate
-			0x2069, // Pop Directional Isolate
-			0x200E, // Left-to-Right Mark
-			0x200F, // Right-to-Left Mark
-			0x061C, // Arabic Letter Mark
-		}
-
-		for _, char := range req.FileName {
-			for _, rtlChar := range rtlOverrideChars {
-				if char == rtlChar {
-					validationErrors = append(validationErrors, "file_name contains invalid text direction characters")
+		// Check extension for homograph attacks (extensions should be pure Latin)
+		if extension != "" {
+			hasExtensionHomographs := false
+			for _, char := range extension {
+				if _, isHomograph := homographPairs[char]; isHomograph {
+					hasExtensionHomographs = true
 					break
 				}
 			}
-			if len(validationErrors) > 0 && strings.Contains(validationErrors[len(validationErrors)-1], "text direction") {
-				break
+			if hasExtensionHomographs {
+				validationErrors = append(validationErrors, "file extension contains potentially confusing characters")
+			}
+		}
+
+		// Step 8: Validate allowed characters (whitelist approach)
+		// Allow: letters, numbers, basic punctuation, spaces, and common Unicode characters
+		for _, char := range normalizedName {
+			if !unicode.IsLetter(char) && !unicode.IsNumber(char) &&
+				char != '.' && char != '-' && char != '_' && char != ' ' &&
+				char != '(' && char != ')' && char != '[' && char != ']' &&
+				char != '+' && char != ',' && char != '&' && char != '\'' {
+				// Allow some additional Unicode punctuation but restrict control characters
+				if unicode.IsControl(char) || unicode.Is(unicode.Cc, char) {
+					validationErrors = append(validationErrors, "file_name contains invalid control characters")
+					break
+				}
 			}
 		}
 	}
