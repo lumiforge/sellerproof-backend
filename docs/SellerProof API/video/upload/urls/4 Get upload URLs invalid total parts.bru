@@ -1,0 +1,31 @@
+meta {
+  name: Get upload URLs invalid total parts
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "total_parts": "10"
+  }
+}
+
+tests {
+  test("Should return 400 for invalid total_parts (zero)", function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    expect(res.body.message).to.include("Invalid request format");
+  });
+}

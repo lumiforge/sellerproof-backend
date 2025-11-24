@@ -1,0 +1,25 @@
+meta {
+  name: Get upload URLs without JWT token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "video_id": "test-video-id",
+    "total_parts": 5
+  }
+}
+
+tests {
+  test("Should return 401 for missing JWT token", function() {
+    expect(res.status).to.equal(401);
+
+  });
+}

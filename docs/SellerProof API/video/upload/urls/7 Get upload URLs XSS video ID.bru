@@ -1,0 +1,31 @@
+meta {
+  name: Get upload URLs XSS video ID
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "<script>alert('XSS')</script>",
+    "total_parts": 5
+  }
+}
+
+tests {
+  test("Should return 400 for XSS in video_id", function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    expect(res.body.message).to.include("Invalid video_id: contains invalid characters");
+  });
+}

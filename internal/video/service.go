@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -55,30 +54,26 @@ type SearchVideosResult struct {
 
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
-	// TODO: delete this log
-	log.Println("InitiateMultipartUploadDirect started")
+
 	// Проверка прав
 	// TODO: Реализовать проверку прав через RBAC
 
 	// Проверка квоты
 	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
 	if err != nil {
-		// TODO: delete this log
-		log.Println("Failed to get subscription", err)
+
 		return nil, fmt.Errorf("failed to get subscription: %w", err)
 	}
 
 	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
 	if err != nil {
-		// TODO: delete this log
-		log.Println("Failed to get storage usage", err)
+
 		return nil, fmt.Errorf("failed to get storage usage: %w", err)
 	}
 
 	var limitBytes int64 = sub.StorageLimitMB * 1024 * 1024
 	if sub.StorageLimitMB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
-		// TODO: delete this log
-		log.Println("Storage limit exceeded")
+
 		return nil, fmt.Errorf("storage limit exceeded")
 	}
 
@@ -87,8 +82,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, "video/mp4")
 	if err != nil {
-		// TODO: delete this log
-		log.Println("Failed to initiate s3 upload", err)
+
 		return nil, fmt.Errorf("failed to initiate s3 upload: %w", err)
 	}
 
@@ -112,8 +106,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	}
 
 	if err := s.db.CreateVideo(ctx, video); err != nil {
-		// TODO: delete this log
-		log.Println("Failed to create video record", err)
+
 		return nil, fmt.Errorf("failed to create video record: %w", err)
 	}
 
@@ -135,7 +128,11 @@ type InitiateMultipartUploadResult struct {
 func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, videoID string, totalParts int32) (*GetPartUploadURLsResult, error) {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return nil, fmt.Errorf("video not found")
+		// Check if the error is specifically "video not found"
+		if strings.Contains(err.Error(), "video not found") {
+			return nil, fmt.Errorf("video not found")
+		}
+		return nil, fmt.Errorf("video not found %w", err)
 	}
 
 	if video.OrgID != orgID {

@@ -540,6 +540,87 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 				break
 			}
 		}
+
+		// Check for homograph attacks - visually similar characters from different alphabets
+		// Only flag as attack if there's a mix of Cyrillic and Latin characters that could be confusing
+		// Pure Cyrillic or pure Latin filenames are allowed
+
+		// Cyrillic characters that look like Latin ones
+		homographPairs := map[rune]rune{
+			'а': 'a', // Cyrillic 'a' vs Latin 'a'
+			'А': 'A', // Cyrillic 'A' vs Latin 'A'
+			'е': 'e', // Cyrillic 'e' vs Latin 'e'
+			'Е': 'E', // Cyrillic 'E' vs Latin 'E'
+			'о': 'o', // Cyrillic 'o' vs Latin 'o'
+			'О': 'O', // Cyrillic 'O' vs Latin 'O'
+			'р': 'p', // Cyrillic 'r' vs Latin 'p'
+			'Р': 'P', // Cyrillic 'P' vs Latin 'P'
+			'с': 'c', // Cyrillic 'c' vs Latin 'c'
+			'С': 'C', // Cyrillic 'C' vs Latin 'C'
+			'у': 'y', // Cyrillic 'y' vs Latin 'y'
+			'У': 'Y', // Cyrillic 'Y' vs Latin 'Y'
+			'х': 'x', // Cyrillic 'x' vs Latin 'x'
+			'Х': 'X', // Cyrillic 'X' vs Latin 'X'
+			'і': 'i', // Ukrainian/Cyrillic 'i' vs Latin 'i'
+			'І': 'I', // Ukrainian/Cyrillic 'I' vs Latin 'I'
+			'ј': 'j', // Macedonian 'j' vs Latin 'j'
+			'Ј': 'J', // Macedonian 'J' vs Latin 'J'
+		}
+
+		// Check for potential homograph attacks only if there's a mix of character sets
+		// Exclude file extension from the check to avoid false positives with legitimate Unicode filenames
+		hasCyrillicHomograph := false
+		hasLatinChars := false
+
+		// Extract filename without extension
+		filenameWithoutExt := req.FileName
+		if lastDot := strings.LastIndex(req.FileName, "."); lastDot != -1 {
+			filenameWithoutExt = req.FileName[:lastDot]
+		}
+
+		for _, char := range filenameWithoutExt {
+			if _, isHomograph := homographPairs[char]; isHomograph {
+				hasCyrillicHomograph = true
+			}
+			// Check for basic Latin characters (a-z, A-Z)
+			if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') {
+				hasLatinChars = true
+			}
+		}
+
+		// Only flag as attack if both Cyrillic homograph characters AND Latin characters are present
+		// This allows pure Cyrillic filenames (even with homograph characters) and pure Latin filenames
+		if hasCyrillicHomograph && hasLatinChars {
+			validationErrors = append(validationErrors, "file_name contains potentially confusing characters")
+		}
+
+		// Check for RTL-override attacks - Unicode characters that change text direction
+		rtlOverrideChars := []rune{
+			0x202A, // Left-to-Right Embedding
+			0x202B, // Right-to-Left Embedding
+			0x202C, // Pop Directional Formatting
+			0x202D, // Left-to-Right Override
+			0x202E, // Right-to-Left Override
+			0x2066, // Left-to-Right Isolate
+			0x2067, // Right-to-Left Isolate
+			0x2068, // First Strong Isolate
+			0x2069, // Pop Directional Isolate
+			0x200E, // Left-to-Right Mark
+			0x200F, // Right-to-Left Mark
+			0x061C, // Arabic Letter Mark
+		}
+
+		for _, char := range req.FileName {
+			for _, rtlChar := range rtlOverrideChars {
+				if char == rtlChar {
+					validationErrors = append(validationErrors, "file_name contains invalid text direction characters")
+					break
+				}
+			}
+			if len(validationErrors) > 0 && strings.Contains(validationErrors[len(validationErrors)-1], "text direction") {
+				break
+			}
+		}
 	}
 
 	// Validate FileSizeBytes
@@ -605,9 +686,80 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.TotalParts < 1 {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: minimum 1 part required")
+		return
+	} else if req.TotalParts > 100 {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: maximum 100 parts allowed")
+		return
+	} else if req.VideoID == "" {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: video_id is required")
+		return
+	}
+
+	// Validate video_id for SQL injection and XSS patterns
+	sqlInjectionPatterns := []string{
+		"'",
+		"\"",
+		";",
+		"--",
+		"/*",
+		"*/",
+		"xp_",
+		"DROP",
+		"DELETE",
+		"INSERT",
+		"UPDATE",
+		"SELECT",
+		"UNION",
+		"EXEC",
+		"EXECUTE",
+	}
+
+	videoIDUpper := strings.ToUpper(req.VideoID)
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(videoIDUpper, pattern) {
+			s.writeError(w, http.StatusBadRequest, "Invalid video_id: contains invalid characters")
+			return
+		}
+	}
+
+	// Check for XSS patterns
+	xssPatterns := []string{
+		"<script",
+		"</script>",
+		"javascript:",
+		"onload=",
+		"onerror=",
+		"onclick=",
+		"onmouseover=",
+		"onfocus=",
+		"onblur=",
+		"<iframe",
+		"<object",
+		"<embed",
+		"<form",
+		"<input",
+		"<img",
+	}
+
+	videoIDLower := strings.ToLower(req.VideoID)
+	for _, pattern := range xssPatterns {
+		if strings.Contains(videoIDLower, pattern) {
+			s.writeError(w, http.StatusBadRequest, "Invalid video_id: contains invalid characters")
+			return
+		}
+	}
+
 	resp, err := s.videoService.GetPartUploadURLsDirect(r.Context(), claims.UserID, claims.OrgID, req.VideoID, req.TotalParts)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
+		// Check if the error is related to video not found
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "video not found") {
+			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
+		} else {
+			s.writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 

@@ -1146,8 +1146,8 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error) {
 	query := `
 		DECLARE $video_id AS Text;
-		SELECT video_id, org_id, uploaded_by, file_name, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, total_parts, public_share_token, share_expires_at, uploaded_at
+		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
 		FROM videos WHERE video_id = $video_id
 	`
 
@@ -1172,15 +1172,19 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
 				named.Required("file_name", &v.FileName),
+				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
 				named.Required("storage_path", &v.StoragePath),
 				named.Required("duration_seconds", &v.DurationSeconds),
 				named.Required("upload_id", &v.UploadID),
 				named.Required("upload_status", &v.UploadStatus),
+				named.Optional("parts_uploaded", &v.PartsUploaded),
 				named.Optional("total_parts", &v.TotalParts),
 				named.Optional("public_share_token", &v.PublicShareToken),
 				named.Optional("share_expires_at", &v.ShareExpiresAt),
 				named.Optional("uploaded_at", &v.UploadedAt),
+				named.Required("created_at", &v.CreatedAt),
+				named.Required("is_deleted", &v.IsDeleted),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1321,7 +1325,8 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Video, error) {
 	query := `
 		DECLARE $token AS Text;
-		SELECT video_id, org_id, file_name, file_size_bytes, storage_path, share_expires_at
+		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
 		FROM videos
 		WHERE public_share_token = $token AND is_deleted = false
 	`
@@ -1345,10 +1350,21 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			err := res.ScanNamed(
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
+				named.Required("uploaded_by", &v.UploadedBy),
 				named.Required("file_name", &v.FileName),
+				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
 				named.Required("storage_path", &v.StoragePath),
+				named.Required("duration_seconds", &v.DurationSeconds),
+				named.Required("upload_id", &v.UploadID),
+				named.Required("upload_status", &v.UploadStatus),
+				named.Optional("parts_uploaded", &v.PartsUploaded),
+				named.Optional("total_parts", &v.TotalParts),
+				named.Optional("public_share_token", &v.PublicShareToken),
 				named.Optional("share_expires_at", &v.ShareExpiresAt),
+				named.Optional("uploaded_at", &v.UploadedAt),
+				named.Required("created_at", &v.CreatedAt),
+				named.Required("is_deleted", &v.IsDeleted),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1427,7 +1443,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	}
 
 	// Get data
-	dataQuery := `SELECT video_id, org_id, uploaded_by, file_name, file_size_bytes, storage_path, duration_seconds, upload_status, uploaded_at ` + baseQuery + ` ORDER BY uploaded_at DESC LIMIT $limit OFFSET $offset`
+	dataQuery := `SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted ` + baseQuery + ` ORDER BY uploaded_at DESC LIMIT $limit OFFSET $offset`
 	args = append(args, types.Int64Value(int64(limit)), types.Int64Value(int64(offset)))
 
 	var videos []*Video
@@ -1465,11 +1481,19 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					named.Required("org_id", &v.OrgID),
 					named.Required("uploaded_by", &v.UploadedBy),
 					named.Required("file_name", &v.FileName),
+					named.Required("file_name_search", &v.FileNameSearch),
 					named.Required("file_size_bytes", &v.FileSizeBytes),
 					named.Required("storage_path", &v.StoragePath),
 					named.Required("duration_seconds", &v.DurationSeconds),
+					named.Required("upload_id", &v.UploadID),
 					named.Required("upload_status", &v.UploadStatus),
+					named.Optional("parts_uploaded", &v.PartsUploaded),
+					named.Optional("total_parts", &v.TotalParts),
+					named.Optional("public_share_token", &v.PublicShareToken),
+					named.Optional("share_expires_at", &v.ShareExpiresAt),
 					named.Optional("uploaded_at", &v.UploadedAt),
+					named.Required("created_at", &v.CreatedAt),
+					named.Required("is_deleted", &v.IsDeleted),
 				); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
 				}

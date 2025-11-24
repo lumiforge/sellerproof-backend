@@ -1,0 +1,28 @@
+meta {
+  name: Get upload URLs wrong HTTP method
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "total_parts": 5
+  }
+}
+
+tests {
+  test("Should return 405 for wrong HTTP method", function() {
+    expect(res.status).to.equal(405);
+  });
+}

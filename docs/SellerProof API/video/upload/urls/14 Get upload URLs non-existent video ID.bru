@@ -1,0 +1,30 @@
+meta {
+  name: Get upload URLs non-existent video ID
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "non-existent-video-id",
+    "total_parts": 5
+  }
+}
+
+tests {
+  test("Should return 404 or 500 for non-existent video_id", function() {
+    expect(res.status).to.be.oneOf([404, 500]);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+  });
+}

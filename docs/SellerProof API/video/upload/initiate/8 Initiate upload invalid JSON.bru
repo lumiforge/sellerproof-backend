@@ -6,7 +6,7 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/upload/initiate
-  body: raw
+  body: json
   auth: bearer
 }
 
@@ -14,12 +14,8 @@ auth:bearer {
   token: {{accessToken}}
 }
 
-body:raw {
-  {
-    "file_name": "test-video.mp4",
-    "file_size_bytes": 1048576,
-    "duration_seconds": 60,
-  }
+body:json {
+  {"file_name": "test-video.mp4", "file_size_bytes": 1048576, "duration_seconds": 60,}
 }
 
 tests {

@@ -1,0 +1,33 @@
+meta {
+  name: Get upload URLs wrong Content-Type
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "total_parts": 5
+  }
+}
+
+headers {
+  Content-Type: text/plain
+}
+
+tests {
+  test("Should return 415 for wrong Content-Type", function() {
+    expect(res.status).to.equal(415);
+    
+  });
+}

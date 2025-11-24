@@ -1,7 +1,7 @@
 meta {
-  name: Initiate upload success with valid JWT
+  name: Initiate upload success with unicode file_name
   type: http
-  seq: 2
+  seq: 19
 }
 
 post {
@@ -16,7 +16,7 @@ auth:bearer {
 
 body:json {
   {
-    "file_name": "test-video.mp4",
+    "file_name": "{{unicodeVideoName}}",
     "file_size_bytes": 1048576,
     "duration_seconds": 60
   }
@@ -43,8 +43,8 @@ tests {
     expect(res.body.recommended_part_size_mb).to.be.at.least(1);
     
     // Store values for subsequent tests
-    bru.setEnvVar("testVideoId", res.body.video_id);
-    bru.setEnvVar("testUploadId", res.body.upload_id);
-    bru.setEnvVar("recommendedPartSizeMb", res.body.recommended_part_size_mb);
+    bru.setEnvVar("testUnicodeVideoId", res.body.video_id);
+    bru.setEnvVar("testUnicodeUploadId", res.body.upload_id);
+    bru.setEnvVar("recommendedUnicodePartSizeMb", res.body.recommended_part_size_mb);
   });
 }

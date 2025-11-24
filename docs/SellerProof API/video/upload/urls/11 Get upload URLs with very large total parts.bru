@@ -1,0 +1,31 @@
+meta {
+  name: Get upload URLs with very large total parts
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "total_parts": 101
+  }
+}
+
+tests {
+  test("Should return 400 for total_parts exceeding maximum limit", function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    expect(res.body.message).to.include("Invalid request format: maximum 100 parts allowed");
+  });
+}
