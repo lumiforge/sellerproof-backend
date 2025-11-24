@@ -964,6 +964,20 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if req.VideoID == "" {
+		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	} else if len(req.Parts) == 0 {
+		s.writeError(w, http.StatusBadRequest, "parts is required")
+		return
+	} else if req.Parts[0].PartNumber == 0 {
+		s.writeError(w, http.StatusBadRequest, "part_number must be greater than 0")
+		return
+	} else if req.Parts[0].ETag == "" {
+		s.writeError(w, http.StatusBadRequest, "etag is required")
+		return
+	}
+
 	// Convert parts to internal format
 	parts := make([]video.CompletedPart, len(req.Parts))
 	for i, p := range req.Parts {

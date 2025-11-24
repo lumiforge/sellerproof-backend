@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -169,6 +170,7 @@ type GetPartUploadURLsResult struct {
 
 // CompleteMultipartUploadDirect completes multipart upload with direct parameters
 func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, orgID, videoID string, parts []CompletedPart) (*CompleteMultipartUploadResult, error) {
+	log.Println("CompleteMultipartUploadDirect with userID", userID, "orgID", orgID, "videoID", videoID)
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("video not found")
