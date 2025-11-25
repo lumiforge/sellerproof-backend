@@ -2,8 +2,6 @@ package video
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"strings"
@@ -243,114 +241,134 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, videoID str
 	}, nil
 }
 
-// CreatePublicShareLinkDirect creates public share link with direct parameters
-func (s *Service) CreatePublicShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string, expiresInHours int32) (*CreatePublicShareLinkResult, error) {
-	video, err := s.db.GetVideo(ctx, videoID)
-	if err != nil {
-		return nil, err
-	}
-	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
-	}
+// // CreatePublicShareLinkDirect creates public share link with direct parameters
+// func (s *Service) CreatePublicShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string, expiresInHours int32) (*CreatePublicShareLinkResult, error) {
+// 	video, err := s.db.GetVideo(ctx, videoID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if video.OrgID != orgID {
+// 		return nil, fmt.Errorf("access denied")
+// 	}
 
-	// RBAC: User can only share own videos
-	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-		return nil, fmt.Errorf("access denied: can only share own videos")
-	}
+// 	// RBAC: User can only share own videos
+// 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+// 		return nil, fmt.Errorf("access denied: can only share own videos")
+// 	}
 
-	var expiresAt int64
-	if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() {
-		expiresAt = video.ShareExpiresAt.Unix()
-	}
+// 	// var expiresAt int64
+// 	// if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() {
+// 	// 	expiresAt = video.ShareExpiresAt.Unix()
+// 	// }
 
-	token := generateToken(32)
-	video.PublicShareToken = &token
-	if expiresInHours > 0 {
-		t := time.Now().Add(time.Duration(expiresInHours) * time.Hour)
-		video.ShareExpiresAt = &t
-	} else {
-		video.ShareExpiresAt = nil
-	}
+// 	token := generateToken(32)
+// 	video.PublicShareToken = &token
+// 	if expiresInHours > 0 {
+// 		t := time.Now().Add(time.Duration(expiresInHours) * time.Hour)
+// 		video.ShareExpiresAt = &t
+// 	} else {
+// 		video.ShareExpiresAt = nil
+// 	}
 
-	if err := s.db.UpdateVideo(ctx, video); err != nil {
-		return nil, err
-	}
+// 	if err := s.db.UpdateVideo(ctx, video); err != nil {
+// 		return nil, err
+// 	}
 
-	return &CreatePublicShareLinkResult{
-		ShareURL:  fmt.Sprintf("https://sellerproof.ru/share/%s", token),
-		ExpiresAt: expiresAt,
-	}, nil
-}
+// 	// Генерируем pre-signed URL на S3 сразу
+// 	// TODO HARD
+// 	duration := time.Duration(expiresInHours) * time.Hour
+// 	if duration == 0 {
+// 		duration = 24 * time.Hour // по умолчанию 24 часа
+// 	}
 
-// CreatePublicShareLinkResult represents the result of creating public share link
-type CreatePublicShareLinkResult struct {
-	ShareURL  string `json:"share_url"`
-	ExpiresAt int64  `json:"expires_at"`
-}
+// 	presignedURL, err := s.storage.GeneratePresignedDownloadURL(
+// 		ctx,
+// 		video.StoragePath,
+// 		duration,
+// 	)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to generate presigned URL: %w", err)
+// 	}
 
-// GetPublicVideoDirect gets public video with direct parameters
-func (s *Service) GetPublicVideoDirect(ctx context.Context, shareToken string) (*GetPublicVideoResult, error) {
-	video, err := s.db.GetVideoByShareToken(ctx, shareToken)
-	if err != nil {
-		return nil, fmt.Errorf("video not found or link invalid")
-	}
+// 	return &CreatePublicShareLinkResult{
+// 		ShareURL:  presignedURL, // Прямая ссылка на S3
+// 		ExpiresAt: time.Now().Add(duration).Unix(),
+// 	}, nil
 
-	if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() && time.Now().After(*video.ShareExpiresAt) {
-		return nil, fmt.Errorf("link expired")
-	}
+// 	// return &CreatePublicShareLinkResult{
+// 	// 	ShareURL:  fmt.Sprintf("https://sellerproof.ru/share/%s", token),
+// 	// 	ExpiresAt: expiresAt,
+// 	// }, nil
+// }
 
-	storagePath := video.StoragePath
-	url, err := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
-	if err != nil {
-		return nil, err
-	}
+// // CreatePublicShareLinkResult represents the result of creating public share link
+// type CreatePublicShareLinkResult struct {
+// 	ShareURL  string `json:"share_url"`
+// 	ExpiresAt int64  `json:"expires_at"`
+// }
 
-	fileName := video.FileName
-	fileSize := video.FileSizeBytes
-	return &GetPublicVideoResult{
-		FileName:    fileName,
-		FileSize:    fileSize,
-		DownloadURL: url,
-		ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
-	}, nil
-}
+// // GetPublicVideoDirect gets public video with direct parameters
+// func (s *Service) GetPublicVideoDirect(ctx context.Context, shareToken string) (*GetPublicVideoResult, error) {
+// 	video, err := s.db.GetVideoByShareToken(ctx, shareToken)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("video not found or link invalid")
+// 	}
 
-// GetPublicVideoResult represents the result of getting public video
-type GetPublicVideoResult struct {
-	FileName    string `json:"file_name"`
-	FileSize    int64  `json:"file_size"`
-	DownloadURL string `json:"download_url"`
-	ExpiresAt   int64  `json:"expires_at"`
-}
+// 	if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() && time.Now().After(*video.ShareExpiresAt) {
+// 		return nil, fmt.Errorf("link expired")
+// 	}
 
-// RevokeShareLinkDirect revokes share link with direct parameters
-func (s *Service) RevokeShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string) error {
-	video, err := s.db.GetVideo(ctx, videoID)
-	if err != nil {
-		return err
-	}
-	if video.OrgID != orgID {
-		return fmt.Errorf("access denied")
-	}
+// 	storagePath := video.StoragePath
+// 	url, err := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// RBAC: User can only revoke own videos
-	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-		return fmt.Errorf("access denied: can only revoke own videos")
-	}
+// 	fileName := video.FileName
+// 	fileSize := video.FileSizeBytes
+// 	return &GetPublicVideoResult{
+// 		FileName:    fileName,
+// 		FileSize:    fileSize,
+// 		DownloadURL: url,
+// 		ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
+// 	}, nil
+// }
 
-	video.PublicShareToken = nil
-	video.ShareExpiresAt = nil
+// // GetPublicVideoResult represents the result of getting public video
+// type GetPublicVideoResult struct {
+// 	FileName    string `json:"file_name"`
+// 	FileSize    int64  `json:"file_size"`
+// 	DownloadURL string `json:"download_url"`
+// 	ExpiresAt   int64  `json:"expires_at"`
+// }
 
-	return s.db.UpdateVideo(ctx, video)
-}
+// // RevokeShareLinkDirect revokes share link with direct parameters
+// func (s *Service) RevokeShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string) error {
+// 	video, err := s.db.GetVideo(ctx, videoID)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if video.OrgID != orgID {
+// 		return fmt.Errorf("access denied")
+// 	}
+
+// 	// RBAC: User can only revoke own videos
+// 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+// 		return fmt.Errorf("access denied: can only revoke own videos")
+// 	}
+
+// 	video.PublicShareToken = nil
+// 	video.ShareExpiresAt = nil
+
+// 	return s.db.UpdateVideo(ctx, video)
+// }
 
 // SearchVideosDirect searches videos with direct parameters
 func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, query string, page, pageSize int32) (*SearchVideosResult, error) {
 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoSearch) {
 		return nil, fmt.Errorf("access denied")
 	}
-	// TODO: delete
-	log.Println("SearchVideosDirect with userID", userID, "orgID", orgID, "role", role, "query", query, "page", page, "pageSize", pageSize)
+
 	filterUserID := ""
 	if rbac.Role(role) == rbac.RoleUser {
 		filterUserID = userID
@@ -367,8 +385,6 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 
 	videos, total, err := s.db.SearchVideos(ctx, orgID, filterUserID, query, limit, offset)
 	if err != nil {
-		// TODO: delete
-		log.Println("Failed to search videos", "error", err)
 		return nil, err
 	}
 
@@ -398,8 +414,8 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 	}, nil
 }
 
-func generateToken(length int) string {
-	b := make([]byte, length)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
+// func generateToken(length int) string {
+// 	b := make([]byte, length)
+// 	rand.Read(b)
+// 	return hex.EncodeToString(b)
+// }

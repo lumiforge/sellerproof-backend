@@ -77,7 +77,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 
 	// Video routes
 	// Public video routes (no auth required)
-	mux.HandleFunc("/api/v1/video/public", chainMiddleware(server.GetPublicVideo, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
+	// mux.HandleFunc("/api/v1/video/public", chainMiddleware(server.GetPublicVideo, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 
 	// Protected video routes
 	mux.HandleFunc("/api/v1/video/upload/initiate", chainMiddleware(server.InitiateMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
@@ -92,21 +92,15 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/video", chainMiddleware(server.GetVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
-	mux.HandleFunc("/api/v1/video/search", chainMiddleware(server.SearchVideos, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/video/search", chainMiddleware(server.SearchVideos, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
-	mux.HandleFunc("/api/v1/video/share", chainMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
-			server.CreatePublicShareLink(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, next)
-	}))
-	mux.HandleFunc("/api/v1/video/share/revoke", chainMiddleware(server.RevokeShareLink, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, next)
-	}))
+	// mux.HandleFunc("/api/v1/video/share", chainMiddleware(server.CreatePublicShareLink, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	// 	return AuthMiddleware(jwtManager, next)
+	// }))
+	// mux.HandleFunc("/api/v1/video/share/revoke", chainMiddleware(server.RevokeShareLink, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	// 	return AuthMiddleware(jwtManager, next)
+	// }))
 
 	return mux
 }

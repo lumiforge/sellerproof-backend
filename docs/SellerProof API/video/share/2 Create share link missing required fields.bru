@@ -1,0 +1,30 @@
+meta {
+  name: Create share link missing required fields
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/share
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "",
+    "expires_in_hours": -1
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for missing required fields', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+  });
+}

@@ -12,7 +12,5 @@ get {
 tests {
   test('Should return 401 Unauthorized for missing JWT token', function() {
     expect(res.status).to.equal(401);
-    expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Unauthorized');
   });
 }

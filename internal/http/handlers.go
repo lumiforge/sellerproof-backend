@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -821,8 +820,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
-	// TODO: delete
-	log.Println("SearchVideos with userID", claims.UserID)
+
 	query := r.URL.Query().Get("query")
 	pageStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("page_size")
@@ -859,8 +857,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.videoService.SearchVideosDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, query, page, pageSize)
 	if err != nil {
-		// TODO: delete
-		log.Println("Failed to search videos", "error", err)
+
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -895,39 +892,39 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 // @Failure	400	{object}	ErrorResponse
 // @Failure	500	{object}	ErrorResponse
 // @Router		/video/public [get]
-func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
-	shareToken := r.URL.Query().Get("share_token")
-	if shareToken == "" {
-		s.writeError(w, http.StatusBadRequest, "share_token is required")
-		return
-	}
+// func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
+// 	shareToken := r.URL.Query().Get("share_token")
+// 	if shareToken == "" {
+// 		s.writeError(w, http.StatusBadRequest, "share_token is required")
+// 		return
+// 	}
 
-	// Validate share_token using Unicode-friendly validation
-	if err := validation.ValidateFilenameUnicode(shareToken, "share_token"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+// 	// Validate share_token using Unicode-friendly validation
+// 	if err := validation.ValidateFilenameUnicode(shareToken, "share_token"); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, err.Error())
+// 		return
+// 	}
 
-	// Additional checks for SQL injection and XSS
-	options := validation.CombineOptions(
-		validation.WithSQLInjectionCheck(),
-		validation.WithXSSCheck(),
-	)
-	result := validation.ValidateInput(shareToken, options)
-	if !result.IsValid {
-		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid share_token: "+errorMessage)
-		return
-	}
+// 	// Additional checks for SQL injection and XSS
+// 	options := validation.CombineOptions(
+// 		validation.WithSQLInjectionCheck(),
+// 		validation.WithXSSCheck(),
+// 	)
+// 	result := validation.ValidateInput(shareToken, options)
+// 	if !result.IsValid {
+// 		errorMessage := strings.Join(result.Errors, "; ")
+// 		s.writeError(w, http.StatusBadRequest, "Invalid share_token: "+errorMessage)
+// 		return
+// 	}
 
-	resp, err := s.videoService.GetPublicVideoDirect(r.Context(), shareToken)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+// 	resp, err := s.videoService.GetPublicVideoDirect(r.Context(), shareToken)
+// 	if err != nil {
+// 		s.writeError(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
 
-	s.writeJSON(w, http.StatusOK, resp)
-}
+// 	s.writeJSON(w, http.StatusOK, resp)
+// }
 
 // CreatePublicShareLink handles creating public share link
 // @Summary		Create public share link
@@ -942,54 +939,54 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 // @Failure	400	{object}	ErrorResponse
 // @Failure	500	{object}	ErrorResponse
 // @Router		/video/share [post]
-func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
-	claims, ok := GetUserClaims(r)
-	if !ok {
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
-		return
-	}
+// func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
+// 	claims, ok := GetUserClaims(r)
+// 	if !ok {
+// 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+// 		return
+// 	}
 
-	// Validate Content-Type header using validation package
-	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+// 	// Validate Content-Type header using validation package
+// 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, err.Error())
+// 		return
+// 	}
 
-	var req models.CreateShareLinkRequest
-	if err := s.validateRequest(r, &req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
-		return
-	}
+// 	var req models.CreateShareLinkRequest
+// 	if err := s.validateRequest(r, &req); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+// 		return
+// 	}
 
-	// Validate video_id using Unicode-friendly validation
-	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+// 	// Validate video_id using Unicode-friendly validation
+// 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, err.Error())
+// 		return
+// 	}
 
-	// Additional checks for SQL injection and XSS
-	options := validation.CombineOptions(
-		validation.WithSQLInjectionCheck(),
-		validation.WithXSSCheck(),
-	)
-	result := validation.ValidateInput(req.VideoID, options)
-	if !result.IsValid {
-		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
-		return
-	}
+// 	// Additional checks for SQL injection and XSS
+// 	options := validation.CombineOptions(
+// 		validation.WithSQLInjectionCheck(),
+// 		validation.WithXSSCheck(),
+// 	)
+// 	result := validation.ValidateInput(req.VideoID, options)
+// 	if !result.IsValid {
+// 		errorMessage := strings.Join(result.Errors, "; ")
+// 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+// 		return
+// 	}
 
-	resp, err := s.videoService.CreatePublicShareLinkDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID, req.ExpiresInHours)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+// 	resp, err := s.videoService.CreatePublicShareLinkDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID, req.ExpiresInHours)
+// 	if err != nil {
+// 		s.writeError(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
 
-	s.writeJSON(w, http.StatusOK, models.CreateShareLinkResponse{
-		ShareURL:  resp.ShareURL,
-		ExpiresAt: resp.ExpiresAt,
-	})
-}
+// 	s.writeJSON(w, http.StatusOK, models.CreateShareLinkResponse{
+// 		ShareURL:  resp.ShareURL,
+// 		ExpiresAt: resp.ExpiresAt,
+// 	})
+// }
 
 // RevokeShareLink handles revoking share link
 // @Summary		Revoke share link
@@ -1004,49 +1001,49 @@ func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 // @Failure	400	{object}	ErrorResponse
 // @Failure	500	{object}	ErrorResponse
 // @Router		/video/share/revoke [post]
-func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
-	_, ok := GetUserClaims(r)
-	if !ok {
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
-		return
-	}
+// func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
+// 	_, ok := GetUserClaims(r)
+// 	if !ok {
+// 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+// 		return
+// 	}
 
-	// Validate Content-Type header using validation package
-	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+// 	// Validate Content-Type header using validation package
+// 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, err.Error())
+// 		return
+// 	}
 
-	var req models.RevokeShareLinkRequest
-	if err := s.validateRequest(r, &req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
-		return
-	}
+// 	var req models.RevokeShareLinkRequest
+// 	if err := s.validateRequest(r, &req); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+// 		return
+// 	}
 
-	// Validate video_id using Unicode-friendly validation
-	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+// 	// Validate video_id using Unicode-friendly validation
+// 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+// 		s.writeError(w, http.StatusBadRequest, err.Error())
+// 		return
+// 	}
 
-	// Additional checks for SQL injection and XSS
-	options := validation.CombineOptions(
-		validation.WithSQLInjectionCheck(),
-		validation.WithXSSCheck(),
-	)
-	result := validation.ValidateInput(req.VideoID, options)
-	if !result.IsValid {
-		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
-		return
-	}
+// 	// Additional checks for SQL injection and XSS
+// 	options := validation.CombineOptions(
+// 		validation.WithSQLInjectionCheck(),
+// 		validation.WithXSSCheck(),
+// 	)
+// 	result := validation.ValidateInput(req.VideoID, options)
+// 	if !result.IsValid {
+// 		errorMessage := strings.Join(result.Errors, "; ")
+// 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+// 		return
+// 	}
 
-	// TODO: For now, return a placeholder response
-	// This will be implemented when we update the video service
-	s.writeJSON(w, http.StatusOK, models.RevokeShareLinkResponse{
-		Success: true,
-	})
-}
+// 	// TODO: For now, return a placeholder response
+// 	// This will be implemented when we update the video service
+// 	s.writeJSON(w, http.StatusOK, models.RevokeShareLinkResponse{
+// 		Success: true,
+// 	})
+// }
 
 // Health handles health check
 // @Summary		Health check
