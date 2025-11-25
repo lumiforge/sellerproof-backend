@@ -1,0 +1,45 @@
+meta {
+  name: Get video very long video_id
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id=very-long-video-id-that-exceeds-normal-limits-and-should-be-rejected-by-the-validation-layer-because-it-is-much-longer-than-any-reasonable-video-id-should-ever-be-1234567890
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 or 404 for very long video_id', function() {
+    expect(res.status).to.be.oneOf([400, 404]);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.code).to.be.a('number');
+    
+    // Check for appropriate error response
+    if (res.status === 400) {
+      expect(res.body.message).to.include('invalid');
+      expect(res.body.code).to.equal(400);
+    } else if (res.status === 404) {
+      expect(res.body.message).to.include('not found');
+      expect(res.body.code).to.equal(404);
+    }
+    
+    // Ensure the long input doesn't cause buffer overflow or other issues
+    expect(res.body.message).to.not.include('buffer');
+    expect(res.body.message).to.not.include('overflow');
+    expect(res.body.message).to.not.include('memory');
+  });
+}

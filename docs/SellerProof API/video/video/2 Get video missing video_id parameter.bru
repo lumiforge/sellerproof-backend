@@ -1,0 +1,38 @@
+meta {
+  name: Get video missing video_id parameter
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 Bad Request when video_id parameter is missing', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.code).to.be.a('number');
+    
+    // Validate error message content
+    expect(res.body.message).to.include('video_id');
+    expect(res.body.message).to.include('required');
+    
+    // Validate error code
+    expect(res.body.code).to.equal(400);
+  });
+}

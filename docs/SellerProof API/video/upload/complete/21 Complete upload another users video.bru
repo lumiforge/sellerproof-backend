@@ -11,12 +11,12 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{secondUserAccessToken}}
 }
 
 body:json {
   {
-    "video_id": "another-users-video-id",
+    "video_id": "{{testVideoId}}",
     "parts": [
       {
         "part_number": 1,
@@ -27,9 +27,16 @@ body:json {
 }
 
 tests {
-  test('Should return 403 for another users video', function() {
-    expect(res.status).to.equal(403);
-    expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('access denied');
+  test("Should return 403 or 404 for attempting to access another user's video", function() {
+    expect(res.status).to.be.oneOf([403, 404]);
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    
+    // Check for appropriate error message
+    if (res.status === 403) {
+      expect(res.body.message).to.include("access denied");
+    } else if (res.status === 404) {
+      expect(res.body.message).to.include("not found");
+    }
   });
 }

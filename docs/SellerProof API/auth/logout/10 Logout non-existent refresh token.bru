@@ -1,0 +1,29 @@
+meta {
+  name: Logout non-existent refresh token
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJub24tZXhpc3RlbnQtdXNlciIsImlhdCI6MTY2MjM5MDIyMiwiZXhwIjoxOTYyMzkwMjIyfQ.non-existent-refresh-token"
+  }
+}
+
+tests {
+  test('Should return 404 for non-existent refresh token', function() {
+    expect(res.status).to.equal(404);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Not Found');
+    expect(res.body.message).to.include('failed to revoke refresh token: refresh token not found');
+  });
+}

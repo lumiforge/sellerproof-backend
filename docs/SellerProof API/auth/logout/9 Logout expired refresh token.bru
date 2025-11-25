@@ -1,0 +1,29 @@
+meta {
+  name: Logout expired refresh token
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "refresh_token": "{{expiredRefreshToken}}"
+  }
+}
+
+tests {
+  test('Should return 401 for expired refresh token', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Unauthorized');
+    expect(res.body.message).to.include('failed to revoke refresh token: refresh token not found');
+  });
+}

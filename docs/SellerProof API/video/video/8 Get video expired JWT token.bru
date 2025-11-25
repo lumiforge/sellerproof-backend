@@ -1,0 +1,20 @@
+meta {
+  name: Get video expired JWT token
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id={{testVideoId}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{expiredAccessToken}}
+}
+
+tests {
+  test('Should return 401 Unauthorized for expired JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

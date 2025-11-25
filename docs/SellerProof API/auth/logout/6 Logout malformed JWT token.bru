@@ -1,0 +1,26 @@
+meta {
+  name: Logout malformed JWT token
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout
+  body: json
+}
+
+headers {
+  Authorization: Bearer malformed.token
+}
+
+body:json {
+  {
+    "refresh_token": "{{refreshToken}}"
+  }
+}
+
+tests {
+  test('Should return 401 for malformed JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

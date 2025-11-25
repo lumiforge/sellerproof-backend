@@ -18,6 +18,7 @@ import (
 	jwtmanager "github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
+	"github.com/lumiforge/sellerproof-backend/internal/validation"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
@@ -52,13 +53,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		return nil, fmt.Errorf("full_name is required")
 	}
 
-	// Валидация длины email сначала
-	if len(req.Email) > 254 {
-		return nil, fmt.Errorf("email must be less than 255 characters long")
-	}
-	// Затем валидация формата email
-	if !email.ValidateEmail(req.Email) {
-		return nil, fmt.Errorf("invalid email format")
+	// Валидация email используя validation package
+	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
+		return nil, err
 	}
 
 	// Валидация пароля
@@ -82,68 +79,43 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		return nil, fmt.Errorf("organization_name must be less than 201 characters long")
 	}
 
-	// Проверка на потенциальные XSS/инъекции в имени
-	if strings.Contains(req.FullName, "<script") ||
-		strings.Contains(req.FullName, "</script>") ||
-		strings.Contains(req.FullName, "javascript:") ||
-		strings.Contains(req.FullName, "onerror=") ||
-		strings.Contains(req.FullName, "onload=") ||
-		strings.Contains(req.FullName, "<") ||
-		strings.Contains(req.FullName, ">") {
-		return nil, fmt.Errorf("full_name contains invalid characters")
+	// Валидация безопасности используя validation package
+	// Для имени отключаем Unicode проверку, чтобы разрешить кириллицу
+	emailOptions := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+
+	passwordOptions := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+
+	// Для имени и организации отключаем Unicode проверку, чтобы разрешить кириллицу
+	nameOptions := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+
+	// Проверка email на инъекции
+	if err := validation.ValidateInputWithError(req.Email, "email", emailOptions); err != nil {
+		return nil, err
 	}
 
-	// Проверка на потенциальные XSS/инъекции в организации
-	if strings.Contains(req.OrganizationName, "<script") ||
-		strings.Contains(req.OrganizationName, "</script>") ||
-		strings.Contains(req.OrganizationName, "javascript:") ||
-		strings.Contains(req.OrganizationName, "onerror=") ||
-		strings.Contains(req.OrganizationName, "onload=") ||
-		strings.Contains(req.OrganizationName, "<") ||
-		strings.Contains(req.OrganizationName, ">") {
-		return nil, fmt.Errorf("organization_name contains invalid characters")
+	// Проверка пароля на инъекции
+	if err := validation.ValidateInputWithError(req.Password, "password", passwordOptions); err != nil {
+		return nil, err
 	}
 
-	// Улучшенная проверка на SQL инъекции во всех полях
-	sqlInjectionPatterns := []string{
-		"'", ";", "--", "/*", "*/", "xp_", "sp_",
-		"drop ", "delete ", "insert ", "update ", "select ",
-		"union ", "exec ", "execute ", "truncate ", "alter ",
-		"create ", "table ", "from ", "where ", "or 1=1",
-		"and 1=1", "sleep(", "benchmark(", "waitfor delay",
-		"convert(", "cast(", "char(", "ascii(", "substring(",
-		"concat(", "load_file(", "into outfile", "into dumpfile",
+	// Проверка имени на инъекции (без Unicode проверки)
+	if err := validation.ValidateInputWithError(req.FullName, "full_name", nameOptions); err != nil {
+		return nil, err
 	}
 
-	// Проверка email на SQL инъекции
-	emailLower := strings.ToLower(req.Email)
-	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(req.Email, pattern) || strings.Contains(emailLower, pattern) {
-			return nil, fmt.Errorf("email contains invalid characters")
-		}
-	}
-
-	// Проверка пароля на SQL инъекции
-	passwordLower := strings.ToLower(req.Password)
-	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(req.Password, pattern) || strings.Contains(passwordLower, pattern) {
-			return nil, fmt.Errorf("password contains invalid characters")
-		}
-	}
-
-	// Проверка имени на SQL инъекции
-	nameLower := strings.ToLower(req.FullName)
-	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(req.FullName, pattern) || strings.Contains(nameLower, pattern) {
-			return nil, fmt.Errorf("full_name contains invalid characters")
-		}
-	}
-
-	// Проверка организации на SQL инъекции
-	orgLower := strings.ToLower(req.OrganizationName)
-	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(req.OrganizationName, pattern) || strings.Contains(orgLower, pattern) {
-			return nil, fmt.Errorf("organization_name contains invalid characters")
+	// Проверка организации на инъекции (без Unicode проверки)
+	if req.OrganizationName != "" {
+		if err := validation.ValidateInputWithError(req.OrganizationName, "organization_name", nameOptions); err != nil {
+			return nil, err
 		}
 	}
 
@@ -301,8 +273,8 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 // VerifyEmail подтверждает email пользователя
 func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailRequest) (*models.VerifyEmailResponse, error) {
 
-	if !email.ValidateEmail(req.Email) {
-		return nil, fmt.Errorf("invalid email format")
+	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
+		return nil, err
 	}
 
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
@@ -356,8 +328,8 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		return nil, fmt.Errorf("email must be less than 255 characters long")
 	}
 	// Затем валидация формата email
-	if !email.ValidateEmail(req.Email) {
-		return nil, fmt.Errorf("invalid email format")
+	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
+		return nil, err
 	}
 
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
@@ -551,6 +523,12 @@ func (s *Service) Logout(ctx context.Context, req *models.LogoutRequest) (*model
 	tokenHash := s.hashToken(req.RefreshToken)
 	err := s.db.RevokeRefreshToken(ctx, tokenHash)
 	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "refresh token not found") {
+			return nil, fmt.Errorf("failed to revoke refresh token: refresh token not found")
+		} else if strings.Contains(errorMsg, "refresh token expired") {
+			return nil, fmt.Errorf("failed to revoke refresh token: refresh token expired")
+		}
 		return nil, fmt.Errorf("failed to revoke refresh token: %w", err)
 	}
 
@@ -625,34 +603,16 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.
 		return nil, fmt.Errorf("full_name must be less than 101 characters long")
 	}
 
-	// Проверка на потенциальные XSS/инъекции в имени
-	if strings.Contains(req.FullName, "<script") ||
-		strings.Contains(req.FullName, "</script>") ||
-		strings.Contains(req.FullName, "javascript:") ||
-		strings.Contains(req.FullName, "onerror=") ||
-		strings.Contains(req.FullName, "onload=") ||
-		strings.Contains(req.FullName, "<") ||
-		strings.Contains(req.FullName, ">") {
-		return nil, fmt.Errorf("full_name contains invalid characters")
-	}
+	// Валидация безопасности используя validation package
+	// Для имени отключаем Unicode проверку, чтобы разрешить кириллицу
+	nameOptions := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
 
-	// Улучшенная проверка на SQL инъекции в имени
-	sqlInjectionPatterns := []string{
-		"'", ";", "--", "/*", "*/", "xp_", "sp_",
-		"drop ", "delete ", "insert ", "update ", "select ",
-		"union ", "exec ", "execute ", "truncate ", "alter ",
-		"create ", "table ", "from ", "where ", "or 1=1",
-		"and 1=1", "sleep(", "benchmark(", "waitfor delay",
-		"convert(", "cast(", "char(", "ascii(", "substring(",
-		"concat(", "load_file(", "into outfile", "into dumpfile",
-	}
-
-	// Проверка имени на SQL инъекции
-	nameLower := strings.ToLower(req.FullName)
-	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(req.FullName, pattern) || strings.Contains(nameLower, pattern) {
-			return nil, fmt.Errorf("full_name contains invalid characters")
-		}
+	// Проверка имени на инъекции (без Unicode проверки)
+	if err := validation.ValidateInputWithError(req.FullName, "full_name", nameOptions); err != nil {
+		return nil, err
 	}
 
 	// Получаем текущего пользователя

@@ -841,6 +841,18 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 
 // RevokeRefreshToken отзывает refresh токен
 func (c *YDBClient) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
+	// Сначала проверяем, существует ли токен
+	token, err := c.GetRefreshToken(ctx, tokenHash)
+	if err != nil {
+		return fmt.Errorf("refresh token not found")
+	}
+
+	// Проверяем, не истек ли токен
+	if time.Now().After(token.ExpiresAt) {
+		return fmt.Errorf("refresh token expired")
+	}
+
+	// Если токен существует и не истек, отзываем его
 	query := `
 		DECLARE $token_hash AS Text;
 		UPDATE refresh_tokens SET is_revoked = true WHERE token_hash = $token_hash
@@ -1167,6 +1179,13 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			found = true
+			// Временные переменные для nullable полей
+			var partsUploaded *int32
+			var totalParts *int32
+			var publicShareToken *string
+			var shareExpiresAt *time.Time
+			var uploadedAt *time.Time
+
 			err := res.ScanNamed(
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
@@ -1178,17 +1197,24 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				named.Required("duration_seconds", &v.DurationSeconds),
 				named.Required("upload_id", &v.UploadID),
 				named.Required("upload_status", &v.UploadStatus),
-				named.Optional("parts_uploaded", &v.PartsUploaded),
-				named.Optional("total_parts", &v.TotalParts),
-				named.Optional("public_share_token", &v.PublicShareToken),
-				named.Optional("share_expires_at", &v.ShareExpiresAt),
-				named.Optional("uploaded_at", &v.UploadedAt),
+				named.Optional("parts_uploaded", &partsUploaded),
+				named.Optional("total_parts", &totalParts),
+				named.Optional("public_share_token", &publicShareToken),
+				named.Optional("share_expires_at", &shareExpiresAt),
+				named.Optional("uploaded_at", &uploadedAt),
 				named.Required("created_at", &v.CreatedAt),
 				named.Required("is_deleted", &v.IsDeleted),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
+
+			// Присваиваем значения nullable полей
+			v.PartsUploaded = partsUploaded
+			v.TotalParts = totalParts
+			v.PublicShareToken = publicShareToken
+			v.ShareExpiresAt = shareExpiresAt
+			v.UploadedAt = uploadedAt
 		}
 		return res.Err()
 	})
@@ -1306,7 +1332,7 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			err := res.ScanNamed(
-				named.OptionalWithDefault("column0", &usage),
+				named.Required("column0", &usage),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1347,6 +1373,13 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			found = true
+			// Временные переменные для nullable полей
+			var partsUploaded *int32
+			var totalParts *int32
+			var publicShareToken *string
+			var shareExpiresAt *time.Time
+			var uploadedAt *time.Time
+
 			err := res.ScanNamed(
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
@@ -1358,17 +1391,25 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 				named.Required("duration_seconds", &v.DurationSeconds),
 				named.Required("upload_id", &v.UploadID),
 				named.Required("upload_status", &v.UploadStatus),
-				named.Optional("parts_uploaded", &v.PartsUploaded),
-				named.Optional("total_parts", &v.TotalParts),
-				named.Optional("public_share_token", &v.PublicShareToken),
-				named.Optional("share_expires_at", &v.ShareExpiresAt),
-				named.Optional("uploaded_at", &v.UploadedAt),
+				named.Optional("parts_uploaded", &partsUploaded),
+				named.Optional("total_parts", &totalParts),
+				named.Optional("public_share_token", &publicShareToken),
+				named.Optional("share_expires_at", &shareExpiresAt),
+				named.Optional("uploaded_at", &uploadedAt),
 				named.Required("created_at", &v.CreatedAt),
 				named.Required("is_deleted", &v.IsDeleted),
 			)
+
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
+
+			// Присваиваем значения nullable полей
+			v.PartsUploaded = partsUploaded
+			v.TotalParts = totalParts
+			v.PublicShareToken = publicShareToken
+			v.ShareExpiresAt = shareExpiresAt
+			v.UploadedAt = uploadedAt
 		}
 		return res.Err()
 	})
@@ -1402,7 +1443,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 
 	// Count total
 	countQuery := `SELECT COUNT(*) ` + baseQuery
-	var total int64
+	var total uint64
 
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery,
@@ -1416,9 +1457,9 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				}(),
 				func() table.ParameterOption {
 					if len(args) > 2 {
-						return table.ValueParam("$query", args[2])
+						return table.ValueParam("$query", types.OptionalValue(args[2]))
 					}
-					return table.ValueParam("$query", types.NullValue(types.TypeText))
+					return table.ValueParam("$query", types.NullValue(types.TypeUTF8))
 				}(),
 			),
 		)
@@ -1429,7 +1470,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			err := res.ScanNamed(
-				named.Optional("column0", &total),
+				named.Required("column0", &total),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1444,7 +1485,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 
 	// Get data
 	dataQuery := `SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted ` + baseQuery + ` ORDER BY uploaded_at DESC LIMIT $limit OFFSET $offset`
-	args = append(args, types.Int64Value(int64(limit)), types.Int64Value(int64(offset)))
+	args = append(args, types.Uint64Value(uint64(limit)), types.Uint64Value(uint64(offset)))
 
 	var videos []*Video
 
@@ -1460,9 +1501,9 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				}(),
 				func() table.ParameterOption {
 					if len(args) > 2 {
-						return table.ValueParam("$query", args[2])
+						return table.ValueParam("$query", types.OptionalValue(args[2]))
 					}
-					return table.ValueParam("$query", types.NullValue(types.TypeText))
+					return table.ValueParam("$query", types.NullValue(types.TypeUTF8))
 				}(),
 				table.ValueParam("$limit", args[len(args)-2]),
 				table.ValueParam("$offset", args[len(args)-1]),
@@ -1476,6 +1517,13 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		for res.NextResultSet(ctx) {
 			for res.NextRow() {
 				var v Video
+				// Временные переменные для nullable полей с двойными указателями
+				var partsUploaded *int32
+				var totalParts *int32
+				var publicShareToken *string
+				var shareExpiresAt *time.Time
+				var uploadedAt *time.Time
+
 				if err := res.ScanNamed(
 					named.Required("video_id", &v.VideoID),
 					named.Required("org_id", &v.OrgID),
@@ -1487,16 +1535,24 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					named.Required("duration_seconds", &v.DurationSeconds),
 					named.Required("upload_id", &v.UploadID),
 					named.Required("upload_status", &v.UploadStatus),
-					named.Optional("parts_uploaded", &v.PartsUploaded),
-					named.Optional("total_parts", &v.TotalParts),
-					named.Optional("public_share_token", &v.PublicShareToken),
-					named.Optional("share_expires_at", &v.ShareExpiresAt),
-					named.Optional("uploaded_at", &v.UploadedAt),
+					named.Optional("parts_uploaded", &partsUploaded),
+					named.Optional("total_parts", &totalParts),
+					named.Optional("public_share_token", &publicShareToken),
+					named.Optional("share_expires_at", &shareExpiresAt),
+					named.Optional("uploaded_at", &uploadedAt),
 					named.Required("created_at", &v.CreatedAt),
 					named.Required("is_deleted", &v.IsDeleted),
 				); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
 				}
+
+				// Присваиваем значения nullable полей в структуру
+				v.PartsUploaded = partsUploaded
+				v.TotalParts = totalParts
+				v.PublicShareToken = publicShareToken
+				v.ShareExpiresAt = shareExpiresAt
+				v.UploadedAt = uploadedAt
+
 				videos = append(videos, &v)
 			}
 		}
@@ -1507,7 +1563,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		return nil, 0, err
 	}
 
-	return videos, total, nil
+	return videos, int64(total), nil
 }
 
 // Реализация оставшихся методов интерфейса

@@ -1,0 +1,20 @@
+meta {
+  name: Get video malformed JWT token
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id={{testVideoId}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: not.a.jwt.token
+}
+
+tests {
+  test('Should return 401 Unauthorized for malformed JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

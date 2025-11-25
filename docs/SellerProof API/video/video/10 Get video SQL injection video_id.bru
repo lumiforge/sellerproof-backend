@@ -1,0 +1,32 @@
+meta {
+  name: Get video SQL injection video_id
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id=' OR '1'='1
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 or 404 for SQL injection attempt in video_id', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.code).to.be.a('number');
+    expect(res.body.message).to.include('Invalid video_id: input contains potential SQL injection');  
+  });
+}

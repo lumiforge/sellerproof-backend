@@ -1,0 +1,45 @@
+meta {
+  name: Get video Unicode video_id
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id=测试视频-🎥-123
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 or 404 for Unicode characters in video_id', function() {
+    expect(res.status).to.be.oneOf([400, 404]);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.code).to.be.a('number');
+    
+    // Check for appropriate error response
+    if (res.status === 400) {
+      expect(res.body.message).to.include('invalid');
+      expect(res.body.code).to.equal(400);
+    } else if (res.status === 404) {
+      expect(res.body.message).to.include('not found');
+      expect(res.body.code).to.equal(404);
+    }
+    
+    // Ensure Unicode characters are handled properly (not causing encoding errors)
+    expect(res.body.message).to.not.include('encoding');
+    expect(res.body.message).to.not.include('UTF');
+    expect(res.body.message).to.not.include('character');
+  });
+}

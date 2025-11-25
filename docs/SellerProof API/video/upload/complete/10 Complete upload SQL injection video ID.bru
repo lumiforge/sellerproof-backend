@@ -30,6 +30,6 @@ tests {
   test('Should return 400 for SQL injection in video_id', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('invalid');
+    expect(res.body.message).to.include('Invalid video_id: input contains potential SQL injection');
   });
 }

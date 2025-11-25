@@ -349,7 +349,8 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoSearch) {
 		return nil, fmt.Errorf("access denied")
 	}
-
+	// TODO: delete
+	log.Println("SearchVideosDirect with userID", userID, "orgID", orgID, "role", role, "query", query, "page", page, "pageSize", pageSize)
 	filterUserID := ""
 	if rbac.Role(role) == rbac.RoleUser {
 		filterUserID = userID
@@ -366,6 +367,8 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 
 	videos, total, err := s.db.SearchVideos(ctx, orgID, filterUserID, query, limit, offset)
 	if err != nil {
+		// TODO: delete
+		log.Println("Failed to search videos", "error", err)
 		return nil, err
 	}
 

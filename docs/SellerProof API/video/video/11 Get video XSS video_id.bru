@@ -1,0 +1,28 @@
+meta {
+  name: Get video XSS video_id
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id=<script>alert('xss')</script>
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 for XSS attempt in video_id', function() {
+      expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    expect(res.body.message).to.include("validation error in field 'video_id': contains characters not allowed in filenames");
+  });
+}

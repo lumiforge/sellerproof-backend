@@ -1,0 +1,29 @@
+meta {
+  name: Logout invalid refresh token format
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "refresh_token": "invalid-refresh-token-format"
+  }
+}
+
+tests {
+  test('Should return 400 for invalid refresh token format', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Bad Request');
+    expect(res.body.message).to.include('failed to revoke refresh token: refresh token not found');
+  });
+}

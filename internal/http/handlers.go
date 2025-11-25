@@ -2,19 +2,20 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
+	"github.com/lumiforge/sellerproof-backend/internal/validation"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
-	"golang.org/x/text/unicode/norm"
 )
 
 // Server represents HTTP server
@@ -72,10 +73,9 @@ func (s *Server) validateRequest(r *http.Request, req interface{}) error {
 // @Failure	500	{object}	ErrorResponse
 // @Router		/auth/register [post]
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -102,7 +102,15 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 			strings.Contains(errorMsg, "must be at least") ||
 			strings.Contains(errorMsg, "must be less than") ||
 			strings.Contains(errorMsg, "is required") ||
-			strings.Contains(errorMsg, "contains invalid characters") {
+			strings.Contains(errorMsg, "contains invalid characters") ||
+			strings.Contains(errorMsg, "contains potentially dangerous") ||
+			strings.Contains(errorMsg, "contains XSS") ||
+			strings.Contains(errorMsg, "contains SQL injection") ||
+			strings.Contains(errorMsg, "contains Unicode security") ||
+			strings.Contains(errorMsg, "validation error in") ||
+			strings.Contains(errorMsg, "failed to create user") ||
+			strings.Contains(errorMsg, "failed to create organization") ||
+			strings.Contains(errorMsg, "failed to marshal settings") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
@@ -128,10 +136,9 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	ErrorResponse
 // @Router		/auth/verify-email [post]
 func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -150,8 +157,14 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	// Заменить текущую обработку ошибки на:
 	if err != nil {
 		errorMsg := err.Error()
-		if errorMsg == "invalid email format" || strings.Contains(errorMsg, "invalid email format") {
+		if errorMsg == "invalid email format" ||
+			strings.Contains(errorMsg, "invalid email format") ||
+			strings.Contains(errorMsg, "user not found") ||
+			strings.Contains(errorMsg, "verification code expired") ||
+			strings.Contains(errorMsg, "validation error in") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else if strings.Contains(errorMsg, "invalid verification code") {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
@@ -176,10 +189,9 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -201,8 +213,9 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Login error", "error", errorMsg) // Добавляем логирование для отладки
 		if strings.Contains(errorMsg, "is required") ||
 			strings.Contains(errorMsg, "invalid email format") ||
-			strings.Contains(errorMsg, "invalid credentials") ||
-			strings.Contains(errorMsg, "must be less than") {
+			strings.Contains(errorMsg, "must be less than") ||
+			strings.Contains(errorMsg, "validation error in") ||
+			strings.Contains(errorMsg, "invalid credentials") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else if strings.Contains(strings.ToLower(errorMsg), "email not verified") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
@@ -244,10 +257,9 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	ErrorResponse
 // @Router		/auth/refresh [post]
 func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -298,10 +310,9 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	ErrorResponse
 // @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -311,13 +322,26 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if refresh token is empty (could be due to wrong field name)
+	if req.RefreshToken == "" {
+		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
+		return
+	}
+
 	authReq := &models.LogoutRequest{
 		RefreshToken: req.RefreshToken,
 	}
 
 	resp, err := s.authService.Logout(r.Context(), authReq)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "refresh token not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else if strings.Contains(errorMsg, "refresh token expired") {
+			s.writeError(w, http.StatusUnauthorized, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
 		return
 	}
 
@@ -383,10 +407,9 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -403,7 +426,12 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(errorMsg, "is required") ||
 			strings.Contains(errorMsg, "must be at least") ||
 			strings.Contains(errorMsg, "must be less than") ||
-			strings.Contains(errorMsg, "contains invalid characters") {
+			strings.Contains(errorMsg, "contains invalid characters") ||
+			strings.Contains(errorMsg, "contains potentially dangerous") ||
+			strings.Contains(errorMsg, "contains XSS") ||
+			strings.Contains(errorMsg, "validation error") ||
+			strings.Contains(errorMsg, "contains SQL injection") ||
+			strings.Contains(errorMsg, "contains Unicode security") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else if strings.Contains(errorMsg, "user not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
@@ -432,10 +460,9 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	ErrorResponse
 // @Router		/video/upload/initiate [post]
 func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request) {
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -480,303 +507,27 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Manual validation of all required fields
+	// Manual validation of all required fields using validation package
 	var validationErrors []string
 
-	// Validate FileName
+	// Validate FileName using validation package
 	if req.FileName == "" {
 		validationErrors = append(validationErrors, "file_name is required")
 	} else {
-		// Step 1: Unicode normalization (NFC) to handle composed/decomposed characters
-		normalizedName := norm.NFC.String(req.FileName)
-
-		// Step 1.5: Check for Unicode normalization attacks
-		// If the original string differs from normalized, it might be an attempt to bypass filters
-		if req.FileName != normalizedName {
-			slog.Warn("Unicode normalization attack attempt",
-				"filename", req.FileName,
-				"user_id", claims.UserID,
-				"normalized_filename", normalizedName)
-			validationErrors = append(validationErrors, "file_name contains invalid Unicode character sequences")
+		// Use Unicode-friendly filename validation
+		if err := validation.ValidateFilenameUnicode(req.FileName, "file_name"); err != nil {
+			validationErrors = append(validationErrors, err.Error())
 		}
 
-		// Step 2: Check length after normalization
-		if len(normalizedName) > 255 {
-			validationErrors = append(validationErrors, "file_name must be at most 255 characters")
-		}
-
-		// Step 3: Filter zero-width and invisible characters
-		forbiddenInvisible := []rune{
-			0x200B, // Zero Width Space
-			0x200C, // Zero Width Non-Joiner
-			0x200D, // Zero Width Joiner
-			0xFEFF, // Zero Width No-Break Space (BOM)
-			0x2060, // Word Joiner
-			0x180E, // Mongolian Vowel Separator
-			0x061C, // Arabic Letter Mark
-		}
-
-		for _, char := range normalizedName {
-			for _, forbidden := range forbiddenInvisible {
-				if char == forbidden {
-					slog.Warn("Zero-width/invisible character attack attempt",
-						"filename", req.FileName,
-						"user_id", claims.UserID,
-						"forbidden_char", string([]rune{forbidden}))
-					validationErrors = append(validationErrors, "file_name contains invalid invisible characters")
-					break
-				}
-			}
-			if len(validationErrors) > 0 && strings.Contains(validationErrors[len(validationErrors)-1], "invisible characters") {
-				break
-			}
-		}
-
-		// Step 4: Check for RTL-override attacks - Unicode characters that change text direction
-		rtlOverrideChars := []rune{
-			0x202A, // Left-to-Right Embedding
-			0x202B, // Right-to-Left Embedding
-			0x202C, // Pop Directional Formatting
-			0x202D, // Left-to-Right Override
-			0x202E, // Right-to-Left Override
-			0x2066, // Left-to-Right Isolate
-			0x2067, // Right-to-Left Isolate
-			0x2068, // First Strong Isolate
-			0x2069, // Pop Directional Isolate
-			0x200E, // Left-to-Right Mark
-			0x200F, // Right-to-Left Mark
-		}
-
-		for _, char := range normalizedName {
-			for _, rtlChar := range rtlOverrideChars {
-				if char == rtlChar {
-					// TODO: send to telegram
-					slog.Warn("RTL-override attack attempt",
-						"filename", req.FileName,
-						"user_id", claims.UserID,
-						"rtl_char", string([]rune{rtlChar}))
-					validationErrors = append(validationErrors, "file_name contains invalid text direction characters")
-					break
-				}
-			}
-			if len(validationErrors) > 0 && strings.Contains(validationErrors[len(validationErrors)-1], "text direction") {
-				break
-			}
-		}
-
-		// Step 5: Check for SQL injection patterns
-		sqlInjectionPatterns := []string{
-			"'",
-			"\"",
-			";",
-			"--",
-			"/*",
-			"*/",
-			"xp_",
-			"DROP",
-			"DELETE",
-			"INSERT",
-			"UPDATE",
-			"SELECT",
-			"UNION",
-			"EXEC",
-			"EXECUTE",
-		}
-
-		fileNameUpper := strings.ToUpper(normalizedName)
-		for _, pattern := range sqlInjectionPatterns {
-			if strings.Contains(fileNameUpper, pattern) {
-				slog.Warn("SQL injection attempt in filename",
-					"filename", req.FileName,
-					"user_id", claims.UserID,
-					"pattern", pattern)
-				validationErrors = append(validationErrors, "file_name contains invalid characters")
-				break
-			}
-		}
-
-		// Step 6: Check for XSS patterns
-		xssPatterns := []string{
-			"<script",
-			"</script>",
-			"javascript:",
-			"onload=",
-			"onerror=",
-			"onclick=",
-			"onmouseover=",
-			"onfocus=",
-			"onblur=",
-			"<iframe",
-			"<object",
-			"<embed",
-			"<form",
-			"<input",
-			"<img",
-		}
-
-		fileNameLower := strings.ToLower(normalizedName)
-		for _, pattern := range xssPatterns {
-			if strings.Contains(fileNameLower, pattern) {
-				slog.Warn("XSS attempt in filename",
-					"filename", req.FileName,
-					"user_id", claims.UserID,
-					"pattern", pattern)
-				validationErrors = append(validationErrors, "file_name contains invalid characters")
-				break
-			}
-		}
-
-		// Step 7: Check for homograph attacks - visually similar characters from different alphabets
-		// Extended list including Cyrillic, Greek, and other alphabets
-		homographPairs := map[rune]rune{
-			// Cyrillic
-			'а': 'a', 'А': 'A', // Cyrillic a/A
-			'е': 'e', 'Е': 'E', // Cyrillic e/E
-			'о': 'o', 'О': 'O', // Cyrillic o/O
-			'р': 'p', 'Р': 'P', // Cyrillic r/P
-			'с': 'c', 'С': 'C', // Cyrillic c/C
-			'у': 'y', 'У': 'Y', // Cyrillic y/Y
-			'х': 'x', 'Х': 'X', // Cyrillic x/X
-			'і': 'i', 'І': 'I', // Ukrainian i/I
-			'ј': 'j', 'Ј': 'J', // Macedonian j/J
-			'һ': 'h', 'Һ': 'H', // Cyrillic h/H
-			'ѡ': 'w', 'Ѡ': 'W', // Cyrillic w/W
-			'ԁ': 'd', 'Ԁ': 'D', // Cyrillic d/D
-			'ԋ': 'h', 'Ԋ': 'H', // Cyrillic h/H alternative
-
-			// Greek
-			'ο': 'o', 'Ο': 'O', // Greek omicron
-			'ι': 'i', 'Ι': 'I', // Greek iota
-			'ν': 'v', 'Ν': 'N', // Greek nu
-			'α': 'a', 'Α': 'A', // Greek alpha
-			'ε': 'e', 'Ε': 'E', // Greek epsilon
-			'ρ': 'p', 'Ρ': 'P', // Greek rho
-			'τ': 't', 'Τ': 'T', // Greek tau
-			'κ': 'k', 'Κ': 'K', // Greek kappa
-			'γ': 'y', 'Γ': 'Y', // Greek gamma (looks like y)
-			'υ': 'u', 'Υ': 'Y', // Greek upsilon
-			'χ': 'x', 'Χ': 'X', // Greek chi
-			'λ': 'l', 'Λ': 'L', // Greek lambda
-			'μ': 'm', 'Μ': 'M', // Greek mu
-			'η': 'n', 'Η': 'H', // Greek eta (looks like n)
-			'π': 'n', 'Π': 'N', // Greek pi (looks like n)
-
-			// Armenian
-			'ա': 'a', 'Ա': 'A', // Armenian a/A
-			'օ': 'o', 'Օ': 'O', // Armenian o/O
-			'ս': 's', 'Ս': 'S', // Armenian s/S
-			'վ': 'v', 'Վ': 'V', // Armenian v/V
-			'կ': 'k', 'Կ': 'K', // Armenian k/K
-			'հ': 'h', 'Հ': 'H', // Armenian h/H
-			'մ': 'm', 'Մ': 'M', // Armenian m/M
-			'ն': 'n', 'Ն': 'N', // Armenian n/N
-
-			// Other lookalikes
-			'ａ': 'a', 'Ａ': 'A', // Fullwidth a/A
-			'ｂ': 'b', 'Ｂ': 'B', // Fullwidth b/B
-			'ｃ': 'c', 'Ｃ': 'C', // Fullwidth c/C
-			'ｄ': 'd', 'Ｄ': 'D', // Fullwidth d/D
-			'ｅ': 'e', 'Ｅ': 'E', // Fullwidth e/E
-			'ｆ': 'f', 'Ｆ': 'F', // Fullwidth f/F
-			'ｇ': 'g', 'Ｇ': 'G', // Fullwidth g/G
-			'ｈ': 'h', 'Ｈ': 'H', // Fullwidth h/H
-			'ｉ': 'i', 'Ｉ': 'I', // Fullwidth i/I
-			'ｊ': 'j', 'Ｊ': 'J', // Fullwidth j/J
-			'ｋ': 'k', 'Ｋ': 'K', // Fullwidth k/K
-			'ｌ': 'l', 'Ｌ': 'L', // Fullwidth l/L
-			'ｍ': 'm', 'Ｍ': 'M', // Fullwidth m/M
-			'ｎ': 'n', 'Ｎ': 'N', // Fullwidth n/N
-			'ｏ': 'o', 'Ｏ': 'O', // Fullwidth o/O
-			'ｐ': 'p', 'Ｐ': 'P', // Fullwidth p/P
-			'ｑ': 'q', 'Ｑ': 'Q', // Fullwidth q/Q
-			'ｒ': 'r', 'Ｒ': 'R', // Fullwidth r/R
-			'ｓ': 's', 'Ｓ': 'S', // Fullwidth s/S
-			'ｔ': 't', 'Ｔ': 'T', // Fullwidth t/T
-			'ｕ': 'u', 'Ｕ': 'U', // Fullwidth u/U
-			'ｖ': 'v', 'Ｖ': 'V', // Fullwidth v/V
-			'ｗ': 'w', 'Ｗ': 'W', // Fullwidth w/W
-			'ｘ': 'x', 'Ｘ': 'X', // Fullwidth x/X
-			'ｙ': 'y', 'Ｙ': 'Y', // Fullwidth y/Y
-			'ｚ': 'z', 'Ｚ': 'Z', // Fullwidth z/Z
-		}
-
-		// Check for potential homograph attacks in filename body and extension separately
-		filenameWithoutExt := normalizedName
-		extension := ""
-		if lastDot := strings.LastIndex(normalizedName, "."); lastDot != -1 {
-			filenameWithoutExt = normalizedName[:lastDot]
-			extension = normalizedName[lastDot+1:]
-		}
-
-		// Check filename body for homograph attacks
-		hasHomographChars := false
-		hasLatinChars := false
-
-		for _, char := range filenameWithoutExt {
-			if _, isHomograph := homographPairs[char]; isHomograph {
-				hasHomographChars = true
-			}
-			// Check for basic Latin characters (a-z, A-Z)
-			if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') {
-				hasLatinChars = true
-			}
-		}
-
-		// Only flag as attack if both homograph characters AND Latin characters are present
-		if hasHomographChars && hasLatinChars {
-			slog.Warn("Homograph attack attempt detected",
-				"filename", req.FileName,
-				"user_id", claims.UserID,
-				"normalized_filename", normalizedName)
-			validationErrors = append(validationErrors, "file_name contains potentially confusing characters")
-		}
-
-		// Check extension for homograph attacks (extensions should be pure Latin)
-		if extension != "" {
-			hasExtensionHomographs := false
-			for _, char := range extension {
-				if _, isHomograph := homographPairs[char]; isHomograph {
-					hasExtensionHomographs = true
-					break
-				}
-			}
-			if hasExtensionHomographs {
-				slog.Warn("Homograph attack attempt in file extension",
-					"filename", req.FileName,
-					"extension", extension,
-					"user_id", claims.UserID)
-				validationErrors = append(validationErrors, "file extension contains potentially confusing characters")
-			}
-		}
-
-		// Step 7.5: Check for fullwidth characters (should be blocked even without Latin mixing)
-		hasFullwidthChars := false
-		for _, char := range normalizedName {
-			if char >= 0xFF00 && char <= 0xFFEF { // Fullwidth character range
-				hasFullwidthChars = true
-				slog.Warn("Fullwidth character attack attempt",
-					"filename", req.FileName,
-					"user_id", claims.UserID,
-					"fullwidth_char", string([]rune{char}))
-				break
-			}
-		}
-		if hasFullwidthChars {
-			validationErrors = append(validationErrors, "file_name contains invalid fullwidth characters")
-		}
-
-		// Step 8: Validate allowed characters (whitelist approach)
-		// Allow: letters, numbers, basic punctuation, spaces, and common Unicode characters
-		for _, char := range normalizedName {
-			if !unicode.IsLetter(char) && !unicode.IsNumber(char) &&
-				char != '.' && char != '-' && char != '_' && char != ' ' &&
-				char != '(' && char != ')' && char != '[' && char != ']' &&
-				char != '+' && char != ',' && char != '&' && char != '\'' {
-				// Allow some additional Unicode punctuation but restrict control characters
-				if unicode.IsControl(char) || unicode.Is(unicode.Cc, char) {
-					validationErrors = append(validationErrors, "file_name contains invalid control characters")
-					break
-				}
+		// Additional checks for SQL injection and XSS only (skip Unicode security for filenames)
+		options := validation.CombineOptions(
+			validation.WithSQLInjectionCheck(),
+			validation.WithXSSCheck(),
+		)
+		result := validation.ValidateInput(req.FileName, options)
+		if !result.IsValid {
+			for _, errMsg := range result.Errors {
+				validationErrors = append(validationErrors, fmt.Sprintf("file_name: %s", errMsg))
 			}
 		}
 	}
@@ -831,10 +582,9 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -855,58 +605,22 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate video_id for SQL injection and XSS patterns
-	sqlInjectionPatterns := []string{
-		"'",
-		"\"",
-		";",
-		"--",
-		"/*",
-		"*/",
-		"xp_",
-		"DROP",
-		"DELETE",
-		"INSERT",
-		"UPDATE",
-		"SELECT",
-		"UNION",
-		"EXEC",
-		"EXECUTE",
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	videoIDUpper := strings.ToUpper(req.VideoID)
-	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(videoIDUpper, pattern) {
-			s.writeError(w, http.StatusBadRequest, "Invalid video_id: contains invalid characters")
-			return
-		}
-	}
-
-	// Check for XSS patterns
-	xssPatterns := []string{
-		"<script",
-		"</script>",
-		"javascript:",
-		"onload=",
-		"onerror=",
-		"onclick=",
-		"onmouseover=",
-		"onfocus=",
-		"onblur=",
-		"<iframe",
-		"<object",
-		"<embed",
-		"<form",
-		"<input",
-		"<img",
-	}
-
-	videoIDLower := strings.ToLower(req.VideoID)
-	for _, pattern := range xssPatterns {
-		if strings.Contains(videoIDLower, pattern) {
-			s.writeError(w, http.StatusBadRequest, "Invalid video_id: contains invalid characters")
-			return
-		}
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
 	}
 
 	resp, err := s.videoService.GetPartUploadURLsDirect(r.Context(), claims.UserID, claims.OrgID, req.VideoID, req.TotalParts)
@@ -915,11 +629,9 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
+		} else if strings.Contains(errorMsg, "access denied") {
+			s.writeError(w, http.StatusForbidden, "access denied")
 		} else {
-			if strings.Contains(errorMsg, "access denied") {
-				s.writeError(w, http.StatusForbidden, "access denied")
-				return
-			}
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
 		return
@@ -951,10 +663,9 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -967,7 +678,27 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	if req.VideoID == "" {
 		s.writeError(w, http.StatusBadRequest, "video_id is required")
 		return
-	} else if len(req.Parts) == 0 {
+	}
+
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	if len(req.Parts) == 0 {
 		s.writeError(w, http.StatusBadRequest, "parts is required")
 		return
 	} else if req.Parts[0].PartNumber == 0 {
@@ -1025,9 +756,35 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(videoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
 	resp, err := s.videoService.GetVideoDirect(r.Context(), claims.UserID, claims.OrgID, videoID)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err.Error())
+		// Check error type and return appropriate HTTP status
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "video not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else if strings.Contains(errorMsg, "access denied") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
 		return
 	}
 
@@ -1064,7 +821,8 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
-
+	// TODO: delete
+	log.Println("SearchVideos with userID", claims.UserID)
 	query := r.URL.Query().Get("query")
 	pageStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("page_size")
@@ -1084,8 +842,25 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate query parameter if provided (for Unicode support)
+	if query != "" {
+		// Additional checks for SQL injection and XSS on search query
+		options := validation.CombineOptions(
+			validation.WithSQLInjectionCheck(),
+			validation.WithXSSCheck(),
+		)
+		result := validation.ValidateInput(query, options)
+		if !result.IsValid {
+			errorMessage := strings.Join(result.Errors, "; ")
+			s.writeError(w, http.StatusBadRequest, "Invalid query: "+errorMessage)
+			return
+		}
+	}
+
 	resp, err := s.videoService.SearchVideosDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, query, page, pageSize)
 	if err != nil {
+		// TODO: delete
+		log.Println("Failed to search videos", "error", err)
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1127,6 +902,24 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate share_token using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(shareToken, "share_token"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(shareToken, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid share_token: "+errorMessage)
+		return
+	}
+
 	resp, err := s.videoService.GetPublicVideoDirect(r.Context(), shareToken)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, err.Error())
@@ -1156,16 +949,33 @@ func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.CreateShareLinkRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
 	}
 
@@ -1201,16 +1011,33 @@ func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.RevokeShareLinkRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
 	}
 
@@ -1244,10 +1071,9 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Content-Type header
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		s.writeError(w, http.StatusBadRequest, "Content-Type must be application/json")
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1257,9 +1083,35 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate org_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.OrgID, "org_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.OrgID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid org_id: "+errorMessage)
+		return
+	}
+
 	resp, err := s.authService.SwitchOrganization(r.Context(), claims.UserID, &req)
 	if err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
+		// Проверяем тип ошибки и возвращаем соответствующий код
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "user is not a member") ||
+			strings.Contains(errorMsg, "membership is not active") ||
+			strings.Contains(errorMsg, "user not found") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 
