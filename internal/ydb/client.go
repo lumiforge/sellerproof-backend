@@ -1426,47 +1426,49 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 
 // SearchVideos ищет видео с пагинацией
 func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error) {
-
 	var countQuery, dataQuery string
 	var countParams, dataParams *table.QueryParameters
 
 	// Базовая часть WHERE clause
 	whereClause := `WHERE org_id = $org_id AND is_deleted = false`
-	// Добавляем фильтр по пользователю если указан
 
-	if userID != "" {
+	// Определяем, какие параметры нужны
+	hasUserFilter := userID != ""
+	hasQueryFilter := query != ""
+
+	// Добавляем условия в WHERE
+	if hasUserFilter {
 		whereClause += ` AND uploaded_by = $user_id`
 	}
-
-	if query != "" {
+	if hasQueryFilter {
 		whereClause += ` AND file_name_search LIKE $query`
 	}
 
-	// Count total
-	countQuery = `
-	DECLARE $org_id AS Text;
-	DECLARE $user_id AS Optional<Text>;
-	DECLARE $query AS Optional<Text>;
-	
+	// ===== COUNT QUERY =====
+	// Объявляем только те параметры, которые используем
+	declares := `DECLARE $org_id AS Text;`
+	if hasUserFilter {
+		declares += `
+		DECLARE $user_id AS Text;`
+	}
+	if hasQueryFilter {
+		declares += `
+		DECLARE $query AS Text;`
+	}
+
+	countQuery = declares + `
 	SELECT COUNT(*) FROM videos ` + whereClause
 
 	// Параметры для подсчета
 	countParamsBuilder := []table.ParameterOption{
 		table.ValueParam("$org_id", types.TextValue(orgID)),
 	}
-
-	if userID != "" {
-		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$user_id", types.OptionalValue(types.TextValue(userID))))
-	} else {
-		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$user_id", types.NullValue(types.TypeText)))
+	if hasUserFilter {
+		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$user_id", types.TextValue(userID)))
 	}
-
-	if query != "" {
-		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.OptionalValue(types.UTF8Value("%"+strings.ToLower(query)+"%"))))
-	} else {
-		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.NullValue(types.TypeUTF8)))
+	if hasQueryFilter {
+		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.TextValue("%"+strings.ToLower(query)+"%")))
 	}
-
 	countParams = table.NewQueryParameters(countParamsBuilder...)
 
 	var total uint64
@@ -1493,14 +1495,21 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		return nil, 0, err
 	}
 
-	// Get data
-	dataQuery = `
-	DECLARE $org_id AS Text;
-	DECLARE $user_id AS Optional<Text>;
-	DECLARE $query AS Optional<Text>;
+	// ===== DATA QUERY =====
+	declares = `DECLARE $org_id AS Text;`
+	if hasUserFilter {
+		declares += `
+		DECLARE $user_id AS Text;`
+	}
+	if hasQueryFilter {
+		declares += `
+		DECLARE $query AS Text;`
+	}
+	declares += `
 	DECLARE $limit AS Uint64;
-	DECLARE $offset AS Uint64;
-	
+	DECLARE $offset AS Uint64;`
+
+	dataQuery = declares + `
 	SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, 
 	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, 
 	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
@@ -1512,24 +1521,16 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	dataParamsBuilder := []table.ParameterOption{
 		table.ValueParam("$org_id", types.TextValue(orgID)),
 	}
-
-	if userID != "" {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$user_id", types.OptionalValue(types.TextValue(userID))))
-	} else {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$user_id", types.NullValue(types.TypeText)))
+	if hasUserFilter {
+		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$user_id", types.TextValue(userID)))
 	}
-
-	if query != "" {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.OptionalValue(types.TextValue("%"+strings.ToLower(query)+"%"))))
-	} else {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.NullValue(types.TypeText)))
+	if hasQueryFilter {
+		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.TextValue("%"+strings.ToLower(query)+"%")))
 	}
-
 	dataParamsBuilder = append(dataParamsBuilder,
 		table.ValueParam("$limit", types.Uint64Value(uint64(limit))),
 		table.ValueParam("$offset", types.Uint64Value(uint64(offset))),
 	)
-
 	dataParams = table.NewQueryParameters(dataParamsBuilder...)
 
 	var videos []*Video
@@ -1544,7 +1545,6 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		for res.NextResultSet(ctx) {
 			for res.NextRow() {
 				var v Video
-				// Временные переменные для nullable полей с двойными указателями
 				var partsUploaded *int32
 				var totalParts *int32
 				var publicShareToken *string
@@ -1573,7 +1573,6 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					return fmt.Errorf("scan failed: %w", err)
 				}
 
-				// Присваиваем значения nullable полей в структуру
 				v.PartsUploaded = partsUploaded
 				v.TotalParts = totalParts
 				v.PublicShareToken = publicShareToken
