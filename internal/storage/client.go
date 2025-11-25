@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,18 +19,22 @@ type Client struct {
 	s3Client      *s3.Client
 	presignClient *s3.PresignClient
 	bucketName    string
+	privateBucket string
+	publicBucket  string
+	endpoint      string
 }
 
 // NewClient создает новый S3 клиент
 func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	accessKey := cfg.AWSAccessKeyID
 	secretKey := cfg.AWSSecretAccessKey
-	bucketName := cfg.SPObjStoreBucketName
+	privateBucket := cfg.SPObjStorePrivateBucket
+	publicBucket := cfg.SPObjStorePublicBucket
 	endpoint := cfg.S3Endpoint
 	region := "ru-central1"
 
-	if accessKey == "" || secretKey == "" || bucketName == "" {
-		return nil, fmt.Errorf("AWS credentials and bucket name must be set")
+	if accessKey == "" || secretKey == "" || privateBucket == "" || publicBucket == "" {
+		return nil, fmt.Errorf("AWS credentials and bucket names must be set")
 	}
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
@@ -48,7 +53,10 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	return &Client{
 		s3Client:      client,
 		presignClient: presignClient,
-		bucketName:    bucketName,
+		bucketName:    privateBucket,
+		privateBucket: privateBucket,
+		publicBucket:  publicBucket,
+		endpoint:      endpoint,
 	}, nil
 }
 
@@ -113,4 +121,33 @@ func (c *Client) GeneratePresignedDownloadURL(ctx context.Context, key string, l
 		opts.Expires = lifetime
 	})
 	return req.URL, err
+}
+
+// CopyToPublicBucket копирует файл из приватного в публичный bucket
+func (c *Client) CopyToPublicBucket(ctx context.Context, sourceKey, destKey string) (string, error) {
+	// Копирование из приватного в публичный bucket
+	copySource := fmt.Sprintf("%s/%s", c.privateBucket, sourceKey)
+
+	_, err := c.s3Client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(c.publicBucket),
+		CopySource: aws.String(copySource),
+		Key:        aws.String(destKey),
+		ACL:        types.ObjectCannedACLPublicRead, // Публичный доступ
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	// Формируем постоянный публичный URL
+	// Извлекаем доменное имя из endpoint (например: https://storage.yandexcloud.net -> storage.yandexcloud.net)
+	endpoint := c.endpoint
+	if strings.HasPrefix(endpoint, "https://") {
+		endpoint = strings.TrimPrefix(endpoint, "https://")
+	} else if strings.HasPrefix(endpoint, "http://") {
+		endpoint = strings.TrimPrefix(endpoint, "http://")
+	}
+
+	publicURL := fmt.Sprintf("https://%s.%s/%s", c.publicBucket, endpoint, destKey)
+	return publicURL, nil
 }

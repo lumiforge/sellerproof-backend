@@ -1,0 +1,46 @@
+meta {
+  name: Publish video success with valid JWT manager
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/publish
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}"
+  }
+}
+
+tests {
+  test('Should return 200 OK and valid publish response for valid manager JWT token', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    
+    // Validate all required fields exist
+    expect(res.body).to.have.property('public_url');
+    expect(res.body).to.have.property('message');
+    
+    // Validate field types
+    expect(res.body.public_url).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    
+    // Validate field values are not empty
+    expect(res.body.public_url).to.not.equal('');
+    expect(res.body.message).to.not.equal('');
+    
+    // Validate public_url format
+    expect(res.body.public_url).to.include('http');
+    
+    // Validate message content
+    expect(res.body.message).to.be.oneOf(['Video published successfully', 'Video already published']);
+  });
+}

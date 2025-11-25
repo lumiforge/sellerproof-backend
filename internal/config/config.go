@@ -9,10 +9,11 @@ import (
 
 type Config struct {
 	// S3/Storage configuration
-	S3Endpoint           string
-	AWSAccessKeyID       string
-	AWSSecretAccessKey   string
-	SPObjStoreBucketName string
+	S3Endpoint              string
+	AWSAccessKeyID          string
+	AWSSecretAccessKey      string
+	SPObjStorePrivateBucket string
+	SPObjStorePublicBucket  string
 
 	// YDB configuration
 	SPYDBEndpoint     string
@@ -68,11 +69,12 @@ func Load() *Config {
 
 	return &Config{
 		// S3/Storage configuration
-		SPYDBAutoCreateTables: getEnvInt("SP_YDB_AUTO_CREATE_TABLES", 0, 0, 1),
-		S3Endpoint:            s3Endpoint,
-		AWSAccessKeyID:        getEnv("SP_SA_KEY_ID", ""),
-		AWSSecretAccessKey:    getEnv("SP_SA_KEY", ""),
-		SPObjStoreBucketName:  getEnv("SP_OBJSTORE_BUCKET_NAME", ""),
+		SPYDBAutoCreateTables:   getEnvInt("SP_YDB_AUTO_CREATE_TABLES", 0, 0, 1),
+		S3Endpoint:              s3Endpoint,
+		AWSAccessKeyID:          getEnv("SP_SA_KEY_ID", ""),
+		AWSSecretAccessKey:      getEnv("SP_SA_KEY", ""),
+		SPObjStorePrivateBucket: getEnv("SP_OBJSTORE_PRIVATE_BUCKET", "sellerproof-private"),
+		SPObjStorePublicBucket:  getEnv("SP_OBJSTORE_PUBLIC_BUCKET", "sellerproof-public"),
 
 		// YDB configuration
 		SPYDBEndpoint:     getEnv("SP_YDB_ENDPOINT", ""),

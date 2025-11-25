@@ -1114,3 +1114,136 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusOK, resp)
 }
+
+// DownloadVideo handles private video download
+// @Summary		Download private video
+// @Description	Get temporary presigned URL for private video download (1 hour)
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Security	BearerAuth
+// @Param		video_id	query		string	true	"Video ID"
+// @Success	200	{object}	models.DownloadURLResult
+// @Failure	401	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/download [get]
+func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	videoID := r.URL.Query().Get("video_id")
+	if videoID == "" {
+		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	}
+
+	// Validate video_id using validation package
+	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(videoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	resp, err := s.videoService.GetPrivateDownloadURL(r.Context(), claims.UserID, claims.OrgID, videoID)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "video not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else if strings.Contains(errorMsg, "access denied") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// PublishVideo handles video publishing to public bucket
+// @Summary		Publish video
+// @Description	Publish video to public bucket (admin/manager only)
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Security	BearerAuth
+// @Param		request	body		models.PublishVideoRequest	true	"Publish video request"
+// @Success	200	{object}	models.PublishVideoResult
+// @Failure	401	{object}	ErrorResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/video/publish [post]
+func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Проверка прав (только admin/manager)
+	if claims.Role != "admin" && claims.Role != "manager" {
+		s.writeError(w, http.StatusForbidden, "Only admins and managers can publish videos")
+		return
+	}
+
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.PublishVideoRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	resp, err := s.videoService.PublishVideoToPublicBucket(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "video not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else if strings.Contains(errorMsg, "access denied") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}

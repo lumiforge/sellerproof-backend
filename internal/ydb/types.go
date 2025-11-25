@@ -123,4 +123,6 @@ type Video struct {
 	PublicShareToken *string    `db:"public_share_token"`
 	ShareExpiresAt   *time.Time `db:"share_expires_at"`
 	UploadedAt       *time.Time `db:"uploaded_at"`
+	PublicURL        *string    `db:"public_url"`
+	PublishedAt      *time.Time `db:"published_at"`
 }

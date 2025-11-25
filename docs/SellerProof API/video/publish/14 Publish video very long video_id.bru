@@ -1,0 +1,40 @@
+meta {
+  name: Publish video very long video_id
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/publish
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "very-long-video-id-that-exceeds-reasonable-limits-and-should-be-rejected-by-the-validation-logic-because-it-is-way-too-long-to-be-a-valid-video-identifier-and-would-cause-issues-with-database-constraints-and-url-generation"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for very long video_id', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    
+    // Validate error message content
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('video_id');
+  });
+}

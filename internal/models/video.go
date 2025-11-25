@@ -131,3 +131,23 @@ type RevokeShareLinkRequest struct {
 type RevokeShareLinkResponse struct {
 	Success bool `json:"success"`
 }
+
+// DownloadURLResult represents the result of getting private download URL
+// @Description	Private download URL result
+type DownloadURLResult struct {
+	DownloadURL string `json:"download_url"`
+	ExpiresAt   int64  `json:"expires_at"`
+}
+
+// PublishVideoRequest represents a request to publish video to public bucket
+// @Description	Publish video request
+type PublishVideoRequest struct {
+	VideoID string `json:"video_id" validate:"required"`
+}
+
+// PublishVideoResult represents the result of publishing video
+// @Description	Publish video result
+type PublishVideoResult struct {
+	PublicURL string `json:"public_url"`
+	Message   string `json:"message"`
+}

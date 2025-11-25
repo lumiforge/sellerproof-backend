@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
+	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
@@ -411,6 +412,73 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 	return &SearchVideosResult{
 		Videos:     videoInfos,
 		TotalCount: total,
+	}, nil
+}
+
+// GetPrivateDownloadURL генерирует временный URL для скачивания приватного видео
+func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, videoID string) (*models.DownloadURLResult, error) {
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("video not found")
+	}
+
+	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	// Генерируем временный URL на приватный bucket (1 час)
+	url, err := s.storage.GeneratePresignedDownloadURL(ctx, video.StoragePath, 1*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.DownloadURLResult{
+		DownloadURL: url,
+		ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
+	}, nil
+}
+
+// PublishVideoToPublicBucket публикует видео в публичный bucket
+func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
+	// Проверка прав - только admin и manager могут публиковать
+	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
+		return nil, fmt.Errorf("access denied: only admins and managers can publish")
+	}
+
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("video not found")
+	}
+
+	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	// Проверяем, не опубликован ли уже
+	if video.PublicURL != nil && *video.PublicURL != "" {
+		return &models.PublishVideoResult{
+			PublicURL: *video.PublicURL,
+			Message:   "Video already published",
+		}, nil
+	}
+
+	// Копируем файл в публичный bucket
+	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
+	publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish video: %w", err)
+	}
+
+	// Сохраняем публичный URL в БД
+	video.PublicURL = &publicURL
+	video.PublishedAt = aws.Time(time.Now())
+	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		return nil, fmt.Errorf("failed to update video record: %w", err)
+	}
+
+	return &models.PublishVideoResult{
+		PublicURL: publicURL,
+		Message:   "Video published successfully",
 	}, nil
 }
 
