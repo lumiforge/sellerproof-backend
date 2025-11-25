@@ -1446,7 +1446,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	countQuery = `
 	DECLARE $org_id AS Text;
 	DECLARE $user_id AS Optional<Text>;
-	DECLARE $query AS Optional<Utf8>;
+	DECLARE $query AS Optional<Text>;
 	
 	SELECT COUNT(*) FROM videos ` + whereClause
 
@@ -1497,7 +1497,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	dataQuery = `
 	DECLARE $org_id AS Text;
 	DECLARE $user_id AS Optional<Text>;
-	DECLARE $query AS Optional<Utf8>;
+	DECLARE $query AS Optional<Text>;
 	DECLARE $limit AS Uint64;
 	DECLARE $offset AS Uint64;
 	
@@ -1520,9 +1520,9 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	}
 
 	if query != "" {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.OptionalValue(types.UTF8Value("%"+strings.ToLower(query)+"%"))))
+		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.OptionalValue(types.TextValue("%"+strings.ToLower(query)+"%"))))
 	} else {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.NullValue(types.TypeUTF8)))
+		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.NullValue(types.TypeText)))
 	}
 
 	dataParamsBuilder = append(dataParamsBuilder,
