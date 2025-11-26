@@ -140,3 +140,27 @@ type Video struct {
 	PublicURL        *string    `db:"public_url"`
 	PublishedAt      *time.Time `db:"published_at"`
 }
+
+// AuditLog представляет запись аудита действий пользователя
+type AuditLog struct {
+	ID           string    `db:"id"`
+	Timestamp    time.Time `db:"timestamp"`
+	UserID       *string   `db:"user_id"`
+	OrgID        *string   `db:"org_id"`
+	ActionType   string    `db:"action_type"`
+	ActionResult string    `db:"action_result"`
+	IPAddress    *string   `db:"ip_address"`
+	UserAgent    *string   `db:"user_agent"`
+	DetailsJSON  string    `db:"details"`
+}
+
+// AuditLogFilter задает параметры фильтрации логов аудита
+type AuditLogFilter struct {
+	UserID     string
+	OrgID      string
+	ActionType string
+	Result     string
+	From       *time.Time
+	To         *time.Time
+	Limit      int
+}

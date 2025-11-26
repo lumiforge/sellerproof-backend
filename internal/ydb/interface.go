@@ -71,6 +71,10 @@ type Database interface {
 	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
 	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
 
+	// Аудит
+	CreateAuditLog(ctx context.Context, log *AuditLog) error
+	ListAuditLogs(ctx context.Context, filter *AuditLogFilter) ([]*AuditLog, error)
+
 	// Инициализация и миграции
 	Initialize(ctx context.Context) error
 	Close() error

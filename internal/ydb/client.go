@@ -62,6 +62,143 @@ func NewYDBClient(ctx context.Context, cfg *config.Config) (*YDBClient, error) {
 	return client, nil
 }
 
+func optionalTextParam(name string, value *string) table.ParameterOption {
+	if value == nil {
+		return table.ValueParam(name, types.NullValue(types.TypeText))
+	}
+	return table.ValueParam(name, types.OptionalValue(types.TextValue(*value)))
+}
+
+// CreateAuditLog inserts a new audit log entry
+func (c *YDBClient) CreateAuditLog(ctx context.Context, logEntry *AuditLog) error {
+	query := `
+		DECLARE $id AS Text;
+		DECLARE $timestamp AS Timestamp;
+		DECLARE $user_id AS Text;
+		DECLARE $org_id AS Text;
+		DECLARE $action_type AS Text;
+		DECLARE $action_result AS Text;
+		DECLARE $ip_address AS Text;
+		DECLARE $user_agent AS Text;
+		DECLARE $details AS Json;
+
+		REPLACE INTO audit_logs (
+			id, timestamp, user_id, org_id, action_type, action_result,
+			ip_address, user_agent, details
+		) VALUES (
+			$id, $timestamp, $user_id, $org_id, $action_type, $action_result,
+			$ip_address, $user_agent, $details
+		)
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$id", types.TextValue(logEntry.ID)),
+				table.ValueParam("$timestamp", types.TimestampValueFromTime(logEntry.Timestamp)),
+				optionalTextParam("$user_id", logEntry.UserID),
+				optionalTextParam("$org_id", logEntry.OrgID),
+				table.ValueParam("$action_type", types.TextValue(logEntry.ActionType)),
+				table.ValueParam("$action_result", types.TextValue(logEntry.ActionResult)),
+				optionalTextParam("$ip_address", logEntry.IPAddress),
+				optionalTextParam("$user_agent", logEntry.UserAgent),
+				table.ValueParam("$details", types.JSONValue(logEntry.DetailsJSON)),
+			),
+		)
+		return err
+	})
+}
+
+// ListAuditLogs retrieves audit logs based on filters
+func (c *YDBClient) ListAuditLogs(ctx context.Context, filter *AuditLogFilter) ([]*AuditLog, error) {
+	if filter == nil {
+		filter = &AuditLogFilter{}
+	}
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 1000 {
+		limit = 1000
+	}
+
+	whereClauses := []string{}
+	params := []table.ParameterOption{}
+
+	if filter.UserID != "" {
+		whereClauses = append(whereClauses, "user_id = $user_id")
+		params = append(params, table.ValueParam("$user_id", types.TextValue(filter.UserID)))
+	}
+	if filter.OrgID != "" {
+		whereClauses = append(whereClauses, "org_id = $org_id")
+		params = append(params, table.ValueParam("$org_id", types.TextValue(filter.OrgID)))
+	}
+	if filter.ActionType != "" {
+		whereClauses = append(whereClauses, "action_type = $action_type")
+		params = append(params, table.ValueParam("$action_type", types.TextValue(filter.ActionType)))
+	}
+	if filter.Result != "" {
+		whereClauses = append(whereClauses, "action_result = $action_result")
+		params = append(params, table.ValueParam("$action_result", types.TextValue(filter.Result)))
+	}
+	if filter.From != nil {
+		whereClauses = append(whereClauses, "timestamp >= $from_ts")
+		params = append(params, table.ValueParam("$from_ts", types.TimestampValueFromTime(*filter.From)))
+	}
+	if filter.To != nil {
+		whereClauses = append(whereClauses, "timestamp <= $to_ts")
+		params = append(params, table.ValueParam("$to_ts", types.TimestampValueFromTime(*filter.To)))
+	}
+
+	query := "SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details FROM audit_logs"
+	if len(whereClauses) > 0 {
+		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	query += " ORDER BY timestamp DESC LIMIT $limit"
+	params = append(params, table.ValueParam("$limit", types.Uint64Value(uint64(limit))))
+
+	var logs []*AuditLog
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query, table.NewQueryParameters(params...))
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		for res.NextResultSet(ctx) {
+			for res.NextRow() {
+				var entry AuditLog
+				var userID, orgID, ipAddr, userAgent *string
+				if err := res.ScanNamed(
+					named.Required("id", &entry.ID),
+					named.Required("timestamp", &entry.Timestamp),
+					named.Optional("user_id", &userID),
+					named.Optional("org_id", &orgID),
+					named.Required("action_type", &entry.ActionType),
+					named.Required("action_result", &entry.ActionResult),
+					named.Optional("ip_address", &ipAddr),
+					named.Optional("user_agent", &userAgent),
+					named.Required("details", &entry.DetailsJSON),
+				); err != nil {
+					return fmt.Errorf("scan failed: %w", err)
+				}
+				entry.UserID = userID
+				entry.OrgID = orgID
+				entry.IPAddress = ipAddr
+				entry.UserAgent = userAgent
+				logs = append(logs, &entry)
+			}
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 // Close закрывает соединение с базой данных
 func (c *YDBClient) Close() error {
 	if c.driver != nil {
@@ -407,6 +544,39 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		}
 	} else {
 		log.Println("Table invitations already exists, skipping creation")
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Таблица аудита
+	log.Println("Creating table: audit_logs")
+	if exists, err := c.tableExists(ctx, "audit_logs"); err != nil {
+		return fmt.Errorf("failed to check audit_logs table existence: %w", err)
+	} else if !exists {
+		query := `
+			CREATE TABLE audit_logs (
+				id Text NOT NULL,
+				timestamp Timestamp NOT NULL,
+				user_id Text,
+				org_id Text,
+				action_type Text NOT NULL,
+				action_result Text NOT NULL,
+				ip_address Text,
+				user_agent Text,
+				details Json,
+				PRIMARY KEY (id),
+				INDEX ts_idx GLOBAL ON (timestamp),
+				INDEX user_idx GLOBAL ON (user_id),
+				INDEX org_idx GLOBAL ON (org_id),
+				INDEX action_ts_idx GLOBAL ON (action_type, timestamp)
+			)
+		`
+		err := c.executeSchemeQuery(ctx, query)
+		if err != nil {
+			return fmt.Errorf("failed to create audit_logs table: %w", err)
+		}
+	} else {
+		log.Println("Table audit_logs already exists, skipping creation")
 	}
 
 	return nil
