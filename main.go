@@ -84,14 +84,14 @@ func init() {
 
 	// Инициализация сервисов
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
-	auditService := audit.NewService(db, rbacManager, log)
 	videoService := video.NewService(db, storageClient, rbacManager)
+	auditService := audit.NewService(db)
 
 	// Инициализация HTTP сервера
-	server := httpserver.NewServer(authService, videoService, auditService, jwtManager)
+	server := httpserver.NewServer(authService, videoService, jwtManager, auditService)
 
 	// Настройка роутера
-	router = httpserver.SetupRouter(server, jwtManager, auditService)
+	router = httpserver.SetupRouter(server, jwtManager)
 }
 
 func EntryPoint(w http.ResponseWriter, r *http.Request) {

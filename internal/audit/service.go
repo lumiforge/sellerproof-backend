@@ -3,152 +3,97 @@ package audit
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
-	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
-const (
-	ActionResultSuccess = "success"
-	ActionResultFailure = "failure"
-)
-
-// Service coordinates audit logging and retrieval
-// It ensures consistent defaults and shields handlers from storage specifics
+// Service handles audit logging
 type Service struct {
-	db   ydb.Database
-	rbac *rbac.RBAC
-	log  *slog.Logger
+	db ydb.Database
 }
 
-// NewService builds an audit service instance
-func NewService(db ydb.Database, rbac *rbac.RBAC, log *slog.Logger) *Service {
-	if log == nil {
-		log = slog.Default()
+// NewService creates a new audit service
+func NewService(db ydb.Database) *Service {
+	return &Service{
+		db: db,
 	}
-	return &Service{db: db, rbac: rbac, log: log}
 }
 
-// Record captures runtime context of a user action
-type Record struct {
-	ID           string
-	Timestamp    time.Time
-	UserID       *string
-	OrgID        *string
-	ActionType   string
-	ActionResult string
-	IPAddress    *string
-	UserAgent    *string
-	Details      map[string]any
-}
+// LogActionDetails contains details for an audit action
+// Can include various fields depending on the action type
+// Details are stored as JSON in the audit log
 
-// Filter describes query options for reading audit events
-type Filter struct {
-	UserID     string
-	OrgID      string
-	ActionType string
-	Result     string
-	From       *time.Time
-	To         *time.Time
-	Limit      int
-}
-
-// LogAction stores audit record synchronously
-func (s *Service) LogAction(ctx context.Context, record Record) error {
-	if record.ActionType == "" {
-		return errors.New("action_type is required")
-	}
-	if record.ActionResult == "" {
-		record.ActionResult = ActionResultSuccess
-	}
-	if record.ID == "" {
-		record.ID = uuid.New().String()
-	}
-	if record.Timestamp.IsZero() {
-		record.Timestamp = time.Now().UTC()
+// LogAction logs an audit action to the database
+// Errors in logging are logged but don't interrupt the operation
+func (s *Service) LogAction(
+	ctx context.Context,
+	userID string,
+	orgID string,
+	actionType models.AuditActionType,
+	actionResult models.AuditActionResult,
+	ipAddress string,
+	userAgent string,
+	details map[string]interface{},
+) error {
+	// Handle nil details
+	if details == nil {
+		details = make(map[string]interface{})
 	}
 
-	detailsJSON := "{}"
-	if len(record.Details) > 0 {
-		data, err := json.Marshal(record.Details)
-		if err != nil {
-			return fmt.Errorf("marshal details: %w", err)
-		}
-		detailsJSON = string(data)
+	// Convert details to JSON
+	detailsJSON, err := json.Marshal(details)
+	if err != nil {
+		slog.Error("Failed to marshal audit details", "error", err, "action_type", actionType)
+		detailsJSON = []byte("{}")
 	}
 
-	ydbRecord := &ydb.AuditLog{
-		ID:           record.ID,
-		Timestamp:    record.Timestamp,
-		UserID:       record.UserID,
-		OrgID:        record.OrgID,
-		ActionType:   record.ActionType,
-		ActionResult: record.ActionResult,
-		IPAddress:    record.IPAddress,
-		UserAgent:    record.UserAgent,
-		DetailsJSON:  detailsJSON,
+	auditLog := &models.AuditLog{
+		ID:           uuid.New().String(),
+		Timestamp:    time.Now().UTC(),
+		UserID:       userID,
+		OrgID:        orgID,
+		ActionType:   string(actionType),
+		ActionResult: string(actionResult),
+		IPAddress:    ipAddress,
+		UserAgent:    userAgent,
+		Details:      detailsJSON,
 	}
 
-	if err := s.db.CreateAuditLog(ctx, ydbRecord); err != nil {
-		s.log.Error("failed to write audit log", "error", err, "action", record.ActionType)
-		return err
+	// Save to database
+	if err := s.db.InsertAuditLog(ctx, auditLog); err != nil {
+		slog.Error("Failed to insert audit log",
+			"error", err,
+			"user_id", userID,
+			"org_id", orgID,
+			"action_type", actionType,
+		)
+		// Don't return error - logging failures shouldn't interrupt operations
+		return nil
 	}
+
 	return nil
 }
 
-// ListAuditLogs fetches stored events matching filter
-func (s *Service) ListAuditLogs(ctx context.Context, filter Filter) ([]*models.AuditLog, error) {
-	ydbFilter := &ydb.AuditLogFilter{
-		UserID:     filter.UserID,
-		OrgID:      filter.OrgID,
-		ActionType: filter.ActionType,
-		Result:     filter.Result,
-		From:       filter.From,
-		To:         filter.To,
-		Limit:      filter.Limit,
+// GetLogs retrieves audit logs with filtering and pagination
+func (s *Service) GetLogs(
+	ctx context.Context,
+	filters map[string]interface{},
+	limit int,
+	offset int,
+) ([]*models.AuditLog, int64, error) {
+	if limit > 1000 {
+		limit = 1000
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
 	}
 
-	entries, err := s.db.ListAuditLogs(ctx, ydbFilter)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*models.AuditLog, 0, len(entries))
-	for _, entry := range entries {
-		var details map[string]any
-		if entry.DetailsJSON != "" {
-			if err := json.Unmarshal([]byte(entry.DetailsJSON), &details); err != nil {
-				s.log.Warn("failed to unmarshal audit details", "error", err, "entry_id", entry.ID)
-			}
-		}
-
-		modelEntry := &models.AuditLog{
-			ID:           entry.ID,
-			Timestamp:    entry.Timestamp,
-			ActionType:   entry.ActionType,
-			ActionResult: entry.ActionResult,
-			Details:      details,
-		}
-		if entry.UserID != nil {
-			modelEntry.UserID = *entry.UserID
-		}
-		if entry.OrgID != nil {
-			modelEntry.OrgID = *entry.OrgID
-		}
-		if entry.IPAddress != nil {
-			modelEntry.IPAddress = *entry.IPAddress
-		}
-		if entry.UserAgent != nil {
-			modelEntry.UserAgent = *entry.UserAgent
-		}
-		result = append(result, modelEntry)
-	}
-
-	return result, nil
+	return s.db.GetAuditLogs(ctx, filters, limit, offset)
 }

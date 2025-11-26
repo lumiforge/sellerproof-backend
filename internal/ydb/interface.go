@@ -3,6 +3,8 @@ package ydb
 import (
 	"context"
 	"time"
+
+	"github.com/lumiforge/sellerproof-backend/internal/models"
 )
 
 // Database определяет интерфейс для работы с базой данных
@@ -72,8 +74,8 @@ type Database interface {
 	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
 
 	// Аудит
-	CreateAuditLog(ctx context.Context, log *AuditLog) error
-	ListAuditLogs(ctx context.Context, filter *AuditLogFilter) ([]*AuditLog, error)
+	InsertAuditLog(ctx context.Context, auditLog *models.AuditLog) error
+	GetAuditLogs(ctx context.Context, filters map[string]interface{}, limit, offset int) ([]*models.AuditLog, int64, error)
 
 	// Инициализация и миграции
 	Initialize(ctx context.Context) error

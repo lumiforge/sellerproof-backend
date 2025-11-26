@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lumiforge/sellerproof-backend/internal/audit"
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
@@ -24,14 +25,16 @@ type Server struct {
 	authService  *auth.Service
 	videoService *video.Service
 	jwtManager   *jwt.JWTManager
+	auditService *audit.Service
 }
 
 // NewServer creates a new HTTP server
-func NewServer(authService *auth.Service, videoService *video.Service, jwtManager *jwt.JWTManager) *Server {
+func NewServer(authService *auth.Service, videoService *video.Service, jwtManager *jwt.JWTManager, auditService *audit.Service) *Server {
 	return &Server{
 		authService:  authService,
 		videoService: videoService,
 		jwtManager:   jwtManager,
+		auditService: auditService,
 	}
 }
 
@@ -74,6 +77,13 @@ func (s *Server) validateRequest(r *http.Request, req interface{}) error {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/auth/register [post]
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
+	// Extract client info for audit logging
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
@@ -95,6 +105,12 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.Register(r.Context(), authReq)
 	if err != nil {
+		// Log failed registration attempt
+		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditRegisterSuccess, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"email":  req.Email,
+			"reason": err.Error(),
+		})
+
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
 		if errorMsg == "email already exists" {
@@ -118,6 +134,11 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Log successful registration
+	s.auditService.LogAction(r.Context(), resp.UserID, "", models.AuditRegisterSuccess, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"email": req.Email,
+	})
 
 	s.writeJSON(w, http.StatusCreated, models.RegisterResponse{
 		UserID:  resp.UserID,
@@ -190,6 +211,13 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Failure	400		{object}	models.ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
+	// Extract client info for audit logging
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
@@ -209,6 +237,12 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.Login(r.Context(), authReq)
 	if err != nil {
+		// Log failed login attempt
+		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditLoginFailure, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"email":  req.Email,
+			"reason": err.Error(),
+		})
+
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
 		slog.Error("Login error", "error", errorMsg) // Добавляем логирование для отладки
@@ -225,6 +259,11 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Log successful login
+	s.auditService.LogAction(r.Context(), resp.User.UserID, resp.User.OrgID, models.AuditLoginSuccess, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"email": req.Email,
+	})
 
 	userInfo := &models.UserInfo{
 		UserID:        resp.User.UserID,
@@ -311,6 +350,16 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	models.ErrorResponse
 // @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
+	// Extract client info for audit logging
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
+	// Extract JWT claims
+	claims := r.Context().Value("claims").(*jwt.Claims)
+
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
@@ -342,6 +391,11 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
 		}
 		return
+	}
+
+	// Log successful logout
+	if claims != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditLogout, models.AuditResultSuccess, ipAddress, userAgent, nil)
 	}
 
 	s.writeJSON(w, http.StatusOK, models.LogoutResponse{
@@ -1652,4 +1706,102 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// GetAuditLogs retrieves audit logs with filtering and pagination
+// @Summary Get audit logs
+// @Description Retrieve audit logs with optional filtering by user_id, org_id, action_type, result, and date range
+// @Tags admin
+// @Security BearerAuth
+// @Param user_id query string false "Filter by user ID"
+// @Param org_id query string false "Filter by organization ID"
+// @Param action_type query string false "Filter by action type"
+// @Param result query string false "Filter by result (success/failure)"
+// @Param from query string false "Filter from date (YYYY-MM-DD)"
+// @Param to query string false "Filter to date (YYYY-MM-DD)"
+// @Param limit query int false "Limit results (default 100, max 1000)"
+// @Param offset query int false "Offset for pagination (default 0)"
+// @Produce json
+// @Success 200 {object} models.GetAuditLogsResponse "Audit logs retrieved successfully"
+// @Failure 401 {object} models.ErrorResponse "Unauthorized"
+// @Failure 403 {object} models.ErrorResponse "Forbidden - insufficient permissions"
+// @Failure 500 {object} models.ErrorResponse "Internal server error"
+// @Router /admin/audit-logs [get]
+func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	// Extract JWT claims
+	claims := r.Context().Value("claims").(*jwt.Claims)
+	if claims == nil {
+		s.writeError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Check permission
+	rbacManager := rbac.NewRBAC()
+	hasPermission := rbacManager.CheckPermissionWithRole(rbac.Role(claims.Role), rbac.PermissionAdminViewLogs)
+	if !hasPermission {
+		s.writeError(w, http.StatusForbidden, "Insufficient permissions to access audit logs")
+		return
+	} // Parse query parameters
+	userID := r.URL.Query().Get("user_id")
+	orgID := r.URL.Query().Get("org_id")
+	actionType := r.URL.Query().Get("action_type")
+	result := r.URL.Query().Get("result")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+
+	// Parse limit and offset
+	limit := 100
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil {
+			if l > 0 && l <= 1000 {
+				limit = l
+			}
+		}
+	}
+
+	offset := 0
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	// Build filters map
+	filters := make(map[string]interface{})
+	if userID != "" {
+		filters["user_id"] = userID
+	}
+	if orgID != "" {
+		filters["org_id"] = orgID
+	}
+	if actionType != "" {
+		filters["action_type"] = actionType
+	}
+	if result != "" {
+		filters["result"] = result
+	}
+	if from != "" {
+		filters["from"] = from
+	}
+	if to != "" {
+		filters["to"] = to
+	}
+
+	// Get audit logs from service
+	logs, total, err := s.auditService.GetLogs(r.Context(), filters, limit, offset)
+	if err != nil {
+		slog.Error("Failed to retrieve audit logs", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "Failed to retrieve audit logs")
+		return
+	}
+
+	// Return response
+	response := &models.GetAuditLogsResponse{
+		Logs:   logs,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	s.writeJSON(w, http.StatusOK, response)
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
+	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result/named"
@@ -60,143 +61,6 @@ func NewYDBClient(ctx context.Context, cfg *config.Config) (*YDBClient, error) {
 	}
 
 	return client, nil
-}
-
-func optionalTextParam(name string, value *string) table.ParameterOption {
-	if value == nil {
-		return table.ValueParam(name, types.NullValue(types.TypeText))
-	}
-	return table.ValueParam(name, types.OptionalValue(types.TextValue(*value)))
-}
-
-// CreateAuditLog inserts a new audit log entry
-func (c *YDBClient) CreateAuditLog(ctx context.Context, logEntry *AuditLog) error {
-	query := `
-		DECLARE $id AS Text;
-		DECLARE $timestamp AS Timestamp;
-		DECLARE $user_id AS Text;
-		DECLARE $org_id AS Text;
-		DECLARE $action_type AS Text;
-		DECLARE $action_result AS Text;
-		DECLARE $ip_address AS Text;
-		DECLARE $user_agent AS Text;
-		DECLARE $details AS Json;
-
-		REPLACE INTO audit_logs (
-			id, timestamp, user_id, org_id, action_type, action_result,
-			ip_address, user_agent, details
-		) VALUES (
-			$id, $timestamp, $user_id, $org_id, $action_type, $action_result,
-			$ip_address, $user_agent, $details
-		)
-	`
-
-	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
-			table.NewQueryParameters(
-				table.ValueParam("$id", types.TextValue(logEntry.ID)),
-				table.ValueParam("$timestamp", types.TimestampValueFromTime(logEntry.Timestamp)),
-				optionalTextParam("$user_id", logEntry.UserID),
-				optionalTextParam("$org_id", logEntry.OrgID),
-				table.ValueParam("$action_type", types.TextValue(logEntry.ActionType)),
-				table.ValueParam("$action_result", types.TextValue(logEntry.ActionResult)),
-				optionalTextParam("$ip_address", logEntry.IPAddress),
-				optionalTextParam("$user_agent", logEntry.UserAgent),
-				table.ValueParam("$details", types.JSONValue(logEntry.DetailsJSON)),
-			),
-		)
-		return err
-	})
-}
-
-// ListAuditLogs retrieves audit logs based on filters
-func (c *YDBClient) ListAuditLogs(ctx context.Context, filter *AuditLogFilter) ([]*AuditLog, error) {
-	if filter == nil {
-		filter = &AuditLogFilter{}
-	}
-
-	limit := filter.Limit
-	if limit <= 0 {
-		limit = 100
-	} else if limit > 1000 {
-		limit = 1000
-	}
-
-	whereClauses := []string{}
-	params := []table.ParameterOption{}
-
-	if filter.UserID != "" {
-		whereClauses = append(whereClauses, "user_id = $user_id")
-		params = append(params, table.ValueParam("$user_id", types.TextValue(filter.UserID)))
-	}
-	if filter.OrgID != "" {
-		whereClauses = append(whereClauses, "org_id = $org_id")
-		params = append(params, table.ValueParam("$org_id", types.TextValue(filter.OrgID)))
-	}
-	if filter.ActionType != "" {
-		whereClauses = append(whereClauses, "action_type = $action_type")
-		params = append(params, table.ValueParam("$action_type", types.TextValue(filter.ActionType)))
-	}
-	if filter.Result != "" {
-		whereClauses = append(whereClauses, "action_result = $action_result")
-		params = append(params, table.ValueParam("$action_result", types.TextValue(filter.Result)))
-	}
-	if filter.From != nil {
-		whereClauses = append(whereClauses, "timestamp >= $from_ts")
-		params = append(params, table.ValueParam("$from_ts", types.TimestampValueFromTime(*filter.From)))
-	}
-	if filter.To != nil {
-		whereClauses = append(whereClauses, "timestamp <= $to_ts")
-		params = append(params, table.ValueParam("$to_ts", types.TimestampValueFromTime(*filter.To)))
-	}
-
-	query := "SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details FROM audit_logs"
-	if len(whereClauses) > 0 {
-		query += " WHERE " + strings.Join(whereClauses, " AND ")
-	}
-	query += " ORDER BY timestamp DESC LIMIT $limit"
-	params = append(params, table.ValueParam("$limit", types.Uint64Value(uint64(limit))))
-
-	var logs []*AuditLog
-
-	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query, table.NewQueryParameters(params...))
-		if err != nil {
-			return err
-		}
-		defer res.Close()
-
-		for res.NextResultSet(ctx) {
-			for res.NextRow() {
-				var entry AuditLog
-				var userID, orgID, ipAddr, userAgent *string
-				if err := res.ScanNamed(
-					named.Required("id", &entry.ID),
-					named.Required("timestamp", &entry.Timestamp),
-					named.Optional("user_id", &userID),
-					named.Optional("org_id", &orgID),
-					named.Required("action_type", &entry.ActionType),
-					named.Required("action_result", &entry.ActionResult),
-					named.Optional("ip_address", &ipAddr),
-					named.Optional("user_agent", &userAgent),
-					named.Required("details", &entry.DetailsJSON),
-				); err != nil {
-					return fmt.Errorf("scan failed: %w", err)
-				}
-				entry.UserID = userID
-				entry.OrgID = orgID
-				entry.IPAddress = ipAddr
-				entry.UserAgent = userAgent
-				logs = append(logs, &entry)
-			}
-		}
-		return res.Err()
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	return logs, nil
 }
 
 // Close закрывает соединение с базой данных
@@ -548,7 +412,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 
 	time.Sleep(500 * time.Millisecond)
 
-	// Таблица аудита
+	// Таблица логов аудита
 	log.Println("Creating table: audit_logs")
 	if exists, err := c.tableExists(ctx, "audit_logs"); err != nil {
 		return fmt.Errorf("failed to check audit_logs table existence: %w", err)
@@ -557,18 +421,19 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			CREATE TABLE audit_logs (
 				id Text NOT NULL,
 				timestamp Timestamp NOT NULL,
-				user_id Text,
-				org_id Text,
+				user_id Text NOT NULL,
+				org_id Text NOT NULL,
 				action_type Text NOT NULL,
 				action_result Text NOT NULL,
-				ip_address Text,
+				ip_address Text NOT NULL,
 				user_agent Text,
 				details Json,
 				PRIMARY KEY (id),
-				INDEX ts_idx GLOBAL ON (timestamp),
-				INDEX user_idx GLOBAL ON (user_id),
-				INDEX org_idx GLOBAL ON (org_id),
-				INDEX action_ts_idx GLOBAL ON (action_type, timestamp)
+				INDEX timestamp_idx GLOBAL ON (timestamp),
+				INDEX user_id_idx GLOBAL ON (user_id),
+				INDEX org_id_idx GLOBAL ON (org_id),
+				INDEX action_type_idx GLOBAL ON (action_type),
+				INDEX composite_idx GLOBAL ON (org_id, timestamp DESC)
 			)
 		`
 		err := c.executeSchemeQuery(ctx, query)
@@ -2809,4 +2674,151 @@ func (c *YDBClient) GetInvitationByEmail(ctx context.Context, orgID, email strin
 	}
 
 	return invitation, nil
+}
+
+// InsertAuditLog сохраняет запись аудита
+func (c *YDBClient) InsertAuditLog(ctx context.Context, auditLog *models.AuditLog) error {
+	query := `
+DECLARE $id AS Text;
+DECLARE $timestamp AS Timestamp;
+DECLARE $user_id AS Text;
+DECLARE $org_id AS Text;
+DECLARE $action_type AS Text;
+DECLARE $action_result AS Text;
+DECLARE $ip_address AS Text;
+DECLARE $user_agent AS Text;
+DECLARE $details AS Json;
+
+INSERT INTO audit_logs (id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details)
+VALUES ($id, $timestamp, $user_id, $org_id, $action_type, $action_result, $ip_address, $user_agent, $details)
+`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$id", types.TextValue(auditLog.ID)),
+				table.ValueParam("$timestamp", types.TimestampValueFromTime(auditLog.Timestamp)),
+				table.ValueParam("$user_id", types.TextValue(auditLog.UserID)),
+				table.ValueParam("$org_id", types.TextValue(auditLog.OrgID)),
+				table.ValueParam("$action_type", types.TextValue(auditLog.ActionType)),
+				table.ValueParam("$action_result", types.TextValue(auditLog.ActionResult)),
+				table.ValueParam("$ip_address", types.TextValue(auditLog.IPAddress)),
+				table.ValueParam("$user_agent", types.TextValue(auditLog.UserAgent)),
+				table.ValueParam("$details", types.JSONValue(string(auditLog.Details))),
+			),
+		)
+		return err
+	})
+}
+
+// GetAuditLogs получает логи аудита с фильтрацией и пагинацией
+
+// GetAuditLogs получает логи аудита с фильтрацией и пагинацией
+func (c *YDBClient) GetAuditLogs(ctx context.Context, filters map[string]interface{}, limit, offset int) ([]*models.AuditLog, int64, error) {
+whereConditions := []string{}
+
+if userID, ok := filters["user_id"].(string); ok && userID != "" {
+whereConditions = append(whereConditions, fmt.Sprintf("user_id = '%s'", strings.ReplaceAll(userID, "'", "''")))
+}
+
+if orgID, ok := filters["org_id"].(string); ok && orgID != "" {
+whereConditions = append(whereConditions, fmt.Sprintf("org_id = '%s'", strings.ReplaceAll(orgID, "'", "''")))
+}
+
+if actionType, ok := filters["action_type"].(string); ok && actionType != "" {
+whereConditions = append(whereConditions, fmt.Sprintf("action_type = '%s'", strings.ReplaceAll(actionType, "'", "''")))
+}
+
+if result, ok := filters["result"].(string); ok && result != "" {
+whereConditions = append(whereConditions, fmt.Sprintf("action_result = '%s'", strings.ReplaceAll(result, "'", "''")))
+}
+
+if from, ok := filters["from"].(string); ok && from != "" {
+fromTime, err := time.Parse("2006-01-02", from)
+if err == nil {
+whereConditions = append(whereConditions, fmt.Sprintf("timestamp >= CAST('%s' AS Timestamp)", fromTime.UTC().Format(time.RFC3339)))
+}
+}
+
+if to, ok := filters["to"].(string); ok && to != "" {
+toTime, err := time.Parse("2006-01-02", to)
+if err == nil {
+toTime = toTime.AddDate(0, 0, 1)
+whereConditions = append(whereConditions, fmt.Sprintf("timestamp < CAST('%s' AS Timestamp)", toTime.UTC().Format(time.RFC3339)))
+}
+}
+
+whereClause := ""
+if len(whereConditions) > 0 {
+whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+}
+
+var total int64
+var logs []*models.AuditLog
+
+err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+// Get total count
+countQuery := fmt.Sprintf("SELECT COUNT(*) as total FROM audit_logs %s", whereClause)
+_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters())
+if err != nil {
+return err
+}
+defer res.Close()
+
+for res.NextRow() {
+if err := res.ScanNamed(named.Required("total", &total)); err != nil {
+return err
+}
+}
+if err := res.Err(); err != nil {
+return err
+}
+
+// Get logs with pagination
+logsQuery := fmt.Sprintf(`
+SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details
+FROM audit_logs
+%s
+ORDER BY timestamp DESC
+LIMIT %d OFFSET %d
+`, whereClause, limit, offset)
+
+_, res, err = session.Execute(ctx, table.DefaultTxControl(), logsQuery, table.NewQueryParameters())
+if err != nil {
+return err
+}
+defer res.Close()
+
+logs = make([]*models.AuditLog, 0)
+for res.NextRow() {
+var log models.AuditLog
+var details string
+if err := res.ScanNamed(
+named.Required("id", &log.ID),
+named.Required("timestamp", &log.Timestamp),
+named.Required("user_id", &log.UserID),
+named.Required("org_id", &log.OrgID),
+named.Required("action_type", &log.ActionType),
+named.Required("action_result", &log.ActionResult),
+named.Required("ip_address", &log.IPAddress),
+named.Optional("user_agent", &log.UserAgent),
+named.Optional("details", &details),
+); err != nil {
+return err
+}
+if details != "" {
+log.Details = []byte(details)
+} else {
+log.Details = []byte("{}")
+}
+logs = append(logs, &log)
+}
+return res.Err()
+})
+
+if err != nil {
+return nil, 0, err
+}
+
+return logs, total, nil
 }

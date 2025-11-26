@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/lumiforge/sellerproof-backend/internal/audit"
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
@@ -122,9 +123,10 @@ func initialize(ctx context.Context) error {
 	// Инициализация сервисов
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
 	videoService := video.NewService(db, storageClient, rbacManager)
+	auditService := audit.NewService(db)
 
 	// Инициализация HTTP сервера
-	server := httpserver.NewServer(authService, videoService, jwtManager)
+	server := httpserver.NewServer(authService, videoService, jwtManager, auditService)
 
 	// Настройка роутера
 	router = httpserver.SetupRouter(server, jwtManager)

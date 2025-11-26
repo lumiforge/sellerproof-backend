@@ -144,6 +144,11 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 
+	// Admin routes
+	mux.HandleFunc("/api/v1/admin/audit-logs", chainMiddleware(server.GetAuditLogs, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+
 	return mux
 }
 
