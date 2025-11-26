@@ -1,0 +1,41 @@
+meta {
+  name: Invite user missing required role field
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "email": "test@example.com",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for missing required role field', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    
+    // Validate error message content
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('role');
+  });
+}

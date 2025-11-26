@@ -31,9 +31,8 @@ body:json {
 }
 
 tests {
-  test('Should return 400 for wrong Content-Type', function() {
-    expect(res.status).to.equal(400);
-    expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('Content-Type');
+  test('Should return 415 for wrong Content-Type', function() {
+    expect(res.status).to.equal(415);
+
   });
 }

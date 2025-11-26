@@ -210,3 +210,56 @@ func (c *Client) sendHTMLEmail(ctx context.Context, toEmail, subject, htmlBody s
 func (c *Client) IsConfigured() bool {
 	return c.Sender != "" && c.SESClient != nil
 }
+
+// SendInvitationEmail отправляет email приглашения пользователю
+func (c *Client) SendInvitationEmail(ctx context.Context, email, inviteCode, orgName string) (*EmailMessage, error) {
+	subject := fmt.Sprintf("Вы приглашены в организацию %s на SellerProof", orgName)
+
+	inviteLink := fmt.Sprintf("%s?invite_code=%s", c.LoginURL, inviteCode)
+
+	body := fmt.Sprintf(`
+		<html>
+		<head>
+			<meta charset="UTF-8">
+		</head>
+		<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+			<div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+				<h2>Приглашение в SellerProof</h2>
+				<p>Здравствуйте!</p>
+				<p>Вы были приглашены присоединиться к организации <strong>%s</strong> на платформе SellerProof.</p>
+				
+				<p style="margin-top: 30px;">
+					<a href="%s" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; display: inline-block;">
+						Принять приглашение
+					</a>
+				</p>
+
+				<p style="margin-top: 20px; font-size: 14px; color: #666;">
+					Или перейдите по ссылке: <a href="%s">%s</a>
+				</p>
+
+				<p style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px; font-size: 12px; color: #999;">
+					Это письмо сгенерировано автоматически. Пожалуйста, не отвечайте на него.
+				</p>
+			</div>
+		</body>
+		</html>
+	`, orgName, inviteLink, inviteLink, inviteLink)
+
+	message := &EmailMessage{
+		Type:      EmailTypeInvitation,
+		Recipient: email,
+		Subject:   subject,
+		Body:      body,
+		Status:    EmailStatusSent,
+	}
+
+	err := c.sendHTMLEmail(ctx, email, subject, body)
+	if err != nil {
+		message.Status = EmailStatusFailed
+		message.Error = err.Error()
+		return message, err
+	}
+
+	return message, nil
+}

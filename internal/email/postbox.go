@@ -38,6 +38,7 @@ const (
 	EmailTypeVerification  EmailType = "verification"
 	EmailTypePasswordReset EmailType = "password_reset"
 	EmailTypeSubscription  EmailType = "subscription"
+	EmailTypeInvitation    EmailType = "invitation"
 )
 
 // EmailStatus представляет статус email

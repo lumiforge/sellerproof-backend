@@ -376,6 +376,39 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		log.Println("Table subscription_history already exists, skipping creation")
 	}
 
+	time.Sleep(500 * time.Millisecond)
+
+	// Таблица приглашений
+	log.Println("Creating table: invitations")
+	if exists, err := c.tableExists(ctx, "invitations"); err != nil {
+		return fmt.Errorf("failed to check invitations table existence: %w", err)
+	} else if !exists {
+		query := `
+			CREATE TABLE invitations (
+				invitation_id Text NOT NULL,
+				org_id Text NOT NULL,
+				email Text NOT NULL,
+				role Text NOT NULL,
+				invite_code Text NOT NULL,
+				invited_by Text NOT NULL,
+				status Text NOT NULL,
+				expires_at Timestamp NOT NULL,
+				created_at Timestamp NOT NULL,
+				accepted_at Timestamp,
+				PRIMARY KEY (invitation_id),
+				INDEX org_idx GLOBAL ON (org_id),
+				INDEX email_idx GLOBAL ON (email),
+				INDEX code_idx GLOBAL UNIQUE ON (invite_code)
+			)
+		`
+		err := c.executeSchemeQuery(ctx, query)
+		if err != nil {
+			return fmt.Errorf("failed to create invitations table: %w", err)
+		}
+	} else {
+		log.Println("Table invitations already exists, skipping creation")
+	}
+
 	return nil
 }
 
@@ -2342,4 +2375,268 @@ func (c *YDBClient) RevokeAllUserRefreshTokens(ctx context.Context, userID strin
 func (c *YDBClient) CleanupExpiredTokens(ctx context.Context) error {
 	query := `DELETE FROM refresh_tokens WHERE expires_at < CurrentUtcTimestamp()`
 	return c.executeQuery(ctx, query)
+}
+
+// CreateInvitation создает новое приглашение
+func (c *YDBClient) CreateInvitation(ctx context.Context, invitation *Invitation) error {
+	if invitation.InvitationID == "" {
+		invitation.InvitationID = uuid.New().String()
+	}
+
+	query := `
+		DECLARE $invitation_id AS Text;
+		DECLARE $org_id AS Text;
+		DECLARE $email AS Text;
+		DECLARE $role AS Text;
+		DECLARE $invite_code AS Text;
+		DECLARE $invited_by AS Text;
+		DECLARE $status AS Text;
+		DECLARE $expires_at AS Timestamp;
+		DECLARE $created_at AS Timestamp;
+
+		INSERT INTO invitations (invitation_id, org_id, email, role, invite_code, invited_by, status, expires_at, created_at)
+		VALUES ($invitation_id, $org_id, $email, $role, $invite_code, $invited_by, $status, $expires_at, $created_at)
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$invitation_id", types.TextValue(invitation.InvitationID)),
+				table.ValueParam("$org_id", types.TextValue(invitation.OrgID)),
+				table.ValueParam("$email", types.TextValue(invitation.Email)),
+				table.ValueParam("$role", types.TextValue(invitation.Role)),
+				table.ValueParam("$invite_code", types.TextValue(invitation.InviteCode)),
+				table.ValueParam("$invited_by", types.TextValue(invitation.InvitedBy)),
+				table.ValueParam("$status", types.TextValue(invitation.Status)),
+				table.ValueParam("$expires_at", types.TimestampValueFromTime(invitation.ExpiresAt)),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(invitation.CreatedAt)),
+			),
+		)
+		return err
+	})
+}
+
+// GetInvitationByCode получает приглашение по коду
+func (c *YDBClient) GetInvitationByCode(ctx context.Context, code string) (*Invitation, error) {
+	query := `
+		DECLARE $invite_code AS Text;
+		SELECT invitation_id, org_id, email, role, invite_code, invited_by, status, expires_at, created_at, accepted_at
+		FROM invitations
+		WHERE invite_code = $invite_code
+	`
+
+	var invitation *Invitation
+	var found bool
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$invite_code", types.TextValue(code)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			invitation = &Invitation{}
+			err := res.ScanNamed(
+				named.Required("invitation_id", &invitation.InvitationID),
+				named.Required("org_id", &invitation.OrgID),
+				named.Required("email", &invitation.Email),
+				named.Required("role", &invitation.Role),
+				named.Required("invite_code", &invitation.InviteCode),
+				named.Required("invited_by", &invitation.InvitedBy),
+				named.Required("status", &invitation.Status),
+				named.Required("expires_at", &invitation.ExpiresAt),
+				named.Required("created_at", &invitation.CreatedAt),
+				named.Optional("accepted_at", &invitation.AcceptedAt),
+			)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !found {
+		return nil, fmt.Errorf("invitation not found")
+	}
+
+	return invitation, nil
+}
+
+// GetInvitationsByOrg получает все приглашения организации
+func (c *YDBClient) GetInvitationsByOrg(ctx context.Context, orgID string) ([]*Invitation, error) {
+	query := `
+		DECLARE $org_id AS Text;
+		SELECT invitation_id, org_id, email, role, invite_code, invited_by, status, expires_at, created_at, accepted_at
+		FROM invitations
+		WHERE org_id = $org_id
+		ORDER BY created_at DESC
+	`
+
+	var invitations []*Invitation
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$org_id", types.TextValue(orgID)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		for res.NextResultSet(ctx) {
+			for res.NextRow() {
+				invitation := &Invitation{}
+				err := res.ScanNamed(
+					named.Required("invitation_id", &invitation.InvitationID),
+					named.Required("org_id", &invitation.OrgID),
+					named.Required("email", &invitation.Email),
+					named.Required("role", &invitation.Role),
+					named.Required("invite_code", &invitation.InviteCode),
+					named.Required("invited_by", &invitation.InvitedBy),
+					named.Required("status", &invitation.Status),
+					named.Required("expires_at", &invitation.ExpiresAt),
+					named.Required("created_at", &invitation.CreatedAt),
+					named.Optional("accepted_at", &invitation.AcceptedAt),
+				)
+				if err != nil {
+					return fmt.Errorf("scan failed: %w", err)
+				}
+				invitations = append(invitations, invitation)
+			}
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return invitations, nil
+}
+
+// UpdateInvitationStatus обновляет статус приглашения
+func (c *YDBClient) UpdateInvitationStatus(ctx context.Context, invitationID, status string) error {
+	query := `
+		DECLARE $invitation_id AS Text;
+		DECLARE $status AS Text;
+		UPDATE invitations SET status = $status WHERE invitation_id = $invitation_id
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$invitation_id", types.TextValue(invitationID)),
+				table.ValueParam("$status", types.TextValue(status)),
+			),
+		)
+		return err
+	})
+}
+
+// UpdateInvitationStatusWithAcceptTime обновляет статус и время принятия приглашения
+func (c *YDBClient) UpdateInvitationStatusWithAcceptTime(ctx context.Context, invitationID, status string, acceptedAt time.Time) error {
+	query := `
+		DECLARE $invitation_id AS Text;
+		DECLARE $status AS Text;
+		DECLARE $accepted_at AS Timestamp;
+		UPDATE invitations SET status = $status, accepted_at = $accepted_at WHERE invitation_id = $invitation_id
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$invitation_id", types.TextValue(invitationID)),
+				table.ValueParam("$status", types.TextValue(status)),
+				table.ValueParam("$accepted_at", types.TimestampValueFromTime(acceptedAt)),
+			),
+		)
+		return err
+	})
+}
+
+// DeleteInvitation удаляет приглашение
+func (c *YDBClient) DeleteInvitation(ctx context.Context, invitationID string) error {
+	query := `
+		DECLARE $invitation_id AS Text;
+		DELETE FROM invitations WHERE invitation_id = $invitation_id
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$invitation_id", types.TextValue(invitationID)),
+			),
+		)
+		return err
+	})
+}
+
+// GetInvitationByEmail получает приглашение по email и организации
+func (c *YDBClient) GetInvitationByEmail(ctx context.Context, orgID, email string) (*Invitation, error) {
+	query := `
+		DECLARE $org_id AS Text;
+		DECLARE $email AS Text;
+		SELECT invitation_id, org_id, email, role, invite_code, invited_by, status, expires_at, created_at, accepted_at
+		FROM invitations
+		WHERE org_id = $org_id AND email = $email AND status = "pending"
+	`
+
+	var invitation *Invitation
+	var found bool
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$org_id", types.TextValue(orgID)),
+				table.ValueParam("$email", types.TextValue(email)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			invitation = &Invitation{}
+			err := res.ScanNamed(
+				named.Required("invitation_id", &invitation.InvitationID),
+				named.Required("org_id", &invitation.OrgID),
+				named.Required("email", &invitation.Email),
+				named.Required("role", &invitation.Role),
+				named.Required("invite_code", &invitation.InviteCode),
+				named.Required("invited_by", &invitation.InvitedBy),
+				named.Required("status", &invitation.Status),
+				named.Required("expires_at", &invitation.ExpiresAt),
+				named.Required("created_at", &invitation.CreatedAt),
+				named.Optional("accepted_at", &invitation.AcceptedAt),
+			)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !found {
+		return nil, fmt.Errorf("invitation not found")
+	}
+
+	return invitation, nil
 }

@@ -2,6 +2,7 @@ package ydb
 
 import (
 	"context"
+	"time"
 )
 
 // Database определяет интерфейс для работы с базой данных
@@ -52,6 +53,15 @@ type Database interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID string) error
 	CleanupExpiredTokens(ctx context.Context) error
+
+	// Приглашения
+	CreateInvitation(ctx context.Context, invitation *Invitation) error
+	GetInvitationByCode(ctx context.Context, code string) (*Invitation, error)
+	GetInvitationByEmail(ctx context.Context, orgID, email string) (*Invitation, error)
+	GetInvitationsByOrg(ctx context.Context, orgID string) ([]*Invitation, error)
+	UpdateInvitationStatus(ctx context.Context, invitationID, status string) error
+	UpdateInvitationStatusWithAcceptTime(ctx context.Context, invitationID, status string, acceptedAt time.Time) error
+	DeleteInvitation(ctx context.Context, invitationID string) error
 
 	// Видео
 	CreateVideo(ctx context.Context, video *Video) error

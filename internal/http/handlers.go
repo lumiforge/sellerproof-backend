@@ -334,9 +334,7 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.authService.Logout(r.Context(), authReq)
 	if err != nil {
 		errorMsg := err.Error()
-		if strings.Contains(errorMsg, "refresh token not found") {
-			s.writeError(w, http.StatusNotFound, errorMsg)
-		} else if strings.Contains(errorMsg, "refresh token expired") {
+		if strings.Contains(errorMsg, "refresh token not found") || strings.Contains(errorMsg, "refresh token expired") {
 			s.writeError(w, http.StatusUnauthorized, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
@@ -513,15 +511,16 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	if req.FileName == "" {
 		validationErrors = append(validationErrors, "file_name is required")
 	} else {
-		// Use Unicode-friendly filename validation
+		// Use Unicode-friendly filename validation that includes homograph attack detection
 		if err := validation.ValidateFilenameUnicode(req.FileName, "file_name"); err != nil {
 			validationErrors = append(validationErrors, err.Error())
 		}
 
-		// Additional checks for SQL injection and XSS only (skip Unicode security for filenames)
+		// Additional checks for SQL injection, XSS, and Unicode security attacks
 		options := validation.CombineOptions(
 			validation.WithSQLInjectionCheck(),
 			validation.WithXSSCheck(),
+			validation.WithUnicodeSecurityCheck(),
 		)
 		result := validation.ValidateInput(req.FileName, options)
 		if !result.IsValid {
@@ -719,6 +718,13 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	resp, err := s.videoService.CompleteMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, req.VideoID, parts)
 	if err != nil {
+		if strings.Contains(err.Error(), "video not found") {
+			s.writeError(w, http.StatusNotFound, err.Error())
+			return
+		} else if strings.Contains(err.Error(), "access denied") {
+			s.writeError(w, http.StatusForbidden, err.Error())
+			return
+		}
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1173,6 +1179,339 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// Organization and Membership Handlers
+
+// InviteUser handles user invitation to organization
+// @Summary		Invite user to organization
+// @Description	Invite user to organization with specific role (admin/manager only)
+// @Tags		organization
+// @Accept		json
+// @Produce	json
+// @Param		request	body		models.InviteUserRequest	true	"Invite user request"
+// @Security	BearerAuth
+// @Success	200	{object}	models.InviteUserResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/invite [post]
+func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Validate Content-Type header
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.InviteUserRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	resp, err := s.authService.InviteUser(r.Context(), claims.UserID, req.OrgID, &req)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "only admins and managers") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "required") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// AcceptInvitation handles accepting invitation to organization
+// @Summary		Accept invitation
+// @Description	Accept invitation to organization using invite code
+// @Tags		organization
+// @Accept		json
+// @Produce	json
+// @Param		request	body		models.AcceptInvitationRequest	true	"Accept invitation request"
+// @Security	BearerAuth
+// @Success	200	{object}	models.AcceptInvitationResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/invitations/accept [post]
+func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Validate Content-Type header
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.AcceptInvitationRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	resp, err := s.authService.AcceptInvitation(r.Context(), claims.UserID, &req)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "expired") || strings.Contains(errorMsg, "not pending") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// ListInvitations handles listing invitations for organization
+// @Summary		List invitations
+// @Description	List all invitations for organization (admin/manager only)
+// @Tags		organization
+// @Produce	json
+// @Param		org_id	query		string	true	"Organization ID"
+// @Security	BearerAuth
+// @Success	200	{object}	models.ListInvitationsResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/invitations [get]
+func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
+	_, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	orgID := r.URL.Query().Get("org_id")
+	if orgID == "" {
+		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		return
+	}
+
+	// Validate org_id
+	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	invitations, err := s.authService.ListInvitations(r.Context(), orgID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, models.ListInvitationsResponse{
+		Invitations: invitations,
+		Total:       len(invitations),
+	})
+}
+
+// CancelInvitation handles canceling invitation
+// @Summary		Cancel invitation
+// @Description	Cancel pending invitation (admin/manager only)
+// @Tags		organization
+// @Produce	json
+// @Param		invitation_id	path		string	true	"Invitation ID"
+// @Security	BearerAuth
+// @Success	200	{object}	models.EmptyResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/invitations/{id} [delete]
+func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	invitationID := r.PathValue("id")
+	if invitationID == "" {
+		s.writeError(w, http.StatusBadRequest, "invitation_id is required")
+		return
+	}
+
+	// Check admin/manager role
+	if claims.Role != "admin" && claims.Role != "manager" {
+		s.writeError(w, http.StatusForbidden, "Only admins and managers can cancel invitations")
+		return
+	}
+
+	err := s.authService.CancelInvitation(r.Context(), invitationID)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "not pending") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Invitation cancelled successfully"})
+}
+
+// ListMembers handles listing organization members
+// @Summary		List organization members
+// @Description	List all members of organization (admin only)
+// @Tags		organization
+// @Produce	json
+// @Param		org_id	query		string	true	"Organization ID"
+// @Security	BearerAuth
+// @Success	200	{object}	models.ListMembersResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/members [get]
+func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	orgID := r.URL.Query().Get("org_id")
+	if orgID == "" {
+		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		return
+	}
+
+	// Check admin role
+	if claims.Role != "admin" {
+		s.writeError(w, http.StatusForbidden, "Only admins can list members")
+		return
+	}
+
+	members, err := s.authService.ListOrgMembers(r.Context(), orgID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, models.ListMembersResponse{
+		Members: members,
+		Total:   len(members),
+	})
+}
+
+// UpdateMemberRole handles updating member role
+// @Summary		Update member role
+// @Description	Update organization member role (admin only)
+// @Tags		organization
+// @Accept		json
+// @Produce	json
+// @Param		user_id	path		string	true	"User ID"
+// @Param		request	body		models.UpdateMemberRoleRequest	true	"Update member role request"
+// @Security	BearerAuth
+// @Success	200	{object}	models.EmptyResponse
+// @Failure	400	{object}	ErrorResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/members/{user_id}/role [put]
+func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Check admin role
+	if claims.Role != "admin" {
+		s.writeError(w, http.StatusForbidden, "Only admins can update member roles")
+		return
+	}
+
+	userID := r.PathValue("user_id")
+	if userID == "" {
+		s.writeError(w, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	// Validate Content-Type header
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.UpdateMemberRoleRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	err := s.authService.UpdateMemberRole(r.Context(), claims.UserID, claims.OrgID, userID, req.NewRole)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "only admins") || strings.Contains(errorMsg, "not a member") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else if strings.Contains(errorMsg, "invalid") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member role updated successfully"})
+}
+
+// RemoveMember handles removing member from organization
+// @Summary		Remove member
+// @Description	Remove member from organization (admin only)
+// @Tags		organization
+// @Produce	json
+// @Param		user_id	path		string	true	"User ID"
+// @Security	BearerAuth
+// @Success	200	{object}	models.EmptyResponse
+// @Failure	403	{object}	ErrorResponse
+// @Failure	500	{object}	ErrorResponse
+// @Router		/api/v1/organization/members/{user_id} [delete]
+func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Check admin role
+	if claims.Role != "admin" {
+		s.writeError(w, http.StatusForbidden, "Only admins can remove members")
+		return
+	}
+
+	userID := r.PathValue("user_id")
+	if userID == "" {
+		s.writeError(w, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	err := s.authService.RemoveMember(r.Context(), claims.UserID, claims.OrgID, userID)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "cannot remove") || strings.Contains(errorMsg, "only admins") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else if strings.Contains(errorMsg, "not a member") {
+			s.writeError(w, http.StatusBadRequest, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member removed successfully"})
 }
 
 // PublishVideo handles video publishing to public bucket

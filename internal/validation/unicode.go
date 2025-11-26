@@ -85,21 +85,18 @@ func hasMixedScripts(input string) bool {
 	scripts := make(map[string]bool)
 
 	for _, r := range input {
-		if !unicode.IsControl(r) && !unicode.IsSpace(r) {
+		if !unicode.IsControl(r) && !unicode.IsSpace(r) && !unicode.IsPunct(r) && !unicode.IsDigit(r) && !unicode.IsSymbol(r) {
 			script := getScript(r)
-			if script != "" {
+			if script != "" && script != "Other" {
 				scripts[script] = true
 			}
 		}
 	}
 
 	// Для имен файлов разрешаем:
-	// 1. Один скрипт (например, только кириллица)
-	// 2. Латиница + один другой скрипт (например, латиница + цифры, латиница + кириллица)
-	// 3. Блокируем только если есть 3 или более разных скрипта И есть латиница
-	if len(scripts) <= 2 {
-		return false
-	}
+	// 1. Один скрипт (например, только кириллица, только греческий)
+	// 2. Латиница + цифры/символы (но не другие алфавиты)
+	// 3. Блокируем если есть латиница + другой алфавит (кириллица, греческий) с гомографами
 
 	// Если есть латиница и кириллица одновременно, это может быть гомограф атака
 	// Но только если есть подозрительные комбинации (например, латинские слова с кириллическими буквами)
@@ -111,7 +108,26 @@ func hasMixedScripts(input string) bool {
 		}
 	}
 
-	// Блокируем только если есть 3 или более разных скрипта И есть латиница
+	// Если есть латиница и греческий одновременно, это может быть гомограф атака
+	if scripts["Latin"] && scripts["Greek"] {
+		// Проверяем на наличие символов греческого алфавита, похожих на латиницу
+		// но только если они смешаны в одном слове с латиницей
+		if hasMixedLatinGreekWords(input) {
+			return true
+		}
+	}
+
+	// Разрешаем один не-латинский скрипт (чистая кириллица, греческий и т.д.)
+	if len(scripts) == 1 && !scripts["Latin"] {
+		return false
+	}
+
+	// Разрешаем чистый греческий (даже с гомографами) - это не атака, а просто греческое имя файла
+	if len(scripts) == 1 && scripts["Greek"] {
+		return false
+	}
+
+	// Блокируем если есть 3 или более разных скрипта И есть латиница
 	return len(scripts) > 2 && scripts["Latin"]
 }
 
@@ -146,6 +162,39 @@ func hasMixedScriptInWord(word string) bool {
 
 	// Блокируем только если есть и латиница, и кириллица, и есть гомографы
 	return hasLatin && hasCyrillic && hasHomograph
+}
+
+// hasMixedLatinGreekWords проверяет, есть ли слова со смешанными латинскими и греческими буквами
+func hasMixedLatinGreekWords(input string) bool {
+	words := strings.Fields(input)
+	for _, word := range words {
+		if hasMixedLatinGreekScriptInWord(word) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasMixedLatinGreekScriptInWord проверяет, есть ли в слове смешанные латинские и греческие буквы
+func hasMixedLatinGreekScriptInWord(word string) bool {
+	hasLatin := false
+	hasGreek := false
+	hasHomograph := false
+
+	for _, r := range word {
+		if unicode.Is(unicode.Latin, r) {
+			hasLatin = true
+		}
+		if unicode.Is(unicode.Greek, r) {
+			hasGreek = true
+			if isGreekHomograph(r) {
+				hasHomograph = true
+			}
+		}
+	}
+
+	// Блокируем только если есть и латиница, и греческий, и есть гомографы
+	return hasLatin && hasGreek && hasHomograph
 }
 
 // getScript определяет скрипт символа
@@ -191,6 +240,31 @@ func isCyrillicHomograph(r rune) bool {
 	}
 
 	for _, homograph := range cyrillicHomographs {
+		if r == homograph {
+			return true
+		}
+	}
+	return false
+}
+
+// isGreekHomograph проверяет, является ли греческий символ гомографом (похожим на латиницу)
+func isGreekHomograph(r rune) bool {
+	greekHomographs := []rune{
+		'ο', 'Ο', // латинское o, O (греческая омикрон)
+		'α', 'Α', // латинское a, A (греческая альфа)
+		'β', 'Β', // латинское b, B (греческая бета)
+		'ε', 'Ε', // латинское e, E (греческая эпсилон)
+		'ι', 'Ι', // латинское i, I (греческая йота)
+		'κ', 'Κ', // латинское k, K (греческая каппа)
+		'μ', 'Μ', // латинское m, M (греческая мю)
+		'ν', 'Ν', // латинское n, N (греческая ню)
+		'ρ', 'Ρ', // латинское p, P (греческая ро)
+		'τ', 'Τ', // латинское t, T (греческая тау)
+		'υ', 'Υ', // латинское y, Y (греческая ипсилон)
+		'χ', 'Χ', // латинское x, X (греческая хи)
+	}
+
+	for _, homograph := range greekHomographs {
 		if r == homograph {
 			return true
 		}

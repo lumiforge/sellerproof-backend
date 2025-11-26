@@ -94,6 +94,20 @@ type EmailLog struct {
 	ErrorMessage     string    `db:"error_message"`
 }
 
+// Invitation представляет приглашение пользователя в организацию
+type Invitation struct {
+	InvitationID string     `db:"invitation_id"`
+	OrgID        string     `db:"org_id"`
+	Email        string     `db:"email"`
+	Role         string     `db:"role"`
+	InviteCode   string     `db:"invite_code"`
+	InvitedBy    string     `db:"invited_by"`
+	Status       string     `db:"status"` // "pending", "accepted", "expired", "cancelled"
+	ExpiresAt    time.Time  `db:"expires_at"`
+	CreatedAt    time.Time  `db:"created_at"`
+	AcceptedAt   *time.Time `db:"accepted_at"`
+}
+
 // RefreshToken представляет refresh токен
 type RefreshToken struct {
 	TokenID   string    `db:"token_id"`

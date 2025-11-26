@@ -71,13 +71,57 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 			})).ServeHTTP(w, r)
 		})).ServeHTTP(w, r)
 	})
+
+	// Organization routes
 	mux.HandleFunc("/api/v1/auth/switch-organization", chainMiddleware(server.SwitchOrganization, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 
-	// Video routes
-	// Public video routes (no auth required)
-	// mux.HandleFunc("/api/v1/video/public", chainMiddleware(server.GetPublicVideo, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
+	// Organization and Membership routes
+	mux.HandleFunc("/api/v1/organization/invite", chainMiddleware(server.InviteUser, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+	mux.HandleFunc("/api/v1/organization/invitations/accept", chainMiddleware(server.AcceptInvitation, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+	mux.HandleFunc("/api/v1/organization/invitations", chainMiddleware(server.ListInvitations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+	mux.HandleFunc("/api/v1/organization/invitations/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle DELETE /api/v1/organization/invitations/{id}
+		if r.Method == "DELETE" {
+			// Extract invitation ID from path (simple parsing)
+			path := r.URL.Path
+			// Path format: /api/v1/organization/invitations/{id}
+			parts := len(path) - len("/api/v1/organization/invitations/")
+			if parts > 0 {
+				// For now, reject DELETE as we need path parameter support
+				// In a real implementation, you'd use a router that supports path params
+				http.Error(w, "Method not implemented in this router", http.StatusNotImplemented)
+			} else {
+				http.Error(w, "Invalid path", http.StatusBadRequest)
+			}
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/organization/members", chainMiddleware(server.ListMembers, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+	// PUT /api/v1/organization/members/{user_id}/role
+	mux.HandleFunc("/api/v1/organization/members/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			// Extract user_id from path
+			// Path format: /api/v1/organization/members/{user_id}/role
+			// For now, simple implementation without full path parsing
+			http.Error(w, "Method not implemented in this router", http.StatusNotImplemented)
+		} else if r.Method == "DELETE" {
+			// Handle DELETE /api/v1/organization/members/{user_id}
+			http.Error(w, "Method not implemented in this router", http.StatusNotImplemented)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// Protected video routes
 	mux.HandleFunc("/api/v1/video/upload/initiate", chainMiddleware(server.InitiateMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
@@ -101,12 +145,6 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/video/download", chainMiddleware(server.DownloadVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
-	// mux.HandleFunc("/api/v1/video/share", chainMiddleware(server.CreatePublicShareLink, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-	// 	return AuthMiddleware(jwtManager, next)
-	// }))
-	// mux.HandleFunc("/api/v1/video/share/revoke", chainMiddleware(server.RevokeShareLink, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-	// 	return AuthMiddleware(jwtManager, next)
-	// }))
 
 	return mux
 }

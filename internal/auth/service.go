@@ -679,6 +679,331 @@ func (s *Service) hashToken(token string) string {
 	return fmt.Sprintf("%x", hash)
 }
 
+// InviteUser приглашает пользователя в организацию
+func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *models.InviteUserRequest) (*models.InviteUserResponse, error) {
+	// Валидация входных данных
+	if req.Email == "" {
+		return nil, fmt.Errorf("email is required")
+	}
+	if req.Role == "" {
+		return nil, fmt.Errorf("role is required")
+	}
+
+	// Валидация email
+	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
+		return nil, err
+	}
+
+	// Валидация роли
+	validRoles := []rbac.Role{rbac.RoleUser, rbac.RoleManager, rbac.RoleAdmin}
+	roleFound := false
+	for _, validRole := range validRoles {
+		if req.Role == string(validRole) {
+			roleFound = true
+			break
+		}
+	}
+	if !roleFound {
+		return nil, fmt.Errorf("invalid role: %s", req.Role)
+	}
+
+	// Проверяем, что приглашающий является admin или manager в организации
+	inviterMembership, err := s.db.GetMembership(ctx, inviterID, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("inviter is not a member of this organization")
+	}
+
+	if inviterMembership.Role != string(rbac.RoleAdmin) && inviterMembership.Role != string(rbac.RoleManager) {
+		return nil, fmt.Errorf("only admins and managers can invite users")
+	}
+
+	// Проверяем, что приглашающий не пытается создать более высокую роль
+	if inviterMembership.Role == string(rbac.RoleManager) && req.Role == string(rbac.RoleAdmin) {
+		return nil, fmt.Errorf("managers cannot invite admins")
+	}
+
+	// Проверяем, что пользователь еще не приглашен в эту организацию
+	existingInvitation, _ := s.db.GetInvitationByEmail(ctx, orgID, req.Email)
+	if existingInvitation != nil {
+		return nil, fmt.Errorf("user already invited to this organization")
+	}
+
+	// Проверяем, что пользователь не состоит уже в организации
+	membership, _ := s.db.GetMembership(ctx, "", orgID)
+	if membership != nil {
+		return nil, fmt.Errorf("user is already a member of this organization")
+	}
+
+	// Генерируем уникальный код приглашения
+	inviteCode := uuid.New().String()
+
+	// Создаем приглашение
+	invitation := &ydb.Invitation{
+		InvitationID: uuid.New().String(),
+		OrgID:        orgID,
+		Email:        req.Email,
+		Role:         req.Role,
+		InviteCode:   inviteCode,
+		InvitedBy:    inviterID,
+		Status:       "pending",
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour), // 7 дней
+		CreatedAt:    time.Now(),
+	}
+
+	err = s.db.CreateInvitation(ctx, invitation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create invitation: %w", err)
+	}
+
+	// Отправляем email с приглашением
+	if s.email.IsConfigured() {
+		org, err := s.db.GetOrganizationByID(ctx, orgID)
+		if err != nil {
+			slog.Error("Failed to get organization", "error", err, "org_id", orgID)
+		} else {
+			_, err := s.email.SendInvitationEmail(ctx, req.Email, inviteCode, org.Name)
+			if err != nil {
+				slog.Error("Failed to send invitation email", "error", err, "email", req.Email)
+			}
+		}
+	}
+
+	return &models.InviteUserResponse{
+		InvitationID: invitation.InvitationID,
+		InviteCode:   inviteCode,
+		ExpiresAt:    invitation.ExpiresAt.Unix(),
+		Email:        req.Email,
+		Role:         req.Role,
+	}, nil
+}
+
+// AcceptInvitation принимает приглашение в организацию
+func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *models.AcceptInvitationRequest) (*models.AcceptInvitationResponse, error) {
+	if req.InviteCode == "" {
+		return nil, fmt.Errorf("invite_code is required")
+	}
+
+	// Получаем приглашение по коду
+	invitation, err := s.db.GetInvitationByCode(ctx, req.InviteCode)
+	if err != nil {
+		return nil, fmt.Errorf("invalid invite code")
+	}
+
+	// Проверяем статус приглашения
+	if invitation.Status != "pending" {
+		return nil, fmt.Errorf("invitation is not pending")
+	}
+
+	// Проверяем срок действия приглашения
+	if time.Now().After(invitation.ExpiresAt) {
+		s.db.UpdateInvitationStatus(ctx, invitation.InvitationID, "expired")
+		return nil, fmt.Errorf("invitation has expired")
+	}
+
+	// Получаем пользователя
+	user, err := s.db.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Проверяем, что email пользователя совпадает с email приглашения
+	if user.Email != invitation.Email {
+		return nil, fmt.Errorf("invitation email does not match user email")
+	}
+
+	// Проверяем, что пользователь еще не состоит в организации
+	membership, _ := s.db.GetMembership(ctx, userID, invitation.OrgID)
+	if membership != nil {
+		return nil, fmt.Errorf("user is already a member of this organization")
+	}
+
+	// Создаем членство в организации
+	newMembership := &ydb.Membership{
+		MembershipID: uuid.New().String(),
+		UserID:       userID,
+		OrgID:        invitation.OrgID,
+		Role:         invitation.Role,
+		Status:       "active",
+		InvitedBy:    invitation.InvitedBy,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	err = s.db.CreateMembership(ctx, newMembership)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create membership: %w", err)
+	}
+
+	// Обновляем статус приглашения
+	err = s.db.UpdateInvitationStatusWithAcceptTime(ctx, invitation.InvitationID, "accepted", time.Now())
+	if err != nil {
+		slog.Error("Failed to update invitation status", "error", err)
+	}
+
+	return &models.AcceptInvitationResponse{
+		MembershipID: newMembership.MembershipID,
+		OrgID:        invitation.OrgID,
+		Role:         invitation.Role,
+		Message:      "Invitation accepted successfully",
+	}, nil
+}
+
+// ListInvitations возвращает список приглашений организации
+func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.InvitationInfo, error) {
+	invitations, err := s.db.GetInvitationsByOrg(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invitations: %w", err)
+	}
+
+	result := make([]*models.InvitationInfo, 0, len(invitations))
+	for _, inv := range invitations {
+		invInfo := &models.InvitationInfo{
+			InvitationID: inv.InvitationID,
+			Email:        inv.Email,
+			Role:         inv.Role,
+			Status:       inv.Status,
+			InvitedBy:    inv.InvitedBy,
+			CreatedAt:    inv.CreatedAt.Unix(),
+			ExpiresAt:    inv.ExpiresAt.Unix(),
+		}
+		if inv.AcceptedAt != nil {
+			acceptedAt := inv.AcceptedAt.Unix()
+			invInfo.AcceptedAt = &acceptedAt
+		}
+		result = append(result, invInfo)
+	}
+
+	return result, nil
+}
+
+// CancelInvitation отменяет приглашение
+func (s *Service) CancelInvitation(ctx context.Context, invitationID string) error {
+	invitation, err := s.db.GetInvitationByCode(ctx, "") // Получить по ID
+	if err != nil {
+		// Нам нужен другой метод для получения приглашения по ID
+		// На время используем эту логику
+		return fmt.Errorf("invitation not found")
+	}
+
+	if invitation.Status != "pending" {
+		return fmt.Errorf("only pending invitations can be cancelled")
+	}
+
+	err = s.db.UpdateInvitationStatus(ctx, invitationID, "cancelled")
+	if err != nil {
+		return fmt.Errorf("failed to cancel invitation: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateMemberRole обновляет роль члена организации
+func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUserID, newRole string) error {
+	// Проверяем, что админ является admin в организации
+	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
+	if err != nil {
+		return fmt.Errorf("admin is not a member of this organization")
+	}
+
+	if adminMembership.Role != string(rbac.RoleAdmin) {
+		return fmt.Errorf("only admins can change roles")
+	}
+
+	// Проверяем валидность новой роли
+	validRoles := []rbac.Role{rbac.RoleUser, rbac.RoleManager, rbac.RoleAdmin}
+	roleFound := false
+	for _, validRole := range validRoles {
+		if newRole == string(validRole) {
+			roleFound = true
+			break
+		}
+	}
+	if !roleFound {
+		return fmt.Errorf("invalid role: %s", newRole)
+	}
+
+	// Получаем текущее членство
+	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
+	if err != nil {
+		return fmt.Errorf("target user is not a member of this organization")
+	}
+
+	// Обновляем роль
+	targetMembership.Role = newRole
+	targetMembership.UpdatedAt = time.Now()
+
+	err = s.db.UpdateMembership(ctx, targetMembership)
+	if err != nil {
+		return fmt.Errorf("failed to update member role: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveMember удаляет члена из организации
+func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID string) error {
+	// Проверяем, что админ является admin в организации
+	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
+	if err != nil {
+		return fmt.Errorf("admin is not a member of this organization")
+	}
+
+	if adminMembership.Role != string(rbac.RoleAdmin) {
+		return fmt.Errorf("only admins can remove members")
+	}
+
+	// Проверяем, что целевой пользователь состоит в организации
+	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
+	if err != nil {
+		return fmt.Errorf("target user is not a member of this organization")
+	}
+
+	// Нельзя удалить владельца организации
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err == nil && org.OwnerID == targetUserID {
+		return fmt.Errorf("cannot remove organization owner")
+	}
+
+	// Удаляем членство
+	err = s.db.DeleteMembership(ctx, targetMembership.MembershipID)
+	if err != nil {
+		return fmt.Errorf("failed to remove member: %w", err)
+	}
+
+	return nil
+}
+
+// ListOrgMembers возвращает список членов организации
+func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.MemberInfo, error) {
+	memberships, err := s.db.GetMembershipsByOrg(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get members: %w", err)
+	}
+
+	result := make([]*models.MemberInfo, 0, len(memberships))
+	for _, m := range memberships {
+		// Получаем информацию о пользователе
+		user, err := s.db.GetUserByID(ctx, m.UserID)
+		if err != nil {
+			slog.Error("Failed to get user", "error", err, "user_id", m.UserID)
+			continue
+		}
+
+		memberInfo := &models.MemberInfo{
+			UserID:    m.UserID,
+			Email:     user.Email,
+			FullName:  user.FullName,
+			Role:      m.Role,
+			Status:    m.Status,
+			JoinedAt:  m.CreatedAt.Unix(),
+			InvitedBy: m.InvitedBy,
+		}
+		result = append(result, memberInfo)
+	}
+
+	return result, nil
+}
+
 // ValidateToken валидирует JWT токен и возвращает claims
 func (s *Service) ValidateToken(tokenString string) (*jwtmanager.Claims, error) {
 	return s.jwtManager.ValidateToken(tokenString)
