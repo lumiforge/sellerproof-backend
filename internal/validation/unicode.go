@@ -82,53 +82,52 @@ func containsSuspiciousUnicode(input string) bool {
 
 // hasMixedScripts проверяет наличие смешанных скриптов в строке
 func hasMixedScripts(input string) bool {
-	scripts := make(map[string]bool)
+	// Разделяем имя файла и расширение
+	parts := strings.Split(input, ".")
+	var baseName string
 
-	for _, r := range input {
+	if len(parts) >= 2 {
+		baseName = strings.Join(parts[:len(parts)-1], ".")
+	} else {
+		baseName = input
+	}
+
+	// Проверяем скрипты в основном имени (без расширения)
+	baseScripts := make(map[string]bool)
+	for _, r := range baseName {
 		if !unicode.IsControl(r) && !unicode.IsSpace(r) && !unicode.IsPunct(r) && !unicode.IsDigit(r) && !unicode.IsSymbol(r) {
 			script := getScript(r)
 			if script != "" && script != "Other" {
-				scripts[script] = true
+				baseScripts[script] = true
 			}
 		}
 	}
 
-	// Для имен файлов разрешаем:
-	// 1. Один скрипт (например, только кириллица, только греческий)
-	// 2. Латиница + цифры/символы (но не другие алфавиты)
-	// 3. Блокируем если есть латиница + другой алфавит (кириллица, греческий) с гомографами
+	// Если базовое имя содержит один не-латинский скрипт - разрешаем
+	if len(baseScripts) == 1 && !baseScripts["Latin"] {
+		return false
+	}
 
-	// Если есть латиница и кириллица одновременно, это может быть гомограф атака
-	// Но только если есть подозрительные комбинации (например, латинские слова с кириллическими буквами)
-	if scripts["Latin"] && scripts["Cyrillic"] {
-		// Проверяем на наличие символов кириллицы, похожих на латиницу
-		// но только если они смешаны в одном слове с латиницей
-		if hasMixedLatinCyrillicWords(input) {
+	// Если только латиница - разрешаем
+	if len(baseScripts) == 1 && baseScripts["Latin"] {
+		return false
+	}
+
+	// Проверяем смешанные скрипты только в базовом имени
+	if baseScripts["Latin"] && baseScripts["Cyrillic"] {
+		if hasMixedLatinCyrillicWords(baseName) {
 			return true
 		}
 	}
 
-	// Если есть латиница и греческий одновременно, это может быть гомограф атака
-	if scripts["Latin"] && scripts["Greek"] {
-		// Проверяем на наличие символов греческого алфавита, похожих на латиницу
-		// но только если они смешаны в одном слове с латиницей
-		if hasMixedLatinGreekWords(input) {
+	if baseScripts["Latin"] && baseScripts["Greek"] {
+		if hasMixedLatinGreekWords(baseName) {
 			return true
 		}
-	}
-
-	// Разрешаем один не-латинский скрипт (чистая кириллица, греческий и т.д.)
-	if len(scripts) == 1 && !scripts["Latin"] {
-		return false
-	}
-
-	// Разрешаем чистый греческий (даже с гомографами) - это не атака, а просто греческое имя файла
-	if len(scripts) == 1 && scripts["Greek"] {
-		return false
 	}
 
 	// Блокируем если есть 3 или более разных скрипта И есть латиница
-	return len(scripts) > 2 && scripts["Latin"]
+	return len(baseScripts) > 2 && baseScripts["Latin"]
 }
 
 // hasMixedLatinCyrillicWords проверяет, есть ли слова со смешанными латинскими и кириллическими буквами
