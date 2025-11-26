@@ -759,17 +759,17 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	}
 
 	// Отправляем email с приглашением
-	if s.email.IsConfigured() {
-		org, err := s.db.GetOrganizationByID(ctx, orgID)
-		if err != nil {
-			slog.Error("Failed to get organization", "error", err, "org_id", orgID)
-		} else {
-			_, err := s.email.SendInvitationEmail(ctx, req.Email, inviteCode, org.Name)
-			if err != nil {
-				slog.Error("Failed to send invitation email", "error", err, "email", req.Email)
-			}
-		}
-	}
+	// if s.email.IsConfigured() {
+	// 	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	// 	if err != nil {
+	// 		slog.Error("Failed to get organization", "error", err, "org_id", orgID)
+	// 	} else {
+	// 		_, err := s.email.SendInvitationEmail(ctx, req.Email, inviteCode, org.Name)
+	// 		if err != nil {
+	// 			slog.Error("Failed to send invitation email", "error", err, "email", req.Email)
+	// 		}
+	// 	}
+	// }
 
 	return &models.InviteUserResponse{
 		InvitationID: invitation.InvitationID,
