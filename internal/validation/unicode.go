@@ -367,6 +367,14 @@ func ValidateFilenameUnicode(input string, fieldName string) error {
 		}
 	}
 
+	// НОВАЯ ПРОВЕРКА: Блокируем не-ASCII символы в расширении файла
+	if hasNonASCIIExtension(input) {
+		return ValidationError{
+			Field:   fieldName,
+			Message: "file extension contains non-ASCII characters",
+		}
+	}
+
 	// Проверяем на наличие опасных символов
 	if ContainsUnicodeAttack(input) {
 		return ValidationError{
@@ -426,4 +434,26 @@ func NormalizeUnicode(input string) string {
 // IsValidUnicode проверяет, является ли строка валидной UTF-8 строкой
 func IsValidUnicode(input string) bool {
 	return utf8.ValidString(input)
+}
+
+// hasNonASCIIExtension проверяет, содержит ли расширение файла не-ASCII символы
+func hasNonASCIIExtension(filename string) bool {
+	// Находим последнюю точку
+	lastDot := strings.LastIndex(filename, ".")
+	if lastDot == -1 || lastDot == len(filename)-1 {
+		// Нет расширения или точка в конце
+		return false
+	}
+
+	// Извлекаем расширение
+	extension := filename[lastDot+1:]
+
+	// Проверяем, что все символы расширения - ASCII
+	for _, r := range extension {
+		if r > 127 {
+			return true
+		}
+	}
+
+	return false
 }
