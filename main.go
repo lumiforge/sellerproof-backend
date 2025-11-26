@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/lumiforge/sellerproof-backend/internal/audit"
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
@@ -83,13 +84,14 @@ func init() {
 
 	// Инициализация сервисов
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
+	auditService := audit.NewService(db, rbacManager, log)
 	videoService := video.NewService(db, storageClient, rbacManager)
 
 	// Инициализация HTTP сервера
-	server := httpserver.NewServer(authService, videoService, jwtManager)
+	server := httpserver.NewServer(authService, videoService, auditService, jwtManager)
 
 	// Настройка роутера
-	router = httpserver.SetupRouter(server, jwtManager)
+	router = httpserver.SetupRouter(server, jwtManager, auditService)
 }
 
 func EntryPoint(w http.ResponseWriter, r *http.Request) {
