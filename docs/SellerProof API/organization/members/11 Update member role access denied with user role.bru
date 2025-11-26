@@ -1,0 +1,32 @@
+meta {
+  name: Update member role access denied with user role
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/role
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{userAccessToken}}
+}
+
+body:json {
+  {
+    "role": "manager",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 403 Forbidden for user role attempting to update member role', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.error).to.include('insufficient permissions');
+  });
+}

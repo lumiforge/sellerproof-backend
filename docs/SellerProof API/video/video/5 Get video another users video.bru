@@ -30,7 +30,7 @@ tests {
     
     // Check for appropriate error message
     expect(res.body.message).to.include('access denied');
-    expect(res.body.message).to.include('forbidden');
+    expect(res.body.error).to.include('Forbidden');
     
     // Validate error code
     expect(res.body.code).to.equal(403);

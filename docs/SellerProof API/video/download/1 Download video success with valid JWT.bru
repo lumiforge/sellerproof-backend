@@ -1,0 +1,36 @@
+meta {
+  name: Download video success with valid JWT
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/download?video_id=sample-video-id
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 200 OK and valid download URL for valid JWT token and video_id', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate all required fields exist
+    expect(res.body).to.have.property('download_url');
+    expect(res.body).to.have.property('expires_at');
+
+    // Validate field types
+    expect(res.body.download_url).to.be.a('string');
+    expect(res.body.expires_at).to.be.a('number');
+
+    // Validate field values are not empty
+    expect(res.body.download_url).to.not.equal('');
+    expect(res.body.expires_at).to.be.at.least(Date.now() / 1000); // Should expire in the future
+
+    // Additional validation that download URL is a valid URL format
+    expect(res.body.download_url).to.match(/^https?:\/\//);
+  });
+}

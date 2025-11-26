@@ -1,0 +1,16 @@
+meta {
+  name: Switch organization wrong HTTP method PATCH
+  type: http
+  seq: 10
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  auth: inherit
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for PATCH request to switch organization endpoint', function() {
+    expect(res.status).to.equal(405);
+  });
+}

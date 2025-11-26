@@ -1,0 +1,21 @@
+meta {
+  name: Get organization members with wrong HTTP method PUT
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members?org_id={{orgId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for PUT request', function() {
+    expect(res.status).to.equal(405);
+  });
+}

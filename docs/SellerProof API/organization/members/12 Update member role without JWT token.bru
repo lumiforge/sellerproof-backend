@@ -1,0 +1,28 @@
+meta {
+  name: Update member role without JWT token
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/role
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "role": "admin",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 401 Unauthorized for missing JWT token', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.error).to.include('unauthorized');
+  });
+}

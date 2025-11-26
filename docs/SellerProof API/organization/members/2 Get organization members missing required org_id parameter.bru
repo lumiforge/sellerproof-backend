@@ -1,0 +1,24 @@
+meta {
+  name: Get organization members missing required org_id parameter
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/members
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 Bad Request when org_id parameter is missing', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('org_id is required');
+  });
+}

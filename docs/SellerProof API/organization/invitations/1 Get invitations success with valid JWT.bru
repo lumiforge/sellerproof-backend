@@ -1,0 +1,66 @@
+meta {
+  name: Get invitations success with valid JWT
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/invitations
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 200 OK and valid invitations array for valid JWT token', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('invitations');
+    expect(res.body.invitations).to.be.an('array');
+
+    // If there are invitations, validate their structure
+    if (res.body.invitations.length > 0) {
+      const invitation = res.body.invitations[0];
+      
+      // Validate all required fields exist
+      expect(invitation).to.have.property('invitation_id');
+      expect(invitation).to.have.property('invite_code');
+      expect(invitation).to.have.property('expires_at');
+      expect(invitation).to.have.property('email');
+      expect(invitation).to.have.property('role');
+      expect(invitation).to.have.property('org_id');
+      expect(invitation).to.have.property('invited_by');
+      expect(invitation).to.have.property('created_at');
+
+      // Validate field types
+      expect(invitation.invitation_id).to.be.a('string');
+      expect(invitation.invite_code).to.be.a('string');
+      expect(invitation.expires_at).to.be.a('number');
+      expect(invitation.email).to.be.a('string');
+      expect(invitation.role).to.be.a('string');
+      expect(invitation.org_id).to.be.a('string');
+      expect(invitation.invited_by).to.be.a('string');
+      expect(invitation.created_at).to.be.a('number');
+
+      // Validate field values are not empty
+      expect(invitation.invitation_id).to.not.equal('');
+      expect(invitation.invite_code).to.not.equal('');
+      expect(invitation.email).to.not.equal('');
+      expect(invitation.role).to.not.equal('');
+      expect(invitation.org_id).to.not.equal('');
+      expect(invitation.invited_by).to.not.equal('');
+
+      // Validate email format
+      expect(invitation.email).to.include('@');
+
+      // Validate role is valid
+      expect(invitation.role).to.be.oneOf(['user', 'manager', 'admin']);
+
+      // Validate expires_at is in the future
+      const currentTime = Math.floor(Date.now() / 1000);
+      expect(invitation.expires_at).to.be.greaterThan(currentTime);
+    }
+  });
+}

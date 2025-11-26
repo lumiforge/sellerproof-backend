@@ -1,0 +1,20 @@
+meta {
+  name: Accept invitation wrong HTTP method GET
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for GET request', function() {
+    expect(res.status).to.equal(405);
+  });
+}

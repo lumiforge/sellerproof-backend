@@ -1,0 +1,16 @@
+meta {
+  name: Switch organization wrong HTTP method DELETE
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  auth: inherit
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for DELETE request to switch organization endpoint', function() {
+    expect(res.status).to.equal(405);
+  });
+}

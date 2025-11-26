@@ -1,0 +1,40 @@
+meta {
+  name: Accept invitation invalid JSON
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "invite_code": "SOME-CODE"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for invalid JSON', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    
+    // Validate error message content
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('JSON');
+  });
+}

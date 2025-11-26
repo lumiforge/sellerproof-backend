@@ -1,0 +1,52 @@
+meta {
+  name: Accept invitation success with valid JWT
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "invite_code": "{{validInviteCode}}"
+  }
+}
+
+tests {
+  test('Should return 200 OK and valid accept response for valid JWT and invite_code', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate all required fields exist
+    expect(res.body).to.have.property('membership_id');
+    expect(res.body).to.have.property('org_id');
+    expect(res.body).to.have.property('role');
+    expect(res.body).to.have.property('message');
+
+    // Validate field types
+    expect(res.body.membership_id).to.be.a('string');
+    expect(res.body.org_id).to.be.a('string');
+    expect(res.body.role).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+
+    // Validate field values are not empty
+    expect(res.body.membership_id).to.not.equal('');
+    expect(res.body.org_id).to.not.equal('');
+    expect(res.body.role).to.not.equal('');
+    expect(res.body.message).to.not.equal('');
+
+    // Validate role is valid
+    expect(res.body.role).to.be.oneOf(['user', 'manager', 'admin']);
+
+    // Validate message content
+    expect(res.body.message.toLowerCase()).to.include('accepted');
+  });
+}

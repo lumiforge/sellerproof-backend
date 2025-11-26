@@ -1,0 +1,17 @@
+meta {
+  name: Get organization members without JWT token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/members?org_id={{orgId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test('Should return 401 Unauthorized for missing JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

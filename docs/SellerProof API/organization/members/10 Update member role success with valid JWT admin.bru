@@ -1,0 +1,59 @@
+meta {
+  name: Update member role success with valid JWT admin
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/role
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "role": "user",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 200 OK and updated member role for valid JWT with admin role', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate response structure
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('user_id');
+    expect(res.body).to.have.property('email');
+    expect(res.body).to.have.property('full_name');
+    expect(res.body).to.have.property('role');
+    expect(res.body).to.have.property('org_id');
+
+    // Validate field types
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.user_id).to.be.a('string');
+    expect(res.body.email).to.be.a('string');
+    expect(res.body.full_name).to.be.a('string');
+    expect(res.body.role).to.be.a('string');
+    expect(res.body.org_id).to.be.a('string');
+
+    // Validate field values
+    expect(res.body.message).to.not.equal('');
+    expect(res.body.user_id).to.not.equal('');
+    expect(res.body.email).to.not.equal('');
+    expect(res.body.full_name).to.not.equal('');
+    expect(res.body.role).to.equal('user'); // Should match the request
+    expect(res.body.org_id).to.not.equal('');
+
+    // Validate role is valid
+    expect(res.body.role).to.be.oneOf(['user', 'manager', 'admin']);
+
+    // Validate email format
+    expect(res.body.email).to.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  });
+}

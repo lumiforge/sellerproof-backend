@@ -1,0 +1,21 @@
+meta {
+  name: Get organization members with invalid JWT token
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/members?org_id={{orgId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: invalid_token_12345
+}
+
+tests {
+  test('Should return 401 Unauthorized for invalid JWT token', function() {
+    expect(res.status).to.equal(401);
+  });
+}

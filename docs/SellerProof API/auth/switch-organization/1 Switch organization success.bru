@@ -1,0 +1,38 @@
+meta {
+  name: Switch organization success
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 200 OK and new tokens for valid switch organization request', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('access_token');
+    expect(res.body).to.have.property('expires_at');
+    expect(res.body).to.have.property('org_id');
+    expect(res.body.access_token).to.be.a('string');
+    expect(res.body.expires_at).to.be.a('number');
+    expect(res.body.org_id).to.be.a('string');
+    expect(res.body.access_token).to.not.equal('');
+    expect(res.body.org_id).to.not.equal('');
+
+    // Update environment variables with new tokens
+    bru.setEnvVar('accessToken', res.body.access_token);
+  });
+}

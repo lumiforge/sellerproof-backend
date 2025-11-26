@@ -1,0 +1,18 @@
+meta {
+  name: Download video without JWT token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/download?video_id=sample-video-id
+}
+
+tests {
+  test('Should return 401 Unauthorized when no JWT token is provided', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('User not authenticated');
+  });
+}

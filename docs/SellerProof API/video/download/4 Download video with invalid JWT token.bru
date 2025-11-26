@@ -1,0 +1,22 @@
+meta {
+  name: Download video with invalid JWT token
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/download?video_id=sample-video-id
+  auth: bearer
+}
+
+auth:bearer {
+  token: invalid-jwt-token
+}
+
+tests {
+  test('Should return 401 Unauthorized when invalid JWT token is provided', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+  });
+}

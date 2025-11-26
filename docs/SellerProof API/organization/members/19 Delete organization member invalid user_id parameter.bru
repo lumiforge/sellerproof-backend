@@ -1,0 +1,26 @@
+meta {
+  name: Delete organization member invalid user_id parameter
+  type: http
+  seq: 19
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization/members/invalid_user_id?org_id={{testOrgId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 Bad Request for invalid user_id parameter', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.error).to.include('user_id');
+    expect(res.body.error).to.include('invalid');
+  });
+}

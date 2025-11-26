@@ -1,0 +1,29 @@
+meta {
+  name: Switch organization with invalid JWT token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: "invalid_token_format"
+}
+
+body:json {
+  {
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 401 Unauthorized for switch organization request with invalid JWT token', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('User not authenticated');
+  });
+}

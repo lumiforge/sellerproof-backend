@@ -1,0 +1,31 @@
+meta {
+  name: Accept invitation missing Content-Type
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "invite_code": "SOME-CODE"
+  }
+}
+
+headers {
+  Content-Type:
+}
+
+tests {
+  test('Should return 415 Unsupported Media Type for missing Content-Type header', function() {
+    expect(res.status).to.equal(415);
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Switch organization missing org_id field
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for switch organization request missing org_id field', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Invalid request format');
+  });
+}

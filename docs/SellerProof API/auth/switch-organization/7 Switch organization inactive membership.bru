@@ -1,0 +1,29 @@
+meta {
+  name: Switch organization inactive membership
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{inactiveOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for switch organization request with inactive membership', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('membership is not active');
+  });
+}

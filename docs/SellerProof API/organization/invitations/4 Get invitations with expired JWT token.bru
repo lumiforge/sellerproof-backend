@@ -1,0 +1,33 @@
+meta {
+  name: Get invitations with expired JWT token
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/invitations
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{expiredToken}}
+}
+
+tests {
+  test('Should return 401 Unauthorized for expired JWT token', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+
+    // Validate error message content
+    expect(res.body.error).to.equal('Unauthorized');
+    expect(res.body.message).to.include('expired');
+  });
+}

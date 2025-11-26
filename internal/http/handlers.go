@@ -1552,6 +1552,13 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
+	if req.VideoID == "" {
+		s.writeError(w, http.StatusBadRequest, "Missing required field: video_id")
+		return
+	} else if len(req.VideoID) > 255 {
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: maximum 255 characters")
+		return
+	}
 
 	// Validate video_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {

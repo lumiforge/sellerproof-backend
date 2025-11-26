@@ -73,7 +73,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	})
 
 	// Organization routes
-	mux.HandleFunc("/api/v1/auth/switch-organization", chainMiddleware(server.SwitchOrganization, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/auth/switch-organization", chainMiddleware(server.SwitchOrganization, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 
@@ -109,19 +109,13 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 	// PUT /api/v1/organization/members/{user_id}/role
-	mux.HandleFunc("/api/v1/organization/members/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "PUT" {
-			// Extract user_id from path
-			// Path format: /api/v1/organization/members/{user_id}/role
-			// For now, simple implementation without full path parsing
-			http.Error(w, "Method not implemented in this router", http.StatusNotImplemented)
-		} else if r.Method == "DELETE" {
-			// Handle DELETE /api/v1/organization/members/{user_id}
-			http.Error(w, "Method not implemented in this router", http.StatusNotImplemented)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	mux.HandleFunc("PUT /api/v1/organization/members/{user_id}/role", chainMiddleware(server.UpdateMemberRole, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+	// DELETE /api/v1/organization/members/{user_id}
+	mux.HandleFunc("DELETE /api/v1/organization/members/{user_id}", chainMiddleware(server.RemoveMember, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
 
 	// Protected video routes
 	mux.HandleFunc("/api/v1/video/upload/initiate", chainMiddleware(server.InitiateMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
@@ -130,7 +124,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/video/upload/urls", chainMiddleware(server.GetPartUploadURLs, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
-	mux.HandleFunc("/api/v1/video/upload/complete", chainMiddleware(server.CompleteMultipartUpload, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/video/upload/complete", chainMiddleware(server.CompleteMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 	mux.HandleFunc("/api/v1/video", chainMiddleware(server.GetVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {

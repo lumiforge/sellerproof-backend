@@ -1,0 +1,60 @@
+meta {
+  name: Get organization members success with valid JWT admin
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/members?org_id={{orgId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 200 OK and list of organization members for valid JWT with admin role', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate response structure
+    expect(res.body).to.have.property('members');
+    expect(res.body).to.have.property('total');
+    expect(res.body.members).to.be.an('array');
+    expect(res.body.total).to.be.a('number');
+
+    // Validate members array structure if not empty
+    if (res.body.members.length > 0) {
+      const member = res.body.members[0];
+      expect(member).to.have.property('user_id');
+      expect(member).to.have.property('email');
+      expect(member).to.have.property('full_name');
+      expect(member).to.have.property('role');
+      expect(member).to.have.property('status');
+      expect(member).to.have.property('joined_at');
+      expect(member).to.have.property('invited_by');
+
+      // Validate field types
+      expect(member.user_id).to.be.a('string');
+      expect(member.email).to.be.a('string');
+      expect(member.full_name).to.be.a('string');
+      expect(member.role).to.be.a('string');
+      expect(member.status).to.be.a('string');
+      expect(member.joined_at).to.be.a('number');
+      expect(member.invited_by).to.be.a('string');
+    }
+
+    // Validate total count matches array length
+    expect(res.body.total).to.equal(res.body.members.length);
+
+    // Validate timestamp values are reasonable
+    if (res.body.members.length > 0) {
+      res.body.members.forEach(function(member) {
+        expect(member.joined_at).to.be.at.least(0);
+        expect(member.email).to.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+      });
+    }
+  });
+}
