@@ -1,0 +1,39 @@
+meta {
+  name: Create organization very long description
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Test Organization",
+    "description": "This is a very long description that exceeds the maximum allowed length for testing purposes to validate the length validation in the backend API. Testing this with an extremely long description to ensure proper validation occurs on the server side. This description should be long enough to trigger the validation logic that checks for overly long text fields that could potentially cause storage issues or performance impacts. The validation system should properly reject descriptions that are too long."
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request when description field is too long', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate error details
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('must be less than');
+    expect(res.body.code).to.equal(400);
+  });
+}

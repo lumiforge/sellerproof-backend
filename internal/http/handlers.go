@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
+	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/validation"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
 )
@@ -65,11 +67,11 @@ func (s *Server) validateRequest(r *http.Request, req interface{}) error {
 // @Tags		auth
 // @Accept		json
 // @Produce	json
-// @Param		request	body		RegisterRequest	true	"Registration request"
-// @Success	201	{object}	RegisterResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	409	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Param		request	body		models.RegisterRequest	true	"Registration request"
+// @Success	201	{object}	models.RegisterResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	409	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/auth/register [post]
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
@@ -129,10 +131,10 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 // @Tags		auth
 // @Accept		json
 // @Produce	json
-// @Param		request	body		VerifyEmailRequest	true	"Email verification request"
-// @Success	200		{object}	VerifyEmailResponse
-// @Failure	400		{object}	ErrorResponse
-// @Failure	500		{object}	ErrorResponse
+// @Param		request	body		models.VerifyEmailRequest	true	"Email verification request"
+// @Success	200		{object}	models.VerifyEmailResponse
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
 // @Router		/auth/verify-email [post]
 func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
@@ -182,10 +184,10 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Tags		auth
 // @Accept		json
 // @Produce	json
-// @Param		request	body		LoginRequest	true	"Login request"
-// @Success	200		{object}	LoginResponse
-// @Failure	401		{object}	ErrorResponse
-// @Failure	400		{object}	ErrorResponse
+// @Param		request	body		models.LoginRequest	true	"Login request"
+// @Success	200		{object}	models.LoginResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	400		{object}	models.ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
@@ -250,10 +252,10 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 // @Tags		auth
 // @Accept		json
 // @Produce	json
-// @Param		request	body		RefreshTokenRequest	true	"Refresh token request"
-// @Success	200		{object}	RefreshTokenResponse
-// @Failure	401		{object}	ErrorResponse
-// @Failure	400		{object}	ErrorResponse
+// @Param		request	body		models.RefreshTokenRequest	true	"Refresh token request"
+// @Success	200		{object}	models.RefreshTokenResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	400		{object}	models.ErrorResponse
 // @Router		/auth/refresh [post]
 func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
@@ -301,12 +303,12 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Tags		auth
 // @Accept		json
 // @Produce	json
-// @Param		request	body		LogoutRequest	true	"Logout request"
+// @Param		request	body		models.LogoutRequest	true	"Logout request"
 // @Security		BearerAuth
-// @Success	200		{object}	LogoutResponse
-// @Failure	401		{object}	ErrorResponse
-// @Failure	400		{object}	ErrorResponse
-// @Failure	500		{object}	ErrorResponse
+// @Success	200		{object}	models.LogoutResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
 // @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
@@ -354,9 +356,9 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 // @Accept		json
 // @Produce	json
 // @Security		BearerAuth
-// @Success	200	{object}	UserInfo
-// @Failure	401	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	models.UserInfo
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/auth/profile [get]
 func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -391,11 +393,11 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 // @Tags		auth
 // @Accept		json
 // @Produce	json
-// @Param		request	body		UpdateProfileRequest	true	"Profile update request"
+// @Param		request	body		models.UpdateProfileRequest	true	"Profile update request"
 // @Security		BearerAuth
-// @Success	200	{object}	UserInfo
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
+// @Success	200	{object}	models.UserInfo
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
 // @Router		/auth/profile [put]
 func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -449,12 +451,12 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Tags		video
 // @Accept		json
 // @Produce	json
-// @Param		request	body		InitiateMultipartUploadRequest	true	"Multipart upload initiation request"
+// @Param		request	body		models.InitiateMultipartUploadRequest	true	"Multipart upload initiation request"
 // @Security		BearerAuth
-// @Success	200	{object}	InitiateMultipartUploadResponse
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	models.InitiateMultipartUploadResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/initiate [post]
 func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
@@ -566,12 +568,12 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 // @Tags		video
 // @Accept		json
 // @Produce	json
-// @Param		request	body		GetPartUploadURLsRequest	true	"Part upload URLs request"
+// @Param		request	body		models.GetPartUploadURLsRequest	true	"Part upload URLs request"
 // @Security		BearerAuth
-// @Success	200	{object}	GetPartUploadURLsResponse
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	models.GetPartUploadURLsResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/urls [post]
 func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -647,12 +649,12 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 // @Tags		video
 // @Accept		json
 // @Produce	json
-// @Param		request	body		CompleteMultipartUploadRequest	true	"Multipart upload completion request"
+// @Param		request	body		models.CompleteMultipartUploadRequest	true	"Multipart upload completion request"
 // @Security		BearerAuth
-// @Success	200	{object}	CompleteMultipartUploadResponse
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	models.CompleteMultipartUploadResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/complete [post]
 func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -743,10 +745,10 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 // @Produce	json
 // @Param		video_id	query		string	true	"Video ID"
 // @Security		BearerAuth
-// @Success	200	{object}	Video
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	models.Video
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video [get]
 func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -816,9 +818,9 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 // @Param		page		query		int		false	"Page number"	default(1)
 // @Param		page_size	query		int		false	"Page size"	default(10)
 // @Security		BearerAuth
-// @Success	200	{object}	SearchVideosResponse
-// @Failure	401	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	models.SearchVideosResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/search [get]
 func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -895,8 +897,8 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 // @Produce	json
 // @Param		share_token	query		string	true	"Share token"
 // @Success	200	{object}	GetPublicVideoResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/public [get]
 // func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 // 	shareToken := r.URL.Query().Get("share_token")
@@ -941,9 +943,9 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		CreateShareLinkRequest	true	"Share link creation request"
 // @Security		BearerAuth
 // @Success	200	{object}	CreateShareLinkResponse
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/share [post]
 // func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
 // 	claims, ok := GetUserClaims(r)
@@ -1003,9 +1005,9 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		RevokeShareLinkRequest	true	"Share link revocation request"
 // @Security		BearerAuth
 // @Success	200	{object}	RevokeShareLinkResponse
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/share/revoke [post]
 // func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
 // 	_, ok := GetUserClaims(r)
@@ -1057,7 +1059,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 // @Tags		health
 // @Accept		json
 // @Produce	json
-// @Success	200	{object}	HealthResponse
+// @Success	200	{object}	models.HealthResponse
 // @Router		/health [get]
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, models.HealthResponse{
@@ -1121,6 +1123,64 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// CreateOrganization handles organization creation by admins
+// @Summary	Create organization
+// @Description	Create a new organization (admin only)
+// @Tags	organization
+// @Accept	json
+// @Produce	json
+// @Param	request	body	models.CreateOrganizationRequest	true	"Create organization request"
+// @Security	BearerAuth
+// @Success	201	{object}	models.CreateOrganizationResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	409	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
+// @Router	/api/v1/organization/create [post]
+func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	if claims.Role != string(rbac.RoleAdmin) {
+		s.writeError(w, http.StatusForbidden, "Only admins can create organizations")
+		return
+	}
+
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.CreateOrganizationRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	resp, err := s.authService.CreateOrganization(r.Context(), claims.UserID, &req)
+	if err != nil {
+		var validationErr validation.ValidationError
+
+		switch {
+		case strings.Contains(err.Error(), "only admins"):
+			s.writeError(w, http.StatusForbidden, err.Error())
+		case errors.As(err, &validationErr):
+			s.writeError(w, http.StatusBadRequest, validationErr.Error())
+		case strings.Contains(err.Error(), "already exists"):
+			s.writeError(w, http.StatusConflict, err.Error())
+		default:
+			s.writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusCreated, resp)
+}
+
 // DownloadVideo handles private video download
 // @Summary		Download private video
 // @Description	Get temporary presigned URL for private video download (1 hour)
@@ -1130,9 +1190,9 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 // @Security	BearerAuth
 // @Param		video_id	query		string	true	"Video ID"
 // @Success	200	{object}	models.DownloadURLResult
-// @Failure	401	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/download [get]
 func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1192,9 +1252,9 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.InviteUserRequest	true	"Invite user request"
 // @Security	BearerAuth
 // @Success	200	{object}	models.InviteUserResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invite [post]
 func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1240,8 +1300,8 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.AcceptInvitationRequest	true	"Accept invitation request"
 // @Security	BearerAuth
 // @Success	200	{object}	models.AcceptInvitationResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invitations/accept [post]
 func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1284,9 +1344,9 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 // @Param		org_id	query		string	true	"Organization ID"
 // @Security	BearerAuth
 // @Success	200	{object}	models.ListInvitationsResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invitations [get]
 func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 	_, ok := GetUserClaims(r)
@@ -1326,10 +1386,10 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 // @Produce	json
 // @Param		invitation_id	path		string	true	"Invitation ID"
 // @Security	BearerAuth
-// @Success	200	{object}	models.EmptyResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	map[string]string
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invitations/{id} [delete]
 func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1372,9 +1432,9 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 // @Param		org_id	query		string	true	"Organization ID"
 // @Security	BearerAuth
 // @Success	200	{object}	models.ListMembersResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/members [get]
 func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1416,10 +1476,10 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 // @Param		user_id	path		string	true	"User ID"
 // @Param		request	body		models.UpdateMemberRoleRequest	true	"Update member role request"
 // @Security	BearerAuth
-// @Success	200	{object}	models.EmptyResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	map[string]string
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/members/{user_id}/role [put]
 func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1475,9 +1535,9 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 // @Produce	json
 // @Param		user_id	path		string	true	"User ID"
 // @Security	BearerAuth
-// @Success	200	{object}	models.EmptyResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Success	200	{object}	map[string]string
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/members/{user_id} [delete]
 func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -1523,10 +1583,10 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 // @Security	BearerAuth
 // @Param		request	body		models.PublishVideoRequest	true	"Publish video request"
 // @Success	200	{object}	models.PublishVideoResult
-// @Failure	401	{object}	ErrorResponse
-// @Failure	403	{object}	ErrorResponse
-// @Failure	400	{object}	ErrorResponse
-// @Failure	500	{object}	ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/publish [post]
 func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)

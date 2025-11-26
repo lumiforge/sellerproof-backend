@@ -1021,3 +1021,100 @@ func (s *Service) CheckPermission(ctx context.Context, userID, orgID string, per
 	role := rbac.Role(roleStr)
 	return s.rbac.CheckPermissionWithRole(role, permission), nil
 }
+
+// CreateOrganization создает новую организацию для администратора
+func (s *Service) CreateOrganization(ctx context.Context, userID string, req *models.CreateOrganizationRequest) (*models.CreateOrganizationResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
+
+	orgName, err := validation.SanitizeOrganizationName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	description, err := validation.SanitizeOrganizationDescription(req.Description)
+	if err != nil {
+		return nil, err
+	}
+
+	memberships, err := s.db.GetMembershipsByUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user memberships: %w", err)
+	}
+
+	isAdmin := false
+	for _, membership := range memberships {
+		if membership.Status == "active" && membership.Role == string(rbac.RoleAdmin) {
+			isAdmin = true
+			break
+		}
+	}
+
+	if !isAdmin {
+		return nil, fmt.Errorf("only admins can create organizations")
+	}
+
+	// Проверка уникальности названия организации для данного пользователя
+	orgs, err := s.db.GetOrganizationsByOwner(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user organizations: %w", err)
+	}
+	for _, org := range orgs {
+		if strings.EqualFold(org.Name, orgName) {
+			return nil, validation.ValidationError{Field: "name", Message: "organization name already exists"}
+		}
+	}
+
+	orgID := uuid.New().String()
+	now := time.Now()
+	settings := map[string]string{}
+	if description != "" {
+		settings["description"] = description
+	}
+
+	settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal organization settings: %w", err)
+	}
+
+	org := &ydb.Organization{
+		OrgID:     orgID,
+		Name:      orgName,
+		OwnerID:   userID,
+		Settings:  string(settingsJSON),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if err := s.db.CreateOrganization(ctx, org); err != nil {
+		slog.Error("Failed to create organization", "error", err, "user_id", userID, "org_name", orgName)
+		return nil, fmt.Errorf("failed to create organization: %w", err)
+	}
+
+	membershipRecord := &ydb.Membership{
+		MembershipID: uuid.New().String(),
+		UserID:       userID,
+		OrgID:        orgID,
+		Role:         string(rbac.RoleAdmin),
+		Status:       "active",
+		InvitedBy:    userID,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	if err := s.db.CreateMembership(ctx, membershipRecord); err != nil {
+		slog.Error("Failed to create membership for new organization", "error", err, "user_id", userID, "org_id", orgID)
+		return nil, fmt.Errorf("failed to create membership: %w", err)
+	}
+
+	slog.Info("Organization created", "user_id", userID, "org_id", orgID, "name", orgName)
+
+	return &models.CreateOrganizationResponse{
+		OrgID:       orgID,
+		Name:        orgName,
+		Description: description,
+		CreatedAt:   now.Unix(),
+		Message:     "Organization created successfully",
+	}, nil
+}

@@ -1,11 +1,31 @@
 basePath: /api/v1
 definitions:
-  http.CompleteMultipartUploadRequest:
+  models.AcceptInvitationRequest:
+    description: Accept invitation request with invite code
+    properties:
+      invite_code:
+        type: string
+    required:
+    - invite_code
+    type: object
+  models.AcceptInvitationResponse:
+    description: Accept invitation response with membership details
+    properties:
+      membership_id:
+        type: string
+      message:
+        type: string
+      org_id:
+        type: string
+      role:
+        type: string
+    type: object
+  models.CompleteMultipartUploadRequest:
     description: Multipart upload completion request
     properties:
       parts:
         items:
-          $ref: '#/definitions/http.CompletedPart'
+          $ref: '#/definitions/models.CompletedPart'
         minItems: 1
         type: array
       video_id:
@@ -14,7 +34,7 @@ definitions:
     - parts
     - video_id
     type: object
-  http.CompleteMultipartUploadResponse:
+  models.CompleteMultipartUploadResponse:
     description: Multipart upload completion response
     properties:
       message:
@@ -22,7 +42,7 @@ definitions:
       video_url:
         type: string
     type: object
-  http.CompletedPart:
+  models.CompletedPart:
     description: Completed multipart upload part
     properties:
       etag:
@@ -30,26 +50,15 @@ definitions:
       part_number:
         type: integer
     type: object
-  http.CreateShareLinkRequest:
-    description: Create share link request
+  models.DownloadURLResult:
+    description: Private download URL result
     properties:
-      expires_in_hours:
-        minimum: 0
-        type: integer
-      video_id:
+      download_url:
         type: string
-    required:
-    - video_id
-    type: object
-  http.CreateShareLinkResponse:
-    description: Create share link response
-    properties:
       expires_at:
         type: integer
-      share_url:
-        type: string
     type: object
-  http.ErrorResponse:
+  models.ErrorResponse:
     description: Error response with details
     properties:
       code:
@@ -59,7 +68,7 @@ definitions:
       message:
         type: string
     type: object
-  http.GetPartUploadURLsRequest:
+  models.GetPartUploadURLsRequest:
     description: Part upload URLs request
     properties:
       total_parts:
@@ -71,7 +80,7 @@ definitions:
     - total_parts
     - video_id
     type: object
-  http.GetPartUploadURLsResponse:
+  models.GetPartUploadURLsResponse:
     description: Part upload URLs response
     properties:
       expires_at:
@@ -81,19 +90,7 @@ definitions:
           type: string
         type: array
     type: object
-  http.GetPublicVideoResponse:
-    description: Get public video response
-    properties:
-      download_url:
-        type: string
-      expires_at:
-        type: integer
-      file_name:
-        type: string
-      file_size:
-        type: integer
-    type: object
-  http.HealthResponse:
+  models.HealthResponse:
     description: Health check response
     properties:
       status:
@@ -103,22 +100,24 @@ definitions:
       version:
         type: string
     type: object
-  http.InitiateMultipartUploadRequest:
+  models.InitiateMultipartUploadRequest:
     description: Multipart upload initiation request
     properties:
       duration_seconds:
-        minimum: 0
+        minimum: 1
         type: integer
       file_name:
+        maxLength: 255
         type: string
       file_size_bytes:
         minimum: 1
         type: integer
     required:
+    - duration_seconds
     - file_name
     - file_size_bytes
     type: object
-  http.InitiateMultipartUploadResponse:
+  models.InitiateMultipartUploadResponse:
     description: Multipart upload initiation response
     properties:
       recommended_part_size_mb:
@@ -128,7 +127,80 @@ definitions:
       video_id:
         type: string
     type: object
-  http.LoginRequest:
+  models.InvitationInfo:
+    description: Invitation details
+    properties:
+      accepted_at:
+        type: integer
+      created_at:
+        type: integer
+      email:
+        type: string
+      expires_at:
+        type: integer
+      invitation_id:
+        type: string
+      invited_by:
+        type: string
+      role:
+        type: string
+      status:
+        description: '"pending", "accepted", "expired", "cancelled"'
+        type: string
+    type: object
+  models.InviteUserRequest:
+    description: Invite user request with email and role
+    properties:
+      email:
+        type: string
+      org_id:
+        type: string
+      role:
+        enum:
+        - user
+        - manager
+        - admin
+        type: string
+    required:
+    - email
+    - org_id
+    - role
+    type: object
+  models.InviteUserResponse:
+    description: Invite user response with invitation details
+    properties:
+      email:
+        type: string
+      expires_at:
+        type: integer
+      invitation_id:
+        type: string
+      invite_code:
+        type: string
+      role:
+        type: string
+    type: object
+  models.ListInvitationsResponse:
+    description: List of invitations for organization
+    properties:
+      invitations:
+        items:
+          $ref: '#/definitions/models.InvitationInfo'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.ListMembersResponse:
+    description: List of organization members
+    properties:
+      members:
+        items:
+          $ref: '#/definitions/models.MemberInfo'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.LoginRequest:
     description: Login request with email and password
     properties:
       email:
@@ -139,19 +211,23 @@ definitions:
     - email
     - password
     type: object
-  http.LoginResponse:
+  models.LoginResponse:
     description: Login response with tokens and user info
     properties:
       access_token:
         type: string
       expires_at:
         type: integer
+      organizations:
+        items:
+          $ref: '#/definitions/models.OrganizationInfo'
+        type: array
       refresh_token:
         type: string
       user:
-        $ref: '#/definitions/http.UserInfo'
+        $ref: '#/definitions/models.UserInfo'
     type: object
-  http.LogoutRequest:
+  models.LogoutRequest:
     description: Logout request with refresh token
     properties:
       refresh_token:
@@ -159,13 +235,57 @@ definitions:
     required:
     - refresh_token
     type: object
-  http.LogoutResponse:
+  models.LogoutResponse:
     description: Logout response with message
     properties:
       message:
         type: string
     type: object
-  http.RefreshTokenRequest:
+  models.MemberInfo:
+    description: Organization member details
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      invited_by:
+        type: string
+      joined_at:
+        type: integer
+      role:
+        type: string
+      status:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.OrganizationInfo:
+    description: Organization information for user
+    properties:
+      name:
+        type: string
+      org_id:
+        type: string
+      role:
+        type: string
+    type: object
+  models.PublishVideoRequest:
+    description: Publish video request
+    properties:
+      video_id:
+        type: string
+    required:
+    - video_id
+    type: object
+  models.PublishVideoResult:
+    description: Publish video result
+    properties:
+      message:
+        type: string
+      public_url:
+        type: string
+    type: object
+  models.RefreshTokenRequest:
     description: Refresh token request
     properties:
       refresh_token:
@@ -173,7 +293,7 @@ definitions:
     required:
     - refresh_token
     type: object
-  http.RefreshTokenResponse:
+  models.RefreshTokenResponse:
     description: Refresh token response with new tokens
     properties:
       access_token:
@@ -183,7 +303,7 @@ definitions:
       refresh_token:
         type: string
     type: object
-  http.RegisterRequest:
+  models.RegisterRequest:
     description: Registration request with user details
     properties:
       email:
@@ -200,7 +320,7 @@ definitions:
     - full_name
     - password
     type: object
-  http.RegisterResponse:
+  models.RegisterResponse:
     description: Registration response with user ID and message
     properties:
       message:
@@ -208,31 +328,29 @@ definitions:
       user_id:
         type: string
     type: object
-  http.RevokeShareLinkRequest:
-    description: Revoke share link request
-    properties:
-      video_id:
-        type: string
-    required:
-    - video_id
-    type: object
-  http.RevokeShareLinkResponse:
-    description: Revoke share link response
-    properties:
-      success:
-        type: boolean
-    type: object
-  http.SearchVideosResponse:
+  models.SearchVideosResponse:
     description: Search videos response
     properties:
       total_count:
         type: integer
       videos:
         items:
-          $ref: '#/definitions/http.Video'
+          $ref: '#/definitions/models.Video'
         type: array
     type: object
-  http.UpdateProfileRequest:
+  models.UpdateMemberRoleRequest:
+    description: Update member role request
+    properties:
+      new_role:
+        enum:
+        - user
+        - manager
+        - admin
+        type: string
+    required:
+    - new_role
+    type: object
+  models.UpdateProfileRequest:
     description: Profile update request with full name
     properties:
       full_name:
@@ -240,7 +358,7 @@ definitions:
     required:
     - full_name
     type: object
-  http.UserInfo:
+  models.UserInfo:
     description: User profile information
     properties:
       created_at:
@@ -260,7 +378,7 @@ definitions:
       user_id:
         type: string
     type: object
-  http.VerifyEmailRequest:
+  models.VerifyEmailRequest:
     description: Email verification request with email and code
     properties:
       code:
@@ -271,7 +389,7 @@ definitions:
     - code
     - email
     type: object
-  http.VerifyEmailResponse:
+  models.VerifyEmailResponse:
     description: Email verification response with success status
     properties:
       message:
@@ -279,7 +397,7 @@ definitions:
       success:
         type: boolean
     type: object
-  http.Video:
+  models.Video:
     description: Video information
     properties:
       duration_seconds:
@@ -309,6 +427,249 @@ info:
   title: SellerProof API
   version: "1.0"
 paths:
+  /api/v1/organization/invitations:
+    get:
+      description: List all invitations for organization (admin/manager only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListInvitationsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List invitations
+      tags:
+      - organization
+  /api/v1/organization/invitations/{id}:
+    delete:
+      description: Cancel pending invitation (admin/manager only)
+      parameters:
+      - description: Invitation ID
+        in: path
+        name: invitation_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel invitation
+      tags:
+      - organization
+  /api/v1/organization/invitations/accept:
+    post:
+      consumes:
+      - application/json
+      description: Accept invitation to organization using invite code
+      parameters:
+      - description: Accept invitation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AcceptInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AcceptInvitationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Accept invitation
+      tags:
+      - organization
+  /api/v1/organization/invite:
+    post:
+      consumes:
+      - application/json
+      description: Invite user to organization with specific role (admin/manager only)
+      parameters:
+      - description: Invite user request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.InviteUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.InviteUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Invite user to organization
+      tags:
+      - organization
+  /api/v1/organization/members:
+    get:
+      description: List all members of organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListMembersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization members
+      tags:
+      - organization
+  /api/v1/organization/members/{user_id}:
+    delete:
+      description: Remove member from organization (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove member
+      tags:
+      - organization
+  /api/v1/organization/members/{user_id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update organization member role (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Update member role request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMemberRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update member role
+      tags:
+      - organization
   /auth/login:
     post:
       consumes:
@@ -320,22 +681,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.LoginRequest'
+          $ref: '#/definitions/models.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.LoginResponse'
+            $ref: '#/definitions/models.LoginResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: User login
       tags:
       - auth
@@ -350,26 +711,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.LogoutRequest'
+          $ref: '#/definitions/models.LogoutRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.LogoutResponse'
+            $ref: '#/definitions/models.LogoutResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: User logout
@@ -386,15 +747,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.UserInfo'
+            $ref: '#/definitions/models.UserInfo'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -410,22 +771,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.UpdateProfileRequest'
+          $ref: '#/definitions/models.UpdateProfileRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.UserInfo'
+            $ref: '#/definitions/models.UserInfo'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update user profile
@@ -442,22 +803,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.RefreshTokenRequest'
+          $ref: '#/definitions/models.RefreshTokenRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.RefreshTokenResponse'
+            $ref: '#/definitions/models.RefreshTokenResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Refresh access token
       tags:
       - auth
@@ -473,26 +834,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.RegisterRequest'
+          $ref: '#/definitions/models.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/http.RegisterResponse'
+            $ref: '#/definitions/models.RegisterResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Register a new user
       tags:
       - auth
@@ -507,22 +868,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.VerifyEmailRequest'
+          $ref: '#/definitions/models.VerifyEmailRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.VerifyEmailResponse'
+            $ref: '#/definitions/models.VerifyEmailResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Verify user email
       tags:
       - auth
@@ -537,7 +898,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.HealthResponse'
+            $ref: '#/definitions/models.HealthResponse'
       summary: Health check
       tags:
       - health
@@ -558,33 +919,33 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.Video'
+            $ref: '#/definitions/models.Video'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get video information
       tags:
       - video
-  /video/public:
+  /video/download:
     get:
       consumes:
       - application/json
-      description: Get public video by share token
+      description: Get temporary presigned URL for private video download (1 hour)
       parameters:
-      - description: Share token
+      - description: Video ID
         in: query
-        name: share_token
+        name: video_id
         required: true
         type: string
       produces:
@@ -593,16 +954,62 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.GetPublicVideoResponse'
+            $ref: '#/definitions/models.DownloadURLResult'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
-      summary: Get public video
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Download private video
+      tags:
+      - video
+  /video/publish:
+    post:
+      consumes:
+      - application/json
+      description: Publish video to public bucket (admin/manager only)
+      parameters:
+      - description: Publish video request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.PublishVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PublishVideoResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Publish video
       tags:
       - video
   /video/search:
@@ -631,90 +1038,18 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.SearchVideosResponse'
+            $ref: '#/definitions/models.SearchVideosResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Search videos
-      tags:
-      - video
-  /video/share:
-    post:
-      consumes:
-      - application/json
-      description: Create public share link for video
-      parameters:
-      - description: Share link creation request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/http.CreateShareLinkRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/http.CreateShareLinkResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/http.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/http.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/http.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create public share link
-      tags:
-      - video
-  /video/share/revoke:
-    post:
-      consumes:
-      - application/json
-      description: Revoke public share link for video
-      parameters:
-      - description: Share link revocation request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/http.RevokeShareLinkRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/http.RevokeShareLinkResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/http.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/http.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/http.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Revoke share link
       tags:
       - video
   /video/upload/complete:
@@ -728,26 +1063,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.CompleteMultipartUploadRequest'
+          $ref: '#/definitions/models.CompleteMultipartUploadRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.CompleteMultipartUploadResponse'
+            $ref: '#/definitions/models.CompleteMultipartUploadResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Complete multipart upload
@@ -764,26 +1099,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.InitiateMultipartUploadRequest'
+          $ref: '#/definitions/models.InitiateMultipartUploadRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.InitiateMultipartUploadResponse'
+            $ref: '#/definitions/models.InitiateMultipartUploadResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Initiate multipart upload
@@ -800,26 +1135,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.GetPartUploadURLsRequest'
+          $ref: '#/definitions/models.GetPartUploadURLsRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.GetPartUploadURLsResponse'
+            $ref: '#/definitions/models.GetPartUploadURLsResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get part upload URLs

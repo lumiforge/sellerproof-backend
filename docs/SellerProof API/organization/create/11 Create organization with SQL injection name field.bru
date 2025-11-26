@@ -1,0 +1,39 @@
+meta {
+  name: Create organization with SQL injection name field
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Test Organization'; DROP TABLE organizations; --",
+    "description": "A test organization for testing purposes"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request when name field contains SQL injection', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate error details
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('SQL injection');
+    expect(res.body.code).to.equal(400);
+  });
+}

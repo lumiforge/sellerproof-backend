@@ -1,0 +1,63 @@
+meta {
+  name: Create organization extra fields
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Test Organization",
+    "description": "A test organization for testing purposes",
+    "extra_field": "extra_value",
+    "another_extra_field": "another_extra_value"
+  }
+}
+
+tests {
+  test('Should return 201 Created ignoring extra fields for valid admin JWT token', function() {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.be.an('object');
+
+    // Validate all required fields exist
+    expect(res.body).to.have.property('org_id');
+    expect(res.body).to.have.property('name');
+    expect(res.body).to.have.property('description');
+    expect(res.body).to.have.property('created_at');
+    expect(res.body).to.have.property('message');
+
+    // Validate field types
+    expect(res.body.org_id).to.be.a('string');
+    expect(res.body.name).to.be.a('string');
+    expect(res.body.description).to.be.a('string');
+    expect(res.body.created_at).to.be.a('number');
+    expect(res.body.message).to.be.a('string');
+
+    // Validate field values are not empty
+    expect(res.body.org_id).to.not.equal('');
+    expect(res.body.name).to.not.equal('');
+    expect(res.body.message).to.not.equal('');
+
+    // Validate name matches request
+    expect(res.body.name).to.equal('Test Organization');
+
+    // Validate description matches request
+    expect(res.body.description).to.equal('A test organization for testing purposes');
+
+    // Validate created_at is a reasonable timestamp (not in the future)
+    const currentTime = Math.floor(Date.now() / 1000);
+    expect(res.body.created_at).to.be.lessThanOrEqual(currentTime);
+
+    // Validate success message
+    expect(res.body.message).to.include('Organization created successfully');
+  });
+}

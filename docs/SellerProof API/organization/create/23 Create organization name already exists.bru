@@ -1,0 +1,39 @@
+meta {
+  name: Create organization name already exists
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Existing Organization",
+    "description": "A test organization for testing purposes"
+  }
+}
+
+tests {
+  test('Should return 409 Conflict when organization name already exists', function() {
+    expect(res.status).to.equal(409);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate error details
+    expect(res.body.error).to.equal('Conflict');
+    expect(res.body.message).to.include('already exists');
+    expect(res.body.code).to.equal(409);
+  });
+}

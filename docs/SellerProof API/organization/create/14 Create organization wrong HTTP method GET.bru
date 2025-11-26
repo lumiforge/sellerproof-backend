@@ -1,0 +1,26 @@
+meta {
+  name: Create organization wrong HTTP method GET
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/create
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for GET method', function() {
+    expect(res.status).to.equal(405);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate error details
+    expect(res.body.error).to.equal('Method Not Allowed');
+    expect(res.body.message).to.include('Method not allowed');
+    expect(res.body.code).to.equal(405);
+  });
+}

@@ -654,12 +654,13 @@ func (c *YDBClient) CreateOrganization(ctx context.Context, org *Organization) e
 		DECLARE $org_id AS Text;
 		DECLARE $name AS Text;
 		DECLARE $owner_id AS Text;
+		DECLARE $created_by AS Text;
 		DECLARE $settings AS Json;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 
-		REPLACE INTO organizations (org_id, name, owner_id, settings, created_at, updated_at)
-		VALUES ($org_id, $name, $owner_id, $settings, $created_at, $updated_at)
+		REPLACE INTO organizations (org_id, name, owner_id, created_by, settings, created_at, updated_at)
+		VALUES ($org_id, $name, $owner_id, $created_by, $settings, $created_at, $updated_at)
 	`
 
 	now := time.Now()
@@ -1743,12 +1744,13 @@ func (c *YDBClient) UpdateOrganization(ctx context.Context, org *Organization) e
 		DECLARE $org_id AS Text;
 		DECLARE $name AS Text;
 		DECLARE $owner_id AS Text;
+		DECLARE $created_by AS Text;
 		DECLARE $settings AS Json;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 
-		REPLACE INTO organizations (org_id, name, owner_id, settings, created_at, updated_at)
-		VALUES ($org_id, $name, $owner_id, $settings, $created_at, $updated_at)
+		REPLACE INTO organizations (org_id, name, owner_id, created_by, settings, created_at, updated_at)
+		VALUES ($org_id, $name, $owner_id, $created_by, $settings, $created_at, $updated_at)
 	`
 
 	org.UpdatedAt = time.Now()

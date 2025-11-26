@@ -1,0 +1,36 @@
+meta {
+  name: Create organization empty request body
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {}
+}
+
+tests {
+  test('Should return 400 Bad Request when request body is empty (missing required fields)', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate error details
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('name is required');
+    expect(res.body.code).to.equal(400);
+  });
+}

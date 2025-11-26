@@ -127,3 +127,20 @@ type SwitchOrganizationResponse struct {
 	ExpiresAt   int64  `json:"expires_at"`
 	OrgID       string `json:"org_id"`
 }
+
+// CreateOrganizationRequest represents organization create request
+// @Description Organization creation request
+type CreateOrganizationRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// CreateOrganizationResponse represents organization create response
+// @Description Organization creation response
+type CreateOrganizationResponse struct {
+	OrgID       string `json:"org_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CreatedAt   int64  `json:"created_at"`
+	Message     string `json:"message"`
+}

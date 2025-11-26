@@ -1,0 +1,61 @@
+meta {
+  name: Create organization Unicode name
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Тестовая Организация",
+    "description": "Test organization with Unicode characters"
+  }
+}
+
+tests {
+  test('Should return 201 Created for organization with Unicode name', function() {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.be.an('object');
+
+    // Validate all required fields exist
+    expect(res.body).to.have.property('org_id');
+    expect(res.body).to.have.property('name');
+    expect(res.body).to.have.property('description');
+    expect(res.body).to.have.property('created_at');
+    expect(res.body).to.have.property('message');
+
+    // Validate field types
+    expect(res.body.org_id).to.be.a('string');
+    expect(res.body.name).to.be.a('string');
+    expect(res.body.description).to.be.a('string');
+    expect(res.body.created_at).to.be.a('number');
+    expect(res.body.message).to.be.a('string');
+
+    // Validate field values are not empty
+    expect(res.body.org_id).to.not.equal('');
+    expect(res.body.name).to.not.equal('');
+    expect(res.body.message).to.not.equal('');
+
+    // Validate name contains Unicode characters
+    expect(res.body.name).to.equal('Тестовая Организация');
+
+    // Validate description matches request
+    expect(res.body.description).to.equal('Test organization with Unicode characters');
+
+    // Validate created_at is a reasonable timestamp (not in the future)
+    const currentTime = Math.floor(Date.now() / 1000);
+    expect(res.body.created_at).to.be.lessThanOrEqual(currentTime);
+
+    // Validate success message
+    expect(res.body.message).to.include('Organization created successfully');
+  });
+}

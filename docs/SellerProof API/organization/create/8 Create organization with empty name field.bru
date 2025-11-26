@@ -1,0 +1,39 @@
+meta {
+  name: Create organization with empty name field
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "",
+    "description": "A test organization for testing purposes"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request when name field is empty', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate error details
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('name is required');
+    expect(res.body.code).to.equal(400);
+  });
+}
