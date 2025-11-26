@@ -52,6 +52,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	if req.FullName == "" {
 		return nil, fmt.Errorf("full_name is required")
 	}
+	if req.OrganizationName == "" {
+		return nil, fmt.Errorf("organization_name is required")
+	}
 
 	// Валидация email используя validation package
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
