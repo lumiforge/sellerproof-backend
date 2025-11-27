@@ -94,24 +94,10 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/organization/invitations", chainMiddleware(server.ListInvitations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
-	mux.HandleFunc("/api/v1/organization/invitations/", func(w http.ResponseWriter, r *http.Request) {
-		// Handle DELETE /api/v1/organization/invitations/{id}
-		if r.Method == "DELETE" {
-			// Extract invitation ID from path (simple parsing)
-			path := r.URL.Path
-			// Path format: /api/v1/organization/invitations/{id}
-			parts := len(path) - len("/api/v1/organization/invitations/")
-			if parts > 0 {
-				// For now, reject DELETE as we need path parameter support
-				// In a real implementation, you'd use a router that supports path params
-				http.Error(w, "Method not implemented in this router", http.StatusNotImplemented)
-			} else {
-				http.Error(w, "Invalid path", http.StatusBadRequest)
-			}
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	// DELETE /api/v1/organization/invitations/{id}
+	mux.HandleFunc("DELETE /api/v1/organization/invitations/{id}", chainMiddleware(server.CancelInvitation, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
 	mux.HandleFunc("/api/v1/organization/members", chainMiddleware(server.ListMembers, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))

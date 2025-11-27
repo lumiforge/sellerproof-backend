@@ -1668,6 +1668,7 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invitations/{id} [delete]
 func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
+
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
@@ -1680,6 +1681,24 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate invitation_id format (UUID expected)
+	if err := validation.ValidateFilenameUnicode(invitationID, "invitation_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional security checks
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(invitationID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid invitation_id: "+errorMessage)
+		return
+	}
+
 	// Check admin/manager role
 	if claims.Role != "admin" && claims.Role != "manager" {
 		s.writeError(w, http.StatusForbidden, "Only admins and managers can cancel invitations")
@@ -1688,8 +1707,12 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 
 	err := s.authService.CancelInvitation(r.Context(), invitationID)
 	if err != nil {
+		// Log failed cancellation
+
 		errorMsg := err.Error()
-		if strings.Contains(errorMsg, "not pending") {
+		if strings.Contains(errorMsg, "not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else if strings.Contains(errorMsg, "not pending") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
