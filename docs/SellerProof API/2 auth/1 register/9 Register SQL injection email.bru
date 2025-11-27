@@ -24,5 +24,8 @@ tests {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.include('Bad Request');
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include("validation error in field 'email'");
+    expect(res.body.message).to.include("potential SQL injection");
   });
 }

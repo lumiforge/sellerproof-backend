@@ -46,7 +46,7 @@ tests {
     expect(res.body.message).to.not.equal('');
 
     // Validate name matches request
-    expect(res.body.name).to.equal('Test Organization');
+    expect(res.body.name).to.equal('New Created Organization');
 
     // Validate description matches request or is empty string if not provided
     expect(res.body.description).to.equal('A test organization for testing purposes');
