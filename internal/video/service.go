@@ -96,6 +96,7 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 
 	video.IsDeleted = true
 	video.UploadStatus = "deleted"
+	video.PublishStatus = "deleted"
 	video.PublicURL = nil
 	video.PublicShareToken = nil
 	video.ShareExpiresAt = nil

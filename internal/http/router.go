@@ -94,6 +94,11 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/organization/invitations", chainMiddleware(server.ListInvitations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
+	mux.HandleFunc("DELETE /api/v1/organization/invitations", chainMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		server.writeError(w, http.StatusBadRequest, "invitation_id is required")
+	}, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
 	// DELETE /api/v1/organization/invitations/{id}
 	mux.HandleFunc("DELETE /api/v1/organization/invitations/{id}", chainMiddleware(server.CancelInvitation, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
