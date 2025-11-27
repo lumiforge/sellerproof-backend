@@ -33,4 +33,5 @@ tests {
     expect(response.body.public_token).to.be.a('string');
     expect(response.body.public_token).to.have.length(43); // base64 of 32 bytes
   });
+  bru.setEnvVar("publicVideoUrl", res.body.public_url);
 }
