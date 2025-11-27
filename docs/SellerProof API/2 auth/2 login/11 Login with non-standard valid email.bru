@@ -1,5 +1,5 @@
 meta {
-  name: Login with non-standard valid email
+  name: Login with valid email format (non-existent user)
   type: http
   seq: 11
 }
@@ -18,10 +18,13 @@ body:json {
 }
 
 tests {
-  test('Should accept non-standard but valid email format', function() {
+  test('Should pass format validation but fail on credentials', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.include('Bad Request');
+    // Проверяем, что ошибка ИМЕННО "invalid credentials", а не "invalid email format"
+    // Это доказывает, что валидатор пропустил такой формат email
     expect(res.body.message).to.include('invalid credentials');
+    expect(res.body.message).to.not.include('invalid email format');
   });
 }

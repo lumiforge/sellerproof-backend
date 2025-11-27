@@ -1400,17 +1400,16 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 // @Summary	Delete video
 // @Description	Soft-delete a video belonging to current organization
 // @Tags	video
-// @Accept	json
 // @Produce	json
 // @Security	BearerAuth
-// @Param	request	body	models.DeleteVideoRequest	true	"Delete video request"
+// @Param	id	path	string	true	"Video ID"
 // @Success	200	{object}	models.DeleteVideoResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	401	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	404	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router	/api/v1/video/delete [post]
+// @Router	/api/v1/video/{id} [delete]
 func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
@@ -1424,23 +1423,13 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	var req models.DeleteVideoRequest
-	if err := s.validateRequest(r, &req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
-		return
-	}
-
-	if req.VideoID == "" {
+	videoID := r.PathValue("id")
+	if videoID == "" {
 		s.writeError(w, http.StatusBadRequest, "video_id is required")
 		return
 	}
 
-	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1449,17 +1438,17 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 		validation.WithSQLInjectionCheck(),
 		validation.WithXSSCheck(),
 	)
-	result := validation.ValidateInput(req.VideoID, options)
+	result := validation.ValidateInput(videoID, options)
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
 	}
 
-	resp, err := s.videoService.DeleteVideoDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
+	resp, err := s.videoService.DeleteVideoDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, videoID)
 	if err != nil {
 		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDelete, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
-			"video_id": req.VideoID,
+			"video_id": videoID,
 			"error":    err.Error(),
 		})
 
@@ -1476,7 +1465,7 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDelete, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
-		"video_id": req.VideoID,
+		"video_id": videoID,
 	})
 
 	s.writeJSON(w, http.StatusOK, resp)
