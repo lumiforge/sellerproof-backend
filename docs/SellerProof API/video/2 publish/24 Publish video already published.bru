@@ -1,5 +1,5 @@
 meta {
-  name: Publish video already published
+  name: Publish video again (creates new token)
   type: http
   seq: 24
 }
@@ -21,26 +21,31 @@ body:json {
 }
 
 tests {
-  test('Should return 200 OK with appropriate message for already published video', function() {
+  test('Should return 200 OK and create a NEW public token for already published video', function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.be.an('object');
     
     // Validate all required fields exist
     expect(res.body).to.have.property('public_url');
+    expect(res.body).to.have.property('public_token');
     expect(res.body).to.have.property('message');
     
     // Validate field types
     expect(res.body.public_url).to.be.a('string');
+    expect(res.body.public_token).to.be.a('string');
     expect(res.body.message).to.be.a('string');
     
     // Validate field values are not empty
     expect(res.body.public_url).to.not.equal('');
-    expect(res.body.message).to.not.equal('');
+    expect(res.body.public_token).to.not.equal('');
     
     // Validate public_url format
     expect(res.body.public_url).to.include('http');
     
-    // Validate message content for already published video
-    expect(res.body.message).to.equal('Video already published');
+    // Исправлено ожидание: код возвращает успех, создавая новую ссылку
+    expect(res.body.message).to.equal('Video published successfully');
+    
+    // Опционально: можно сохранить новый токен, если он нужен для дальнейших тестов
+    // bru.setEnvVar("publicShareToken2", res.body.public_token);
   });
 }

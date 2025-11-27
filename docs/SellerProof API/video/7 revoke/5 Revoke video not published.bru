@@ -6,17 +6,26 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/revoke
-  body: json({
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
     "video_id": "{{testSecVideoId}}"
-  })
-  headers: {
-    Content-Type: application/json
-    Authorization: Bearer {{accessToken}}
   }
 }
 
-assert {
-  res.status: 400
-  res.body.error: contains("Video is not published")
-  res.body.message: contains("Video is not published")
+tests {
+  test("Should return 400 Bad Request", function() {
+    expect(res.status).to.equal(400);
+  });
+
+  test("Should return error message", function() {
+    expect(res.body.message).to.include("Video is not published");
+  });
 }

@@ -6,17 +6,27 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/revoke
-  body: json({
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{secondUserAccessToken}}
+}
+
+body:json {
+  {
     "video_id": "{{testVideoId}}"
-  })
-  headers: {
-    Content-Type: application/json
-    Authorization: Bearer {{secondUserAccessToken}}
   }
 }
 
-assert {
-  res.status: 403
-  res.body.error: contains("Forbidden")
-  res.body.message: contains("Only admins and managers can revoke video access")
+tests {
+  test("Should return 403 Forbidden", function() {
+    expect(res.status).to.equal(403);
+  });
+
+  test("Should return error message", function() {
+    expect(res.body.error).to.include("Forbidden");
+    expect(res.body.message).to.include("Only admins and managers can revoke video access");
+  });
 }

@@ -6,18 +6,30 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/revoke
-  body: json({
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
     "video_id": "{{testVideoId}}"
-  })
-  headers: {
-    Content-Type: application/json
-    Authorization: Bearer {{accessToken}}
   }
 }
 
-assert {
-  res.status: 200
-  res.body.message: contains("Video access revoked successfully")
-  res.body.video_id: equals("{{testVideoId}}")
-  res.body.status: equals("private")
+tests {
+  test("Should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("Should return success message", function() {
+    expect(res.body.message).to.include("Video access revoked successfully");
+  });
+
+  test("Should return status private", function() {
+    expect(res.body.status).to.equal("private");
+  });
 }

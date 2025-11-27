@@ -6,17 +6,27 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/revoke
-  body: json({
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
     "video_id": "invalid-uuid-format"
-  })
-  headers: {
-    Content-Type: application/json
-    Authorization: Bearer {{accessToken}}
   }
 }
 
-assert {
-  res.status: 400
-  res.body.error: contains("Bad Request")
-  res.body.message: contains("Invalid video_id")
+tests {
+  test("Should return 400 Bad Request", function() {
+    expect(res.status).to.equal(400);
+  });
+
+  test("Should return error message", function() {
+    expect(res.body.error).to.include("Bad Request");
+    expect(res.body.message).to.include("Invalid video_id");
+  });
 }

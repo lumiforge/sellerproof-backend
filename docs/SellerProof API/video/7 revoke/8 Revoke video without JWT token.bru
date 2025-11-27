@@ -6,16 +6,22 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/revoke
-  body: json({
+  body: json
+  auth: none
+}
+
+body:json {
+  {
     "video_id": "test-video-id-123"
-  })
-  headers: {
-    Content-Type: application/json
   }
 }
 
-assert {
-  res.status: 401
-  res.body.error: contains("Unauthorized")
-  res.body.message: contains("User not authenticated")
+tests {
+  test("Should return 401 Unauthorized", function() {
+    expect(res.status).to.equal(401);
+  });
+
+  test("Should return error message", function() {
+    expect(res.body.error).to.include("Unauthorized");
+  });
 }

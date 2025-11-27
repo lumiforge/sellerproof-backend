@@ -6,17 +6,27 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/revoke
-  body: json({
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
     "video_id": "non-existent-video-id"
-  })
-  headers: {
-    Content-Type: application/json
-    Authorization: Bearer {{accessToken}}
   }
 }
 
-assert {
-  res.status: 404
-  res.body.error: contains("Not Found")
-  res.body.message: contains("Video not found")
+tests {
+  test("Should return 404 Not Found", function() {
+    expect(res.status).to.equal(404);
+  });
+
+  test("Should return error message", function() {
+    expect(res.body.error).to.include("Not Found");
+    expect(res.body.message).to.include("Video not found");
+  });
 }

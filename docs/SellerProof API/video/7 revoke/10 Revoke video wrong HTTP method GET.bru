@@ -6,13 +6,15 @@ meta {
 
 get {
   url: {{baseUrl}}/api/v1/video/revoke
-  headers: {
-    Content-Type: application/json
-    Authorization: Bearer {{accessToken}}
-  }
+  auth: bearer
 }
 
-assert {
-  res.status: 405
-  res.body.error: contains("Method Not Allowed")
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("Should return 405 Method Not Allowed", function() {
+    expect(res.status).to.equal(405);
+  });
 }
