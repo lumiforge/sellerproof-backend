@@ -16,8 +16,7 @@ auth:bearer {
 
 body:json {
   {
-    "role": "user",
-    "org_id": "{{testOrgId}}"
+    "new_role": "user"
   }
 }
 
@@ -47,7 +46,7 @@ tests {
     expect(res.body.user_id).to.not.equal('');
     expect(res.body.email).to.not.equal('');
     expect(res.body.full_name).to.not.equal('');
-    expect(res.body.role).to.equal('user'); // Should match the request
+    expect(res.body.role).to.equal('user');
     expect(res.body.org_id).to.not.equal('');
 
     // Validate role is valid

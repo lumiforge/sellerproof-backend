@@ -7,11 +7,11 @@ meta {
 post {
   url: {{baseUrl}}/api/v1/video/revoke
   body: json({
-    "video_id": "test-video-id-private"
+    "video_id": "{{testSecVideoId}}"
   })
   headers: {
     Content-Type: application/json
-    Authorization: Bearer {{validAdminJWT}}
+    Authorization: Bearer {{accessToken}}
   }
 }
 

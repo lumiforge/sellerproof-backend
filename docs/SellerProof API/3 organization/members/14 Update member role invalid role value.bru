@@ -16,8 +16,7 @@ auth:bearer {
 
 body:json {
   {
-    "role": "invalid_role",
-    "org_id": "{{testOrgId}}"
+    "new_role": "invalid_role"
   }
 }
 
@@ -27,7 +26,7 @@ tests {
     expect(res.body).to.be.an('object');
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.be.a('string');
-    expect(res.body.error).to.include('role');
+    expect(res.body.error).to.include('new_role');
     expect(res.body.error).to.include('invalid');
   });
 }

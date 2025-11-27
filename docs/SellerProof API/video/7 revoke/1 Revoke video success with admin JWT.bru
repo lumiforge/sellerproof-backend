@@ -7,17 +7,17 @@ meta {
 post {
   url: {{baseUrl}}/api/v1/video/revoke
   body: json({
-    "video_id": "test-video-id-123"
+    "video_id": "{{testVideoId}}"
   })
   headers: {
     Content-Type: application/json
-    Authorization: Bearer {{validAdminJWT}}
+    Authorization: Bearer {{accessToken}}
   }
 }
 
 assert {
   res.status: 200
   res.body.message: contains("Video access revoked successfully")
-  res.body.video_id: equals("test-video-id-123")
+  res.body.video_id: equals("{{testVideoId}}")
   res.body.status: equals("private")
 }
