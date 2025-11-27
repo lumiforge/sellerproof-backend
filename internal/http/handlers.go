@@ -677,7 +677,10 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: video_id is required")
 		return
 	}
-
+	if err := uuid.Validate(req.VideoID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
+		return
+	}
 	// Validate video_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
