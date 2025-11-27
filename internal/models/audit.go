@@ -33,19 +33,20 @@ const (
 	AuditEmailVerified   AuditActionType = "email_verified"
 
 	// Video actions
-	AuditVideoUploadStart    AuditActionType = "video_upload_start"
+	// AuditVideoUploadStart     AuditActionType = "video_upload_start"
 	AuditVideoUploadComplete AuditActionType = "video_upload_complete"
 	AuditVideoDelete         AuditActionType = "video_delete"
-	AuditVideoDownload       AuditActionType = "video_download"
+	// AuditVideoDownloadPrivate AuditActionType = "video_download_private"
+	// AuditVideoDownloadPublic  AuditActionType = "video_download_public"
 
 	// Organization actions
-	AuditOrgUserInvite         AuditActionType = "org_user_invite"
-	AuditOrgInvitationAccepted AuditActionType = "org_invitation_accepted"
-	AuditOrgRoleChanged        AuditActionType = "org_role_changed"
+	// AuditOrgUserInvite         AuditActionType = "org_user_invite"
+	// AuditOrgInvitationAccepted AuditActionType = "org_invitation_accepted"
+	// AuditOrgRoleChanged        AuditActionType = "org_role_changed"
 
 	// Error actions
-	AuditAPIError         AuditActionType = "api_error"
-	AuditPermissionDenied AuditActionType = "permission_denied"
+	// AuditAPIError         AuditActionType = "api_error"
+	// AuditPermissionDenied AuditActionType = "permission_denied"
 )
 
 // AuditActionResult содержит константы для результатов действий

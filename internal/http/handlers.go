@@ -158,6 +158,13 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure	500		{object}	models.ErrorResponse
 // @Router		/auth/verify-email [post]
 func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	// Extract client info for audit logging
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
@@ -178,6 +185,12 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.authService.VerifyEmail(r.Context(), authReq)
 	// Заменить текущую обработку ошибки на:
 	if err != nil {
+		// Log failed verification attempt
+		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditEmailVerified, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"email":  req.Email,
+			"reason": err.Error(),
+		})
+
 		errorMsg := err.Error()
 		if errorMsg == "invalid email format" ||
 			strings.Contains(errorMsg, "invalid email format") ||
@@ -192,6 +205,11 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Log successful verification
+	s.auditService.LogAction(r.Context(), "unknown", "", models.AuditEmailVerified, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"email": req.Email,
+	})
 
 	s.writeJSON(w, http.StatusOK, models.VerifyEmailResponse{
 		Message: resp.Message,
@@ -711,6 +729,13 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/complete [post]
 func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request) {
+	// Extract client info for audit logging
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
@@ -774,6 +799,13 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	resp, err := s.videoService.CompleteMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, req.VideoID, parts)
 	if err != nil {
+		// Log failed completion attempt
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoUploadComplete, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"video_id": req.VideoID,
+			"parts":    len(req.Parts),
+			"reason":   err.Error(),
+		})
+
 		if strings.Contains(err.Error(), "video not found") {
 			s.writeError(w, http.StatusNotFound, err.Error())
 			return
@@ -784,6 +816,13 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Log successful completion
+	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoUploadComplete, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"video_id":  req.VideoID,
+		"parts":     len(req.Parts),
+		"video_url": resp.VideoURL,
+	})
 
 	s.writeJSON(w, http.StatusOK, models.CompleteMultipartUploadResponse{
 		Message:  resp.Message,
