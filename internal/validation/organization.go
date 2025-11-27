@@ -40,5 +40,5 @@ func SanitizeOrganizationName(name string) (string, error) {
 
 // SanitizeOrganizationDescription normalizes and validates organization descriptions (optional <=500 chars).
 func SanitizeOrganizationDescription(desc string) (string, error) {
-	return sanitizeOrganizationInput(desc, "description", false, 0, 500)
+	return sanitizeOrganizationInput(desc, "description", false, 0, 255)
 }

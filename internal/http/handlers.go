@@ -780,12 +780,17 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	if len(req.Parts) == 0 {
 		s.writeError(w, http.StatusBadRequest, "parts is required")
 		return
-	} else if req.Parts[0].PartNumber == 0 {
-		s.writeError(w, http.StatusBadRequest, "part_number must be greater than 0")
-		return
-	} else if req.Parts[0].ETag == "" {
-		s.writeError(w, http.StatusBadRequest, "etag is required")
-		return
+	}
+
+	for i, p := range req.Parts {
+		if p.PartNumber <= 0 {
+			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("part_number at index %d must be greater than 0", i))
+			return
+		}
+		if p.ETag == "" {
+			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("etag at index %d is required", i))
+			return
+		}
 	}
 
 	// Convert parts to internal format
