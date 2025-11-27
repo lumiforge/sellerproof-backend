@@ -27,8 +27,8 @@ tests {
     
     // Update environment variables with new tokens
     bru.setEnvVar("accessToken", res.body.access_token);
-    bru.setEnvVar("testOrgId", res.body.refresh_token);
-    bru.setEnvVar("refreshToken", res.body.user.org_id);
+    bru.setEnvVar("refreshToken", res.body.refresh_token);     // ✅ Исправлено
+    bru.setEnvVar("testOrgId", res.body.user.org_id);          // ✅ Исправлено
     bru.setEnvVar("userId", res.body.user.user_id);
   });
 }

@@ -7,11 +7,11 @@ meta {
 post {
   url: {{baseUrl}}/api/v1/video/publish
   body: {
-    "video_id": "test-video-id-12345"
+    "video_id": "{{testVideoId}}"  ✅ Динамический
   }
   headers: {
     Content-Type: application/json,
-    Authorization: Bearer {{adminToken}}
+    Authorization: Bearer {{accessToken}}  ✅ Правильный токен
   }
 }
 
@@ -31,7 +31,9 @@ tests {
 
   test("Should return public token", function() {
     expect(response.body.public_token).to.be.a('string');
-    expect(response.body.public_token).to.have.length(43); // base64 of 32 bytes
+    expect(response.body.public_token).to.have.length(43);
   });
-  bru.setEnvVar("publicVideoUrl", res.body.public_url);
+
+  bru.setEnvVar("publicVideoUrl", response.body.public_url);
+  bru.setEnvVar("publicShareToken", response.body.public_token);
 }
