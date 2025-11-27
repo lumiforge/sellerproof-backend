@@ -1288,6 +1288,12 @@ func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/download [get]
 func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
@@ -1320,6 +1326,11 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.videoService.GetPrivateDownloadURL(r.Context(), claims.UserID, claims.OrgID, videoID)
 	if err != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDownloadPrivate, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"video_id": videoID,
+			"reason":   err.Error(),
+		})
+
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
@@ -1330,6 +1341,97 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDownloadPrivate, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"video_id":     videoID,
+		"download_url": resp.DownloadURL,
+	})
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// DeleteVideo removes a video and records audit trail
+// @Summary	Delete video
+// @Description	Soft-delete a video belonging to current organization
+// @Tags	video
+// @Accept	json
+// @Produce	json
+// @Security	BearerAuth
+// @Param	request	body	models.DeleteVideoRequest	true	"Delete video request"
+// @Success	200	{object}	models.DeleteVideoResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
+// @Router	/api/v1/video/delete [post]
+func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.DeleteVideoRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	if req.VideoID == "" {
+		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	}
+
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	resp, err := s.videoService.DeleteVideoDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
+	if err != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDelete, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"video_id": req.VideoID,
+			"error":    err.Error(),
+		})
+
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "video not found"):
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		case strings.Contains(errorMsg, "access denied"):
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		default:
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDelete, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"video_id": req.VideoID,
+	})
 
 	s.writeJSON(w, http.StatusOK, resp)
 }

@@ -34,9 +34,9 @@ const (
 
 	// Video actions
 	// AuditVideoUploadStart     AuditActionType = "video_upload_start"
-	AuditVideoUploadComplete AuditActionType = "video_upload_complete"
-	AuditVideoDelete         AuditActionType = "video_delete"
-	// AuditVideoDownloadPrivate AuditActionType = "video_download_private"
+	AuditVideoUploadComplete  AuditActionType = "video_upload_complete"
+	AuditVideoDelete          AuditActionType = "video_delete"
+	AuditVideoDownloadPrivate AuditActionType = "video_download_private"
 	// AuditVideoDownloadPublic  AuditActionType = "video_download_public"
 
 	// Organization actions

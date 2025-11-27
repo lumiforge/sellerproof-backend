@@ -52,6 +52,59 @@ type SearchVideosResult struct {
 	TotalCount int64        `json:"total_count"`
 }
 
+// DeleteVideoResult represents the result of a delete operation
+type DeleteVideoResult struct {
+	Message string `json:"message"`
+}
+
+// DeleteVideoDirect deletes a video and removes associated storage objects
+func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, videoID string) (*DeleteVideoResult, error) {
+	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoDelete) {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		if strings.Contains(err.Error(), "video not found") {
+			return nil, fmt.Errorf("video not found")
+		}
+		return nil, fmt.Errorf("failed to read video: %w", err)
+	}
+
+	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	if !video.IsDeleted {
+		if err := s.storage.DeletePrivateObject(ctx, video.StoragePath); err != nil {
+			return nil, fmt.Errorf("failed to delete video from storage: %w", err)
+		}
+
+		if video.PublicURL != nil && *video.PublicURL != "" {
+			publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, video.VideoID, video.FileName)
+			if err := s.storage.DeletePublicObject(ctx, publicKey); err != nil {
+				log.Printf("failed to delete public object for video %s: %v", video.VideoID, err)
+			}
+		}
+	}
+
+	video.IsDeleted = true
+	video.UploadStatus = "deleted"
+	video.PublicURL = nil
+	video.PublicShareToken = nil
+	video.ShareExpiresAt = nil
+
+	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		return nil, fmt.Errorf("failed to update video record: %w", err)
+	}
+
+	return &DeleteVideoResult{Message: "Video deleted"}, nil
+}
+
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
 

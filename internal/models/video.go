@@ -151,3 +151,15 @@ type PublishVideoResult struct {
 	PublicURL string `json:"public_url"`
 	Message   string `json:"message"`
 }
+
+// DeleteVideoRequest represents a request to delete a video
+// @Description	Delete video request
+type DeleteVideoRequest struct {
+	VideoID string `json:"video_id" validate:"required"`
+}
+
+// DeleteVideoResponse represents the response for a video deletion
+// @Description	Delete video response
+type DeleteVideoResponse struct {
+	Message string `json:"message"`
+}

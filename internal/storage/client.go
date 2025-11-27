@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -22,6 +23,32 @@ type Client struct {
 	privateBucket string
 	publicBucket  string
 	endpoint      string
+}
+
+// DeletePrivateObject removes object from private bucket
+func (c *Client) DeletePrivateObject(ctx context.Context, key string) error {
+	if key == "" {
+		return errors.New("object key is required")
+	}
+
+	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.privateBucket),
+		Key:    aws.String(key),
+	})
+	return err
+}
+
+// DeletePublicObject removes object from public bucket
+func (c *Client) DeletePublicObject(ctx context.Context, key string) error {
+	if key == "" {
+		return errors.New("object key is required")
+	}
+
+	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.publicBucket),
+		Key:    aws.String(key),
+	})
+	return err
 }
 
 // NewClient создает новый S3 клиент
