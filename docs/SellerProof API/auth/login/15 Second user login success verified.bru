@@ -28,5 +28,7 @@ tests {
     // Update environment variables with second user tokens
     bru.setEnvVar("secondUserAccessToken", res.body.access_token);
     bru.setEnvVar("secondUserRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("secondUserOrgId", res.body.user.org_id);
+    bru.setEnvVar("secondUserId", res.body.user.user_id);
   });
 }

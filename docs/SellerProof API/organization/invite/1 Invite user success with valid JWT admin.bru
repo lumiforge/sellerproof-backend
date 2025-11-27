@@ -56,5 +56,6 @@ tests {
     // Validate expires_at is in the future
     const currentTime = Math.floor(Date.now() / 1000);
     expect(res.body.expires_at).to.be.greaterThan(currentTime);
+    bru.setEnvVar("validInvitationId", res.body.invite_id);
   });
 }
