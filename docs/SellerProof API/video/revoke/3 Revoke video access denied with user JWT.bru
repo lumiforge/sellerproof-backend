@@ -1,0 +1,22 @@
+meta {
+  name: Revoke video access denied with user JWT
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: json({
+    "video_id": "test-video-id-789"
+  })
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validUserJWT}}
+  }
+}
+
+assert {
+  res.status: 403
+  res.body.error: contains("Forbidden")
+  res.body.message: contains("Only admins and managers can revoke video access")
+}

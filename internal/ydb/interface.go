@@ -69,9 +69,16 @@ type Database interface {
 	CreateVideo(ctx context.Context, video *Video) error
 	GetVideo(ctx context.Context, videoID string) (*Video, error)
 	UpdateVideo(ctx context.Context, video *Video) error
+	UpdateVideoStatus(ctx context.Context, videoID, status, publicURL string) error
 	GetStorageUsage(ctx context.Context, orgID string) (int64, error)
 	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
 	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
+
+	// Публичные шаринги видео
+	CreatePublicVideoShare(ctx context.Context, share *PublicVideoShare) error
+	GetPublicVideoShareByToken(ctx context.Context, token string) (*PublicVideoShare, error)
+	IncrementAccessCount(ctx context.Context, token string) error
+	RevokePublicVideoShare(ctx context.Context, videoID, userID string) error
 
 	// Аудит
 	InsertAuditLog(ctx context.Context, auditLog *models.AuditLog) error

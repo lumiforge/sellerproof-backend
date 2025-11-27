@@ -1,0 +1,20 @@
+meta {
+  name: Revoke video missing video_id field
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: json({})
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 400
+  res.body.error: contains("Bad Request")
+  res.body.message: contains("video_id is required")
+}

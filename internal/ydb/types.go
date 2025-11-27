@@ -138,5 +138,19 @@ type Video struct {
 	ShareExpiresAt   *time.Time `db:"share_expires_at"`
 	UploadedAt       *time.Time `db:"uploaded_at"`
 	PublicURL        *string    `db:"public_url"`
+	PublishStatus    string     `db:"publish_status"`
 	PublishedAt      *time.Time `db:"published_at"`
+}
+
+// PublicVideoShare представляет публичный шаринг видео
+type PublicVideoShare struct {
+	ShareID        string     `db:"share_id"`
+	VideoID        string     `db:"video_id"`
+	PublicToken    string     `db:"public_token"`
+	CreatedAt      time.Time  `db:"created_at"`
+	CreatedBy      string     `db:"created_by"`
+	Revoked        bool       `db:"revoked"`
+	RevokedAt      *time.Time `db:"revoked_at"`
+	AccessCount    uint64     `db:"access_count"`
+	LastAccessedAt *time.Time `db:"last_accessed_at"`
 }

@@ -334,11 +334,15 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				uploaded_at Optional<Timestamp>,
 				created_at Timestamp NOT NULL,
 				is_deleted Bool DEFAULT false,
+				public_url Optional<Text>,
+				publish_status Text DEFAULT 'private',
+				published_at Optional<Timestamp>,
 				PRIMARY KEY (video_id),
 				INDEX org_idx GLOBAL ON (org_id),
 				INDEX org_user_idx GLOBAL ON (org_id, uploaded_by),
 				INDEX org_deleted_idx GLOBAL ON (org_id, is_deleted),
-				INDEX share_token_idx GLOBAL ON (public_share_token)
+				INDEX share_token_idx GLOBAL ON (public_share_token),
+				INDEX publish_status_idx GLOBAL ON (publish_status)
 			)
 		`
 		err := c.executeSchemeQuery(ctx, query)
@@ -434,14 +438,46 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				INDEX org_id_idx GLOBAL ON (org_id),
 				INDEX action_type_idx GLOBAL ON (action_type),
 				INDEX composite_idx GLOBAL ON (org_id, timestamp DESC)
-			)
-		`
+				)
+				`
 		err := c.executeSchemeQuery(ctx, query)
 		if err != nil {
 			return fmt.Errorf("failed to create audit_logs table: %w", err)
 		}
 	} else {
 		log.Println("Table audit_logs already exists, skipping creation")
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Таблица публичных шарингов видео
+	log.Println("Creating table: public_video_shares")
+	if exists, err := c.tableExists(ctx, "public_video_shares"); err != nil {
+		return fmt.Errorf("failed to check public_video_shares table existence: %w", err)
+	} else if !exists {
+		query := `
+			CREATE TABLE public_video_shares (
+				share_id Text NOT NULL,
+				video_id Text NOT NULL,
+				public_token Text NOT NULL,
+				created_at Timestamp NOT NULL,
+				created_by Text NOT NULL,
+				revoked Bool DEFAULT false,
+				revoked_at Timestamp,
+				access_count Uint64 DEFAULT 0,
+				last_accessed_at Timestamp,
+				PRIMARY KEY (share_id),
+				INDEX public_token_idx GLOBAL UNIQUE ON (public_token),
+				INDEX video_id_idx GLOBAL ON (video_id),
+				INDEX revoked_idx GLOBAL ON (revoked)
+			)
+		`
+		err := c.executeSchemeQuery(ctx, query)
+		if err != nil {
+			return fmt.Errorf("failed to create public_video_shares table: %w", err)
+		}
+	} else {
+		log.Println("Table public_video_shares already exists, skipping creation")
 	}
 
 	return nil
@@ -1163,12 +1199,16 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
+		DECLARE $public_url AS Optional<Text>;
+		DECLARE $publish_status AS Text;
+		DECLARE $published_at AS Optional<Timestamp>;
 
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
-		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted)
+			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+			public_url, publish_status, published_at
+		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1216,6 +1256,19 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
+				func() table.ParameterOption {
+					if video.PublicURL == nil {
+						return table.ValueParam("$public_url", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$public_url", types.OptionalValue(types.TextValue(*video.PublicURL)))
+				}(),
+				table.ValueParam("$publish_status", types.TextValue(video.PublishStatus)),
+				func() table.ParameterOption {
+					if video.PublishedAt == nil {
+						return table.ValueParam("$published_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$published_at", types.OptionalValue(types.TimestampValueFromTime(*video.PublishedAt)))
+				}(),
 			),
 		)
 		return err
@@ -1227,7 +1280,8 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 	query := `
 		DECLARE $video_id AS Text;
 		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+		       public_url, publish_status, published_at
 		FROM videos WHERE video_id = $video_id
 	`
 
@@ -1272,6 +1326,91 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				named.Optional("uploaded_at", &uploadedAt),
 				named.Required("created_at", &v.CreatedAt),
 				named.Required("is_deleted", &v.IsDeleted),
+				named.Optional("public_url", &v.PublicURL),
+				named.Required("publish_status", &v.PublishStatus),
+				named.Optional("published_at", &v.PublishedAt),
+			)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+
+			// Присваиваем значения nullable полей
+			v.PartsUploaded = partsUploaded
+			v.TotalParts = totalParts
+			v.PublicShareToken = publicShareToken
+			v.ShareExpiresAt = shareExpiresAt
+			v.UploadedAt = uploadedAt
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("video not found")
+	}
+
+	return &v, nil
+}
+
+// GetVideoByID получает видео по ID с проверкой организации
+func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*Video, error) {
+	query := `
+		DECLARE $video_id AS Text;
+		DECLARE $org_id AS Text;
+		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+		       public_url, publish_status, published_at
+		FROM videos
+		WHERE video_id = $video_id AND org_id = $org_id
+	`
+
+	var v Video
+	var found bool
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$video_id", types.TextValue(videoID)),
+				table.ValueParam("$org_id", types.TextValue(orgID)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			// Временные переменные для nullable полей
+			var partsUploaded *int32
+			var totalParts *int32
+			var publicShareToken *string
+			var shareExpiresAt *time.Time
+			var uploadedAt *time.Time
+
+			err := res.ScanNamed(
+				named.Required("video_id", &v.VideoID),
+				named.Required("org_id", &v.OrgID),
+				named.Required("uploaded_by", &v.UploadedBy),
+				named.Required("file_name", &v.FileName),
+				named.Required("file_name_search", &v.FileNameSearch),
+				named.Required("file_size_bytes", &v.FileSizeBytes),
+				named.Required("storage_path", &v.StoragePath),
+				named.Required("duration_seconds", &v.DurationSeconds),
+				named.Required("upload_id", &v.UploadID),
+				named.Required("upload_status", &v.UploadStatus),
+				named.Optional("parts_uploaded", &partsUploaded),
+				named.Optional("total_parts", &totalParts),
+				named.Optional("public_share_token", &publicShareToken),
+				named.Optional("share_expires_at", &shareExpiresAt),
+				named.Optional("uploaded_at", &uploadedAt),
+				named.Required("created_at", &v.CreatedAt),
+				named.Required("is_deleted", &v.IsDeleted),
+				named.Optional("public_url", &v.PublicURL),
+				named.Required("publish_status", &v.PublishStatus),
+				named.Optional("published_at", &v.PublishedAt),
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1317,12 +1456,16 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
+		DECLARE $public_url AS Optional<Text>;
+		DECLARE $publish_status AS Text;
+		DECLARE $published_at AS Optional<Timestamp>;
 
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
-		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted)
+			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+			public_url, publish_status, published_at
+		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1370,6 +1513,19 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
+				func() table.ParameterOption {
+					if video.PublicURL == nil {
+						return table.ValueParam("$public_url", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$public_url", types.OptionalValue(types.TextValue(*video.PublicURL)))
+				}(),
+				table.ValueParam("$publish_status", types.TextValue(video.PublishStatus)),
+				func() table.ParameterOption {
+					if video.PublishedAt == nil {
+						return table.ValueParam("$published_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$published_at", types.OptionalValue(types.TimestampValueFromTime(*video.PublishedAt)))
+				}(),
 			),
 		)
 		return err
@@ -1420,7 +1576,8 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 	query := `
 		DECLARE $token AS Text;
 		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+		       public_url, publish_status, published_at
 		FROM videos
 		WHERE public_share_token = $token AND is_deleted = false
 	`
@@ -1466,6 +1623,9 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 				named.Optional("uploaded_at", &uploadedAt),
 				named.Required("created_at", &v.CreatedAt),
 				named.Required("is_deleted", &v.IsDeleted),
+				named.Optional("public_url", &v.PublicURL),
+				named.Required("publish_status", &v.PublishStatus),
+				named.Optional("published_at", &v.PublishedAt),
 			)
 
 			if err != nil {
@@ -1578,9 +1738,10 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	DECLARE $offset AS Uint64;`
 
 	dataQuery = declares + `
-	SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, 
-	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, 
-	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted
+	SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
+	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+	       public_url, publish_status, published_at
 	FROM videos ` + whereClause + `
 	ORDER BY uploaded_at DESC 
 	LIMIT $limit OFFSET $offset`
@@ -1637,6 +1798,9 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					named.Optional("uploaded_at", &uploadedAt),
 					named.Required("created_at", &v.CreatedAt),
 					named.Required("is_deleted", &v.IsDeleted),
+					named.Optional("public_url", &v.PublicURL),
+					named.Required("publish_status", &v.PublishStatus),
+					named.Optional("published_at", &v.PublishedAt),
 				); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
 				}
@@ -2601,6 +2765,183 @@ func (c *YDBClient) UpdateInvitationStatusWithAcceptTime(ctx context.Context, in
 	})
 }
 
+// CreatePublicVideoShare creates a new public video share record
+func (c *YDBClient) CreatePublicVideoShare(ctx context.Context, share *PublicVideoShare) error {
+	query := `
+		DECLARE $share_id AS Text;
+		DECLARE $video_id AS Text;
+		DECLARE $public_token AS Text;
+		DECLARE $created_at AS Timestamp;
+		DECLARE $created_by AS Text;
+		DECLARE $revoked AS Bool;
+		DECLARE $access_count AS Uint64;
+		DECLARE $last_accessed_at AS Optional<Timestamp>;
+
+		REPLACE INTO public_video_shares (
+			share_id, video_id, public_token, created_at, created_by, revoked, access_count, last_accessed_at
+		) VALUES ($share_id, $video_id, $public_token, $created_at, $created_by, $revoked, $access_count, $last_accessed_at)
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$share_id", types.TextValue(share.ShareID)),
+				table.ValueParam("$video_id", types.TextValue(share.VideoID)),
+				table.ValueParam("$public_token", types.TextValue(share.PublicToken)),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(share.CreatedAt)),
+				table.ValueParam("$created_by", types.TextValue(share.CreatedBy)),
+				table.ValueParam("$revoked", types.BoolValue(share.Revoked)),
+				table.ValueParam("$access_count", types.Uint64Value(share.AccessCount)),
+				func() table.ParameterOption {
+					if share.LastAccessedAt == nil {
+						return table.ValueParam("$last_accessed_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$last_accessed_at", types.OptionalValue(types.TimestampValueFromTime(*share.LastAccessedAt)))
+				}(),
+			),
+		)
+		return err
+	})
+}
+
+// GetPublicVideoShareByToken gets public video share by token
+func (c *YDBClient) GetPublicVideoShareByToken(ctx context.Context, token string) (*PublicVideoShare, error) {
+	query := `
+		DECLARE $public_token AS Text;
+		SELECT share_id, video_id, public_token, created_at, created_by, revoked, revoked_at, access_count, last_accessed_at
+		FROM public_video_shares
+		WHERE public_token = $public_token
+	`
+
+	var share PublicVideoShare
+	var found bool
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$public_token", types.TextValue(token)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			var lastAccessedAt *time.Time
+			err := res.ScanNamed(
+				named.Required("share_id", &share.ShareID),
+				named.Required("video_id", &share.VideoID),
+				named.Required("public_token", &share.PublicToken),
+				named.Required("created_at", &share.CreatedAt),
+				named.Required("created_by", &share.CreatedBy),
+				named.Required("revoked", &share.Revoked),
+				named.Optional("revoked_at", &share.RevokedAt),
+				named.Required("access_count", &share.AccessCount),
+				named.Optional("last_accessed_at", &lastAccessedAt),
+			)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+			share.LastAccessedAt = lastAccessedAt
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("public video share not found")
+	}
+
+	return &share, nil
+}
+
+// RevokePublicVideoShare revokes public access to a video
+func (c *YDBClient) RevokePublicVideoShare(ctx context.Context, videoID, userID string) error {
+	query := `
+		DECLARE $video_id AS Text;
+		DECLARE $user_id AS Text;
+		DECLARE $revoked_at AS Timestamp;
+
+		UPDATE public_video_shares
+		SET revoked = true, revoked_at = $revoked_at
+		WHERE video_id = $video_id
+	`
+
+	now := time.Now()
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$video_id", types.TextValue(videoID)),
+				table.ValueParam("$user_id", types.TextValue(userID)),
+				table.ValueParam("$revoked_at", types.TimestampValueFromTime(now)),
+			),
+		)
+		return err
+	})
+}
+
+// IncrementAccessCount increments access count for public video share
+func (c *YDBClient) IncrementAccessCount(ctx context.Context, token string) error {
+	query := `
+		DECLARE $public_token AS Text;
+		DECLARE $last_accessed_at AS Timestamp;
+
+		UPDATE public_video_shares
+		SET access_count = access_count + 1, last_accessed_at = $last_accessed_at
+		WHERE public_token = $public_token
+	`
+
+	now := time.Now()
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$public_token", types.TextValue(token)),
+				table.ValueParam("$last_accessed_at", types.TimestampValueFromTime(now)),
+			),
+		)
+		return err
+	})
+}
+
+// UpdateVideoStatus updates video publish status and public URL
+func (c *YDBClient) UpdateVideoStatus(ctx context.Context, videoID, status, publicURL string) error {
+	query := `
+		DECLARE $video_id AS Text;
+		DECLARE $status AS Text;
+		DECLARE $public_url AS Optional<Text>;
+		DECLARE $updated_at AS Timestamp;
+
+		UPDATE videos
+		SET publish_status = $status, public_url = $public_url, updated_at = $updated_at
+		WHERE video_id = $video_id
+	`
+
+	now := time.Now()
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$video_id", types.TextValue(videoID)),
+				table.ValueParam("$status", types.TextValue(status)),
+				func() table.ParameterOption {
+					if publicURL == "" {
+						return table.ValueParam("$public_url", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$public_url", types.OptionalValue(types.TextValue(publicURL)))
+				}(),
+				table.ValueParam("$updated_at", types.TimestampValueFromTime(now)),
+			),
+		)
+		return err
+	})
+}
+
 // DeleteInvitation удаляет приглашение
 func (c *YDBClient) DeleteInvitation(ctx context.Context, invitationID string) error {
 	query := `
@@ -2715,67 +3056,67 @@ VALUES ($id, $timestamp, $user_id, $org_id, $action_type, $action_result, $ip_ad
 
 // GetAuditLogs получает логи аудита с фильтрацией и пагинацией
 func (c *YDBClient) GetAuditLogs(ctx context.Context, filters map[string]interface{}, limit, offset int) ([]*models.AuditLog, int64, error) {
-whereConditions := []string{}
+	whereConditions := []string{}
 
-if userID, ok := filters["user_id"].(string); ok && userID != "" {
-whereConditions = append(whereConditions, fmt.Sprintf("user_id = '%s'", strings.ReplaceAll(userID, "'", "''")))
-}
+	if userID, ok := filters["user_id"].(string); ok && userID != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("user_id = '%s'", strings.ReplaceAll(userID, "'", "''")))
+	}
 
-if orgID, ok := filters["org_id"].(string); ok && orgID != "" {
-whereConditions = append(whereConditions, fmt.Sprintf("org_id = '%s'", strings.ReplaceAll(orgID, "'", "''")))
-}
+	if orgID, ok := filters["org_id"].(string); ok && orgID != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("org_id = '%s'", strings.ReplaceAll(orgID, "'", "''")))
+	}
 
-if actionType, ok := filters["action_type"].(string); ok && actionType != "" {
-whereConditions = append(whereConditions, fmt.Sprintf("action_type = '%s'", strings.ReplaceAll(actionType, "'", "''")))
-}
+	if actionType, ok := filters["action_type"].(string); ok && actionType != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("action_type = '%s'", strings.ReplaceAll(actionType, "'", "''")))
+	}
 
-if result, ok := filters["result"].(string); ok && result != "" {
-whereConditions = append(whereConditions, fmt.Sprintf("action_result = '%s'", strings.ReplaceAll(result, "'", "''")))
-}
+	if result, ok := filters["result"].(string); ok && result != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("action_result = '%s'", strings.ReplaceAll(result, "'", "''")))
+	}
 
-if from, ok := filters["from"].(string); ok && from != "" {
-fromTime, err := time.Parse("2006-01-02", from)
-if err == nil {
-whereConditions = append(whereConditions, fmt.Sprintf("timestamp >= CAST('%s' AS Timestamp)", fromTime.UTC().Format(time.RFC3339)))
-}
-}
+	if from, ok := filters["from"].(string); ok && from != "" {
+		fromTime, err := time.Parse("2006-01-02", from)
+		if err == nil {
+			whereConditions = append(whereConditions, fmt.Sprintf("timestamp >= CAST('%s' AS Timestamp)", fromTime.UTC().Format(time.RFC3339)))
+		}
+	}
 
-if to, ok := filters["to"].(string); ok && to != "" {
-toTime, err := time.Parse("2006-01-02", to)
-if err == nil {
-toTime = toTime.AddDate(0, 0, 1)
-whereConditions = append(whereConditions, fmt.Sprintf("timestamp < CAST('%s' AS Timestamp)", toTime.UTC().Format(time.RFC3339)))
-}
-}
+	if to, ok := filters["to"].(string); ok && to != "" {
+		toTime, err := time.Parse("2006-01-02", to)
+		if err == nil {
+			toTime = toTime.AddDate(0, 0, 1)
+			whereConditions = append(whereConditions, fmt.Sprintf("timestamp < CAST('%s' AS Timestamp)", toTime.UTC().Format(time.RFC3339)))
+		}
+	}
 
-whereClause := ""
-if len(whereConditions) > 0 {
-whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
-}
+	whereClause := ""
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+	}
 
-var total int64
-var logs []*models.AuditLog
+	var total int64
+	var logs []*models.AuditLog
 
-err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-// Get total count
-countQuery := fmt.Sprintf("SELECT COUNT(*) as total FROM audit_logs %s", whereClause)
-_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters())
-if err != nil {
-return err
-}
-defer res.Close()
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		// Get total count
+		countQuery := fmt.Sprintf("SELECT COUNT(*) as total FROM audit_logs %s", whereClause)
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters())
+		if err != nil {
+			return err
+		}
+		defer res.Close()
 
-for res.NextRow() {
-if err := res.ScanNamed(named.Required("total", &total)); err != nil {
-return err
-}
-}
-if err := res.Err(); err != nil {
-return err
-}
+		for res.NextRow() {
+			if err := res.ScanNamed(named.Required("total", &total)); err != nil {
+				return err
+			}
+		}
+		if err := res.Err(); err != nil {
+			return err
+		}
 
-// Get logs with pagination
-logsQuery := fmt.Sprintf(`
+		// Get logs with pagination
+		logsQuery := fmt.Sprintf(`
 SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details
 FROM audit_logs
 %s
@@ -2783,42 +3124,42 @@ ORDER BY timestamp DESC
 LIMIT %d OFFSET %d
 `, whereClause, limit, offset)
 
-_, res, err = session.Execute(ctx, table.DefaultTxControl(), logsQuery, table.NewQueryParameters())
-if err != nil {
-return err
-}
-defer res.Close()
+		_, res, err = session.Execute(ctx, table.DefaultTxControl(), logsQuery, table.NewQueryParameters())
+		if err != nil {
+			return err
+		}
+		defer res.Close()
 
-logs = make([]*models.AuditLog, 0)
-for res.NextRow() {
-var log models.AuditLog
-var details string
-if err := res.ScanNamed(
-named.Required("id", &log.ID),
-named.Required("timestamp", &log.Timestamp),
-named.Required("user_id", &log.UserID),
-named.Required("org_id", &log.OrgID),
-named.Required("action_type", &log.ActionType),
-named.Required("action_result", &log.ActionResult),
-named.Required("ip_address", &log.IPAddress),
-named.Optional("user_agent", &log.UserAgent),
-named.Optional("details", &details),
-); err != nil {
-return err
-}
-if details != "" {
-log.Details = []byte(details)
-} else {
-log.Details = []byte("{}")
-}
-logs = append(logs, &log)
-}
-return res.Err()
-})
+		logs = make([]*models.AuditLog, 0)
+		for res.NextRow() {
+			var log models.AuditLog
+			var details string
+			if err := res.ScanNamed(
+				named.Required("id", &log.ID),
+				named.Required("timestamp", &log.Timestamp),
+				named.Required("user_id", &log.UserID),
+				named.Required("org_id", &log.OrgID),
+				named.Required("action_type", &log.ActionType),
+				named.Required("action_result", &log.ActionResult),
+				named.Required("ip_address", &log.IPAddress),
+				named.Optional("user_agent", &log.UserAgent),
+				named.Optional("details", &details),
+			); err != nil {
+				return err
+			}
+			if details != "" {
+				log.Details = []byte(details)
+			} else {
+				log.Details = []byte("{}")
+			}
+			logs = append(logs, &log)
+		}
+		return res.Err()
+	})
 
-if err != nil {
-return nil, 0, err
-}
+	if err != nil {
+		return nil, 0, err
+	}
 
-return logs, total, nil
+	return logs, total, nil
 }

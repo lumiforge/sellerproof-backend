@@ -1,0 +1,22 @@
+meta {
+  name: Revoke video not published
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: json({
+    "video_id": "test-video-id-private"
+  })
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 400
+  res.body.error: contains("Video is not published")
+  res.body.message: contains("Video is not published")
+}

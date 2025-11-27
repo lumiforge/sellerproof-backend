@@ -1,0 +1,22 @@
+meta {
+  name: Revoke video invalid video_id format
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: json({
+    "video_id": "invalid-uuid-format"
+  })
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 400
+  res.body.error: contains("Bad Request")
+  res.body.message: contains("Invalid video_id")
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Revoke video wrong HTTP method GET
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/revoke
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 405
+  res.body.error: contains("Method Not Allowed")
+}

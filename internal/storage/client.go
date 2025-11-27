@@ -178,3 +178,39 @@ func (c *Client) CopyToPublicBucket(ctx context.Context, sourceKey, destKey stri
 	publicURL := fmt.Sprintf("https://%s.%s/%s", c.publicBucket, endpoint, destKey)
 	return publicURL, nil
 }
+
+// CopyObject copies object from one bucket to another
+func (c *Client) CopyObject(ctx context.Context, srcBucket, srcKey, dstBucket, dstKey string) error {
+	copySource := fmt.Sprintf("%s/%s", srcBucket, srcKey)
+
+	_, err := c.s3Client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(dstBucket),
+		CopySource: aws.String(copySource),
+		Key:        aws.String(dstKey),
+	})
+
+	return err
+}
+
+// GetPublicBucket returns the public bucket name
+func (c *Client) GetPublicBucket() string {
+	return c.publicBucket
+}
+
+// GetPrivateBucket returns the private bucket name
+func (c *Client) GetPrivateBucket() string {
+	return c.privateBucket
+}
+
+// DeleteObject deletes object from specified bucket
+func (c *Client) DeleteObject(ctx context.Context, bucket, key string) error {
+	if key == "" {
+		return errors.New("object key is required")
+	}
+
+	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	return err
+}

@@ -15,6 +15,9 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	// Health check endpoint (no auth required)
 	mux.Handle("/very-secret-health-check", chainMiddleware(server.Health, methodMiddleware("GET")))
 
+	// Public video endpoint (no auth required)
+	mux.HandleFunc("/api/v1/video/public", chainMiddleware(server.GetPublicVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware))
+
 	// OpenAPI documentation endpoint (no auth required)
 	mux.HandleFunc("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
 		// Serve the generated OpenAPI specification
@@ -141,6 +144,9 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 	mux.HandleFunc("/api/v1/video/publish", chainMiddleware(server.PublishVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
+	mux.HandleFunc("/api/v1/video/revoke", chainMiddleware(server.RevokeVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
 	mux.HandleFunc("/api/v1/video/download", chainMiddleware(server.DownloadVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {

@@ -5,20 +5,21 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/video/public?token=invalid-token
+  url: {{baseUrl}}/api/v1/video/public?token=short
+  body: none
   headers: {
-    "Accept": "application/json"
+    Accept: application/json
   }
 }
 
 tests {
-  test('Should return 422 Unprocessable Entity for invalid token format', function() {
-    expect(res.status).to.equal(422);
-    expect(res.body).to.be.an('object');
+  test("Should return 400 Bad Request", function() {
+    expect(response.status).to.equal(400);
+  });
 
-    // Validate error structure
-    expect(res.body).to.have.property('error');
-    expect(res.body.error).to.be.a('string');
-    expect(res.body.error).to.not.equal('');
+  test("Should return error message", function() {
+    expect(response.body.error).to.equal("Bad Request");
+    expect(response.body.message).to.equal("Invalid token format");
+    expect(response.body.code).to.equal(400);
   });
 }

@@ -36,6 +36,7 @@ const (
 	// AuditVideoUploadStart     AuditActionType = "video_upload_start"
 	AuditVideoUploadComplete  AuditActionType = "video_upload_complete"
 	AuditVideoDelete          AuditActionType = "video_delete"
+	AuditVideoRevoked         AuditActionType = "video_revoked"
 	AuditVideoDownloadPrivate AuditActionType = "video_download_private"
 	// AuditVideoDownloadPublic  AuditActionType = "video_download_public"
 

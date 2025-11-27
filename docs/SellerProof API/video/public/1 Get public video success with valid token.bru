@@ -1,0 +1,40 @@
+meta {
+  name: Get public video success with valid token
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/public?token=VALID_PUBLIC_TOKEN_HERE
+  body: none
+  headers: {
+    Accept: application/json
+  }
+}
+
+tests {
+  test("Should return 200 OK", function() {
+    expect(response.status).to.equal(200);
+  });
+
+  test("Should return video metadata", function() {
+    expect(response.body.video_id).to.be.a('string');
+    expect(response.body.title).to.be.a('string');
+    expect(response.body.file_name).to.be.a('string');
+    expect(response.body.duration_seconds).to.be.a('number');
+    expect(response.body.file_size_bytes).to.be.a('number');
+    expect(response.body.stream_url).to.be.a('string');
+    expect(response.body.expires_at).to.be.a('number');
+    expect(response.body.uploaded_at).to.be.a('number');
+  });
+
+  test("Should return valid stream URL", function() {
+    expect(response.body.stream_url).to.match(/^https:\/\//);
+    expect(response.body.stream_url).to.include('X-Amz-Expires=');
+  });
+
+  test("Should return future expiration time", function() {
+    const now = Math.floor(Date.now() / 1000);
+    expect(response.body.expires_at).to.be.greaterThan(now);
+  });
+}

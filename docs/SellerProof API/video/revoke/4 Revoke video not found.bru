@@ -1,0 +1,22 @@
+meta {
+  name: Revoke video not found
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: json({
+    "video_id": "non-existent-video-id"
+  })
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 404
+  res.body.error: contains("Not Found")
+  res.body.message: contains("Video not found")
+}

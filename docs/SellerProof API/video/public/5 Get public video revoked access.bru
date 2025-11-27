@@ -1,0 +1,25 @@
+meta {
+  name: Get public video revoked access
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/public?token=REVOKED_PUBLIC_TOKEN_HERE
+  body: none
+  headers: {
+    Accept: application/json
+  }
+}
+
+tests {
+  test("Should return 410 Gone", function() {
+    expect(response.status).to.equal(410);
+  });
+
+  test("Should return error message", function() {
+    expect(response.body.error).to.equal("Gone");
+    expect(response.body.message).to.equal("Public access to this video has been revoked");
+    expect(response.body.code).to.equal(410);
+  });
+}

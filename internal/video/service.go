@@ -2,6 +2,8 @@ package video
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"strings"
@@ -535,8 +537,226 @@ func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID,
 	}, nil
 }
 
-// func generateToken(length int) string {
-// 	b := make([]byte, length)
-// 	rand.Read(b)
-// 	return hex.EncodeToString(b)
-// }
+// generatePublicToken генерирует криптографически стойкий публичный токен
+func generatePublicToken() (string, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+	// URL-safe base64 encoding
+	token := base64.RawURLEncoding.EncodeToString(tokenBytes)
+	return token, nil
+}
+
+// PublishVideo публикует видео и создает публичный токен
+func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
+	// Проверка прав - только admin и manager могут публиковать
+	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
+		return nil, fmt.Errorf("access denied: only admins and managers can publish")
+	}
+
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("video not found")
+	}
+
+	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	// Проверяем, что видео полностью загружено
+	if video.UploadStatus != "completed" {
+		return nil, fmt.Errorf("video upload not completed")
+	}
+
+	// Генерируем публичный токен
+	publicToken, err := generatePublicToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate public token: %w", err)
+	}
+
+	// Создаем запись в public_video_shares
+	shareID := uuid.New().String()
+	now := time.Now()
+	publicShare := &ydb.PublicVideoShare{
+		ShareID:     shareID,
+		VideoID:     videoID,
+		PublicToken: publicToken,
+		CreatedAt:   now,
+		CreatedBy:   userID,
+		Revoked:     false,
+		AccessCount: 0,
+	}
+
+	if err := s.db.CreatePublicVideoShare(ctx, publicShare); err != nil {
+		return nil, fmt.Errorf("failed to create public share: %w", err)
+	}
+
+	// Копируем видео в публичный bucket (если еще не скопировано)
+	if video.PublicURL == nil || *video.PublicURL == "" {
+		publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
+		publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to copy video to public bucket: %w", err)
+		}
+
+		// Обновляем видео с публичным URL
+		video.PublicURL = &publicURL
+		video.PublishedAt = aws.Time(now)
+		if err := s.db.UpdateVideo(ctx, video); err != nil {
+			return nil, fmt.Errorf("failed to update video record: %w", err)
+		}
+	}
+
+	// Формируем публичный URL
+	baseURL := "https://api.sellerproof.ru" // TODO: вынести в конфиг
+	publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", baseURL, publicToken)
+
+	return &models.PublishVideoResult{
+		PublicURL:   publicURL,
+		PublicToken: publicToken,
+		Message:     "Video published successfully",
+	}, nil
+}
+
+// GetPublicVideo получает публичное видео по токену
+func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.PublicVideoResponse, error) {
+	// Получаем информацию о публичном шаринге
+	publicShare, err := s.db.GetPublicVideoShareByToken(ctx, token)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, fmt.Errorf("video not found or token is invalid")
+		}
+		return nil, fmt.Errorf("failed to get public share: %w", err)
+	}
+
+	// Проверяем, не отозван ли доступ
+	if publicShare.Revoked {
+		return nil, fmt.Errorf("public access to this video has been revoked")
+	}
+
+	// Получаем информацию о видео
+	video, err := s.db.GetVideo(ctx, publicShare.VideoID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video: %w", err)
+	}
+
+	// Генерируем временную ссылку на видео (presigned URL на 1 час)
+	streamURL, err := s.GeneratePublicStreamURL(ctx, publicShare.VideoID, 1*time.Hour)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate stream URL: %w", err)
+	}
+
+	// Обновляем счетчик просмотров (асинхронно)
+	go func() {
+		if err := s.db.IncrementAccessCount(context.Background(), token); err != nil {
+			log.Printf("Failed to increment access count: %v", err)
+		}
+	}()
+
+	// Подготавливаем ответ
+	var uploadedAt int64
+	if video.UploadedAt != nil {
+		uploadedAt = video.UploadedAt.Unix()
+	}
+
+	response := &models.PublicVideoResponse{
+		VideoID:         video.VideoID,
+		Title:           video.FileName, // TODO: добавить title в Video
+		Description:     "",             // TODO: добавить description в Video
+		FileName:        video.FileName,
+		ThumbnailURL:    "", // TODO: генерировать thumbnail
+		DurationSeconds: int(video.DurationSeconds),
+		FileSizeBytes:   video.FileSizeBytes,
+		StreamURL:       streamURL,
+		ExpiresAt:       time.Now().Add(1 * time.Hour).Unix(),
+		UploadedAt:      uploadedAt,
+	}
+
+	return response, nil
+}
+
+// GeneratePublicStreamURL генерирует presigned URL для публичного видео
+func (s *Service) GeneratePublicStreamURL(ctx context.Context, videoID string, expiration time.Duration) (string, error) {
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get video: %w", err)
+	}
+
+	// Генерируем ключ для публичного bucket
+	publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, videoID, video.FileName)
+
+	// Генерируем presigned URL
+	url, err := s.storage.GeneratePresignedDownloadURL(ctx, publicKey, expiration)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	return url, nil
+}
+
+// GetVideoForRevocation получает видео с полной информацией для отзыва публикации
+func (s *Service) GetVideoForRevocation(ctx context.Context, userID, orgID, videoID string) (*ydb.Video, error) {
+	// Проверка прав доступа
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return nil, err
+	}
+
+	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	return video, nil
+}
+
+// RevokePublicShare отзывает публичный доступ к видео
+func (s *Service) RevokePublicShare(ctx context.Context, userID, orgID, role, videoID string) error {
+	// Проверка прав - только admin и manager могут отзывать
+	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
+		return fmt.Errorf("access denied: only admins and managers can revoke")
+	}
+
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return fmt.Errorf("video not found")
+	}
+
+	if video.OrgID != orgID {
+		return fmt.Errorf("access denied")
+	}
+
+	// Проверяем, что видео опубликовано
+	if video.PublishStatus != "published" {
+		return fmt.Errorf("video is not published")
+	}
+
+	// Перемещаем видео из публичного bucket в приватный
+	if video.PublicURL != nil && *video.PublicURL != "" {
+		// Формируем ключи для публичного и приватного bucket
+		publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
+		privateKey := video.StoragePath
+
+		// Копируем видео из публичного bucket в приватный (если еще не там)
+		err = s.storage.CopyObject(ctx, s.storage.GetPublicBucket(), publicKey, s.storage.GetPrivateBucket(), privateKey)
+		if err != nil {
+			return fmt.Errorf("failed to copy video to private bucket: %w", err)
+		}
+
+		// Удаляем видео из публичного bucket
+		err = s.storage.DeleteObject(ctx, s.storage.GetPublicBucket(), publicKey)
+		if err != nil {
+			// Логируем ошибку, но продолжаем, так как видео уже скопировано
+			log.Printf("Failed to delete video from public bucket: %v", err)
+		}
+	}
+
+	// Обновляем статус видео в БД
+	err = s.db.UpdateVideoStatus(ctx, videoID, "private", "")
+	if err != nil {
+		return fmt.Errorf("failed to update video status: %w", err)
+	}
+
+	// Отзываем все публичные шаринги для этого видео
+	return s.db.RevokePublicVideoShare(ctx, videoID, userID)
+}

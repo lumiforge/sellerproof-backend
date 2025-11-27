@@ -1,0 +1,23 @@
+meta {
+  name: Revoke video success with admin JWT
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: json({
+    "video_id": "test-video-id-123"
+  })
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 200
+  res.body.message: contains("Video access revoked successfully")
+  res.body.video_id: equals("test-video-id-123")
+  res.body.status: equals("private")
+}

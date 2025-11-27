@@ -20,6 +20,30 @@ definitions:
       role:
         type: string
     type: object
+  models.AuditLog:
+    description: Audit log entry for user actions
+    properties:
+      action_result:
+        type: string
+      action_type:
+        type: string
+      details:
+        items:
+          type: integer
+        type: array
+      id:
+        type: string
+      ip_address:
+        type: string
+      org_id:
+        type: string
+      timestamp:
+        type: string
+      user_agent:
+        type: string
+      user_id:
+        type: string
+    type: object
   models.CompleteMultipartUploadRequest:
     description: Multipart upload completion request
     properties:
@@ -50,6 +74,42 @@ definitions:
       part_number:
         type: integer
     type: object
+  models.CreateOrganizationRequest:
+    description: Organization creation request
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  models.CreateOrganizationResponse:
+    description: Organization creation response
+    properties:
+      created_at:
+        type: integer
+      description:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      org_id:
+        type: string
+    type: object
+  models.DeleteVideoRequest:
+    description: Delete video request
+    properties:
+      video_id:
+        type: string
+    required:
+    - video_id
+    type: object
+  models.DeleteVideoResponse:
+    description: Delete video response
+    properties:
+      message:
+        type: string
+    type: object
   models.DownloadURLResult:
     description: Private download URL result
     properties:
@@ -67,6 +127,19 @@ definitions:
         type: string
       message:
         type: string
+    type: object
+  models.GetAuditLogsResponse:
+    properties:
+      limit:
+        type: integer
+      logs:
+        items:
+          $ref: '#/definitions/models.AuditLog'
+        type: array
+      offset:
+        type: integer
+      total:
+        type: integer
     type: object
   models.GetPartUploadURLsRequest:
     description: Part upload URLs request
@@ -269,6 +342,30 @@ definitions:
       role:
         type: string
     type: object
+  models.PublicVideoResponse:
+    description: Get public video response
+    properties:
+      description:
+        type: string
+      duration_seconds:
+        type: integer
+      expires_at:
+        type: integer
+      file_name:
+        type: string
+      file_size_bytes:
+        type: integer
+      stream_url:
+        type: string
+      thumbnail_url:
+        type: string
+      title:
+        type: string
+      uploaded_at:
+        type: integer
+      video_id:
+        type: string
+    type: object
   models.PublishVideoRequest:
     description: Publish video request
     properties:
@@ -281,6 +378,8 @@ definitions:
     description: Publish video result
     properties:
       message:
+        type: string
+      public_token:
         type: string
       public_url:
         type: string
@@ -318,6 +417,7 @@ definitions:
     required:
     - email
     - full_name
+    - organization_name
     - password
     type: object
   models.RegisterResponse:
@@ -397,6 +497,32 @@ definitions:
       success:
         type: boolean
     type: object
+  models.RevokeVideoRequest:
+    description: Revoke video publication request
+    properties:
+      video_id:
+        description: Video ID to revoke
+        type: string
+        example: "edad11df-b6c4-4b08-8fb6-76ab050ca5c1"
+    required:
+      - video_id
+    type: object
+  models.RevokeVideoResponse:
+    description: Revoke video publication response
+    properties:
+      message:
+        description: Success message
+        type: string
+        example: "Video access revoked successfully"
+      video_id:
+        description: Video ID
+        type: string
+        example: "edad11df-b6c4-4b08-8fb6-76ab050ca5c1"
+      status:
+        description: New video status
+        type: string
+        example: "private"
+    type: object
   models.Video:
     description: Video information
     properties:
@@ -427,6 +553,111 @@ info:
   title: SellerProof API
   version: "1.0"
 paths:
+  /admin/audit-logs:
+    get:
+      description: Retrieve audit logs with optional filtering by user_id, org_id,
+        action_type, result, and date range
+      parameters:
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: string
+      - description: Filter by organization ID
+        in: query
+        name: org_id
+        type: string
+      - description: Filter by action type
+        in: query
+        name: action_type
+        type: string
+      - description: Filter by result (success/failure)
+        in: query
+        name: result
+        type: string
+      - description: Filter from date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: Filter to date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      - description: Limit results (default 100, max 1000)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Audit logs retrieved successfully
+          schema:
+            $ref: '#/definitions/models.GetAuditLogsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden - insufficient permissions
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get audit logs
+      tags:
+      - admin
+  /api/v1/organization/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new organization (admin only)
+      parameters:
+      - description: Create organization request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.CreateOrganizationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create organization
+      tags:
+      - organization
   /api/v1/organization/invitations:
     get:
       description: List all invitations for organization (admin/manager only)
@@ -670,6 +901,87 @@ paths:
       summary: Update member role
       tags:
       - organization
+  /api/v1/video/delete:
+    post:
+      consumes:
+      - application/json
+      description: Soft-delete a video belonging to current organization
+      parameters:
+      - description: Delete video request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete video
+      tags:
+      - video
+  /api/v1/video/public:
+    get:
+      consumes:
+      - application/json
+      description: Get public video by public token
+      parameters:
+      - description: Public access token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PublicVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get public video
+      tags:
+      - video
   /auth/login:
     post:
       consumes:
@@ -1010,6 +1322,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Publish video
+      tags:
+      - video
+  /video/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Revoke video publication (admin/manager only)
+      parameters:
+      - description: Revoke video request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RevokeVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RevokeVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke video publication
       tags:
       - video
   /video/search:

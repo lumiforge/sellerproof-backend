@@ -1,0 +1,20 @@
+meta {
+  name: Revoke video invalid JSON
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/revoke
+  body: invalid json
+  headers: {
+    Content-Type: application/json
+    Authorization: Bearer {{validAdminJWT}}
+  }
+}
+
+assert {
+  res.status: 400
+  res.body.error: contains("Bad Request")
+  res.body.message: contains("Invalid request format")
+}

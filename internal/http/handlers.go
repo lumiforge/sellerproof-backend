@@ -984,48 +984,94 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 
 // GetPublicVideo handles getting public video (no authentication required)
 // @Summary		Get public video
-// @Description	Get public video by share token
+// @Description	Get public video by public token
 // @Tags		video
 // @Accept		json
 // @Produce	json
-// @Param		share_token	query		string	true	"Share token"
-// @Success	200	{object}	GetPublicVideoResponse
+// @Param		token	query		string	true	"Public access token"
+// @Success	200	{object}	models.PublicVideoResponse
 // @Failure	400	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
+// @Failure	410	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/video/public [get]
-// func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
-// 	shareToken := r.URL.Query().Get("share_token")
-// 	if shareToken == "" {
-// 		s.writeError(w, http.StatusBadRequest, "share_token is required")
-// 		return
-// 	}
+// @Router		/api/v1/video/public [get]
+func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-// 	// Validate share_token using Unicode-friendly validation
-// 	if err := validation.ValidateFilenameUnicode(shareToken, "share_token"); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
+	// Extract token from query parameter
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		s.writeError(w, http.StatusBadRequest, "Missing or invalid token parameter")
+		return
+	}
 
-// 	// Additional checks for SQL injection and XSS
-// 	options := validation.CombineOptions(
-// 		validation.WithSQLInjectionCheck(),
-// 		validation.WithXSSCheck(),
-// 	)
-// 	result := validation.ValidateInput(shareToken, options)
-// 	if !result.IsValid {
-// 		errorMessage := strings.Join(result.Errors, "; ")
-// 		s.writeError(w, http.StatusBadRequest, "Invalid share_token: "+errorMessage)
-// 		return
-// 	}
+	// Validate token format (base64 URL-safe, 43-44 characters for 32 bytes)
+	if len(token) < 40 || len(token) > 50 {
+		s.writeError(w, http.StatusBadRequest, "Invalid token format")
+		return
+	}
 
-// 	resp, err := s.videoService.GetPublicVideoDirect(r.Context(), shareToken)
-// 	if err != nil {
-// 		s.writeError(w, http.StatusInternalServerError, err.Error())
-// 		return
-// 	}
+	// Validate token using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(token, "token"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-// 	s.writeJSON(w, http.StatusOK, resp)
-// }
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(token, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid token: "+errorMessage)
+		return
+	}
+
+	// Get public video by token
+	publicVideo, err := s.videoService.GetPublicVideo(ctx, token)
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "video not found") || strings.Contains(errorMsg, "token is invalid") {
+			s.writeError(w, http.StatusNotFound, "Video not found or token is invalid")
+			return
+		}
+		if strings.Contains(errorMsg, "public access revoked") {
+			s.writeError(w, http.StatusGone, "Public access to this video has been revoked")
+			return
+		}
+		slog.Error("Failed to get public video", "error", err, "token", token)
+		s.writeError(w, http.StatusInternalServerError, "Failed to retrieve video")
+		return
+	}
+
+	// Generate temporary stream URL (presigned URL for 1 hour)
+	streamURL, err := s.videoService.GeneratePublicStreamURL(ctx, publicVideo.VideoID, 1*time.Hour)
+	if err != nil {
+		slog.Error("Failed to generate stream URL", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "Failed to generate stream URL")
+		return
+	}
+
+	// Note: Access count is incremented asynchronously in the service layer
+
+	// Prepare response
+	response := models.PublicVideoResponse{
+		VideoID:         publicVideo.VideoID,
+		Title:           publicVideo.Title,
+		Description:     publicVideo.Description,
+		FileName:        publicVideo.FileName,
+		ThumbnailURL:    publicVideo.ThumbnailURL,
+		DurationSeconds: publicVideo.DurationSeconds,
+		FileSizeBytes:   publicVideo.FileSizeBytes,
+		StreamURL:       streamURL,
+		ExpiresAt:       time.Now().Add(1 * time.Hour).Unix(),
+		UploadedAt:      publicVideo.UploadedAt,
+	}
+
+	s.writeJSON(w, http.StatusOK, response)
+}
 
 // CreatePublicShareLink handles creating public share link
 // @Summary		Create public share link
@@ -1885,7 +1931,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.videoService.PublishVideoToPublicBucket(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
+	resp, err := s.videoService.PublishVideo(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
 	if err != nil {
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "video not found") {
@@ -1899,6 +1945,127 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// RevokeVideo handles revoking public access to a video
+// @Summary		Revoke video publication
+// @Description	Move video from public bucket back to private (admin/manager only)
+// @Tags		video
+// @Accept		json
+// @Produce	json
+// @Param		request	body		models.RevokeVideoRequest	true	"Revoke video request"
+// @Security		BearerAuth
+// @Success	200	{object}	models.RevokeVideoResponse
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
+// @Router		/api/v1/video/revoke [post]
+func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
+	// Extract client info for audit logging
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	// Validate Content-Type header using validation package
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.RevokeVideoRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	if req.VideoID == "" {
+		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	}
+
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Additional checks for SQL injection and XSS
+	options := validation.CombineOptions(
+		validation.WithSQLInjectionCheck(),
+		validation.WithXSSCheck(),
+	)
+	result := validation.ValidateInput(req.VideoID, options)
+	if !result.IsValid {
+		errorMessage := strings.Join(result.Errors, "; ")
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	// Check permissions (admin or manager only)
+	if claims.Role != "admin" && claims.Role != "manager" {
+		s.writeError(w, http.StatusForbidden, "Only admins and managers can revoke video access")
+		return
+	}
+
+	// Check if video is published by getting it from the database directly
+	// We need to access the database layer to get the full video info including publish status
+	dbVideo, err := s.videoService.GetVideoForRevocation(r.Context(), claims.UserID, claims.OrgID, req.VideoID)
+	if err != nil {
+		if strings.Contains(err.Error(), "video not found") {
+			s.writeError(w, http.StatusNotFound, "Video not found")
+			return
+		} else if strings.Contains(err.Error(), "access denied") {
+			s.writeError(w, http.StatusForbidden, "Access denied")
+			return
+		}
+		s.writeError(w, http.StatusInternalServerError, "Failed to get video")
+		return
+	}
+
+	if dbVideo.PublishStatus != "published" {
+		s.writeError(w, http.StatusBadRequest, "Video is not published")
+		return
+	}
+
+	// Revoke public access
+	err = s.videoService.RevokePublicShare(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
+	if err != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoRevoked, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"video_id": req.VideoID,
+			"reason":   err.Error(),
+		})
+
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "video not found") {
+			s.writeError(w, http.StatusNotFound, errorMsg)
+		} else if strings.Contains(errorMsg, "access denied") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else {
+			s.writeError(w, http.StatusInternalServerError, errorMsg)
+		}
+		return
+	}
+
+	// Log successful revocation
+	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoRevoked, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"video_id": req.VideoID,
+	})
+
+	s.writeJSON(w, http.StatusOK, models.RevokeVideoResponse{
+		Message: "Video access revoked successfully",
+		VideoID: req.VideoID,
+		Status:  "private",
+	})
 }
 
 // GetAuditLogs retrieves audit logs with filtering and pagination

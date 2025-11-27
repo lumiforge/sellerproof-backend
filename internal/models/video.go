@@ -120,6 +120,21 @@ type GetPublicVideoResponse struct {
 	ExpiresAt   int64  `json:"expires_at"`
 }
 
+// PublicVideoResponse represents a response with public video information for new endpoint
+// @Description	Get public video response
+type PublicVideoResponse struct {
+	VideoID         string `json:"video_id"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	FileName        string `json:"file_name"`
+	ThumbnailURL    string `json:"thumbnail_url"`
+	DurationSeconds int    `json:"duration_seconds"`
+	FileSizeBytes   int64  `json:"file_size_bytes"`
+	StreamURL       string `json:"stream_url"`
+	ExpiresAt       int64  `json:"expires_at"`
+	UploadedAt      int64  `json:"uploaded_at"`
+}
+
 // RevokeShareLinkRequest represents a request to revoke share link
 // @Description	Revoke share link request
 type RevokeShareLinkRequest struct {
@@ -148,8 +163,9 @@ type PublishVideoRequest struct {
 // PublishVideoResult represents the result of publishing video
 // @Description	Publish video result
 type PublishVideoResult struct {
-	PublicURL string `json:"public_url"`
-	Message   string `json:"message"`
+	PublicURL   string `json:"public_url"`
+	PublicToken string `json:"public_token"`
+	Message     string `json:"message"`
 }
 
 // DeleteVideoRequest represents a request to delete a video
@@ -162,4 +178,18 @@ type DeleteVideoRequest struct {
 // @Description	Delete video response
 type DeleteVideoResponse struct {
 	Message string `json:"message"`
+}
+
+// RevokeVideoRequest represents a request to revoke public access to a video
+// @Description	Revoke video public access request
+type RevokeVideoRequest struct {
+	VideoID string `json:"video_id" validate:"required,uuid"`
+}
+
+// RevokeVideoResponse represents a response for revoked video access
+// @Description	Revoke video public access response
+type RevokeVideoResponse struct {
+	Message string `json:"message"`
+	VideoID string `json:"video_id"`
+	Status  string `json:"status"`
 }
