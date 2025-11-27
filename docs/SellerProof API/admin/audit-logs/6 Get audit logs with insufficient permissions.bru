@@ -1,0 +1,23 @@
+meta {
+  name: Get audit logs with insufficient permissions
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/admin/audit-logs
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{userAccessToken}}
+}
+
+tests {
+  test('Should return 403 Forbidden for non-admin roles', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error.toLowerCase()).to.include('insufficient');
+  });
+}

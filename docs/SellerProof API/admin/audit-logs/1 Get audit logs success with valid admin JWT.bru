@@ -1,0 +1,63 @@
+meta {
+  name: Get audit logs success with valid admin JWT
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/admin/audit-logs?limit=10&offset=0
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 200 OK and a well-formed audit log listing for admin users', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    expect(res.body).to.have.property('logs');
+    expect(res.body).to.have.property('total');
+    expect(res.body).to.have.property('limit');
+    expect(res.body).to.have.property('offset');
+
+    expect(res.body.logs).to.be.an('array');
+    expect(res.body.total).to.be.a('number');
+    expect(res.body.limit).to.be.a('number');
+    expect(res.body.offset).to.be.a('number');
+
+    // Validate pagination echoes
+    expect(res.body.limit).to.equal(10);
+    expect(res.body.offset).to.equal(0);
+
+    if (res.body.logs.length > 0) {
+      const log = res.body.logs[0];
+      expect(log).to.have.property('id');
+      expect(log).to.have.property('timestamp');
+      expect(log).to.have.property('user_id');
+      expect(log).to.have.property('org_id');
+      expect(log).to.have.property('action_type');
+      expect(log).to.have.property('action_result');
+      expect(log).to.have.property('ip_address');
+      expect(log).to.have.property('user_agent');
+      expect(log).to.have.property('details');
+
+      expect(log.id).to.be.a('string');
+      expect(log.timestamp).to.satisfy(value => typeof value === 'string' || typeof value === 'number');
+      expect(log.user_id).to.be.a('string');
+      expect(log.org_id).to.be.a('string');
+      expect(log.action_type).to.be.a('string');
+      expect(log.action_result).to.be.a('string');
+      expect(log.ip_address).to.be.a('string');
+      expect(log.user_agent).to.be.a('string');
+      expect(log.details).to.satisfy(value => typeof value === 'object' || typeof value === 'string');
+
+      expect(log.action_result).to.be.oneOf(['success', 'failure']);
+      expect(log.id).to.not.equal('');
+      expect(log.user_id).to.not.equal('');
+      expect(log.org_id).to.not.equal('');
+    }
+  });
+}

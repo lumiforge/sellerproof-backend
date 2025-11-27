@@ -1,0 +1,29 @@
+meta {
+  name: Delete invitation with invalid JWT token
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization/invitations/{{validInvitationId}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{invalidAccessToken}}
+}
+
+tests {
+  test('Should return 401 Unauthorized when invalid JWT token is provided', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.error).to.not.equal('');
+    expect(res.body.message).to.not.equal('');
+    expect(res.body.error.toLowerCase()).to.include('unauthorized').or.include('invalid');
+  });
+}

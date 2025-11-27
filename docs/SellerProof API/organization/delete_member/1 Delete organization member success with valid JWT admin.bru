@@ -1,0 +1,28 @@
+meta {
+  name: Delete organization member success with valid JWT admin
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}?org_id={{testOrgId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 200 OK and success message for valid JWT with admin role', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate response structure
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.message).to.not.equal('');
+    expect(res.body.message).to.include('removed');
+  });
+}

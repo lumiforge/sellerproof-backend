@@ -1,0 +1,29 @@
+meta {
+  name: Delete invitation with missing invitation ID
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization/invitations/
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 400 Bad Request when invitation ID is missing from URL', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.error).to.not.equal('');
+    expect(res.body.message).to.not.equal('');
+    expect(res.body.error.toLowerCase()).to.include('bad request').or.include('invalid');
+  });
+}

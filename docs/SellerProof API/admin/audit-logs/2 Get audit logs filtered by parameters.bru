@@ -1,0 +1,33 @@
+meta {
+  name: Get audit logs filtered by parameters
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/admin/audit-logs?user_id={{userId}}&org_id={{testOrgId}}&action_type=org_user_invite&result=success&limit=5&offset=0
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 200 OK and only logs matching provided filters', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body.logs).to.be.an('array');
+
+    res.body.logs.forEach(function(log) {
+      expect(log.user_id).to.equal('{{userId}}');
+      expect(log.org_id).to.equal('{{testOrgId}}');
+      expect(log.action_type).to.equal('org_user_invite');
+      expect(log.action_result).to.equal('success');
+    });
+
+    expect(res.body.limit).to.equal(5);
+    expect(res.body.offset).to.equal(0);
+    expect(res.body.total).to.be.at.least(res.body.logs.length);
+  });
+}
