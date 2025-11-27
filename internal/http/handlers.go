@@ -230,11 +230,11 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// Extract client info for audit logging
-	ipAddress := r.Header.Get("X-Forwarded-For")
-	if ipAddress == "" {
-		ipAddress = r.RemoteAddr
-	}
-	userAgent := r.Header.Get("User-Agent")
+	// ipAddress := r.Header.Get("X-Forwarded-For")
+	// if ipAddress == "" {
+	// 	ipAddress = r.RemoteAddr
+	// }
+	// userAgent := r.Header.Get("User-Agent")
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
@@ -256,10 +256,10 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.authService.Login(r.Context(), authReq)
 	if err != nil {
 		// Log failed login attempt
-		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditLoginFailure, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
-			"email":  req.Email,
-			"reason": err.Error(),
-		})
+		// s.auditService.LogAction(r.Context(), "unknown", "", models.AuditLoginFailure, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+		// 	"email":  req.Email,
+		// 	"reason": err.Error(),
+		// })
 
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
@@ -279,9 +279,9 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log successful login
-	s.auditService.LogAction(r.Context(), resp.User.UserID, resp.User.OrgID, models.AuditLoginSuccess, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
-		"email": req.Email,
-	})
+	// s.auditService.LogAction(r.Context(), resp.User.UserID, resp.User.OrgID, models.AuditLoginSuccess, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+	// 	"email": req.Email,
+	// })
 
 	userInfo := &models.UserInfo{
 		UserID:        resp.User.UserID,
@@ -369,14 +369,14 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Router		/auth/logout [post]
 func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	// Extract client info for audit logging
-	ipAddress := r.Header.Get("X-Forwarded-For")
-	if ipAddress == "" {
-		ipAddress = r.RemoteAddr
-	}
-	userAgent := r.Header.Get("User-Agent")
+	// ipAddress := r.Header.Get("X-Forwarded-For")
+	// if ipAddress == "" {
+	// 	ipAddress = r.RemoteAddr
+	// }
+	// userAgent := r.Header.Get("User-Agent")
 
-	// Extract JWT claims
-	claims := r.Context().Value("claims").(*jwt.Claims)
+	// // Extract JWT claims
+	// claims := r.Context().Value("claims").(*jwt.Claims)
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
@@ -412,9 +412,9 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log successful logout
-	if claims != nil {
-		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditLogout, models.AuditResultSuccess, ipAddress, userAgent, nil)
-	}
+	// if claims != nil {
+	// 	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditLogout, models.AuditResultSuccess, ipAddress, userAgent, nil)
+	// }
 
 	s.writeJSON(w, http.StatusOK, models.LogoutResponse{
 		Message: resp.Message,
@@ -1470,8 +1470,20 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	resp, err := s.authService.InviteUser(r.Context(), claims.UserID, req.OrgID, &req)
 	if err != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, req.OrgID, models.AuditOrgUserInvite, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"email": req.Email,
+			"role":  req.Role,
+			"error": err.Error(),
+		})
+
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "only admins and managers") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
@@ -1482,6 +1494,12 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	s.auditService.LogAction(r.Context(), claims.UserID, req.OrgID, models.AuditOrgUserInvite, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"email":     req.Email,
+		"role":      req.Role,
+		"invite_id": resp.InvitationID,
+	})
 
 	s.writeJSON(w, http.StatusOK, resp)
 }
@@ -1499,6 +1517,12 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invitations/accept [post]
 func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
@@ -1519,6 +1543,11 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.AcceptInvitation(r.Context(), claims.UserID, &req)
 	if err != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditOrgInvitationAccepted, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"invite_code": req.InviteCode,
+			"error":       err.Error(),
+		})
+
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "expired") || strings.Contains(errorMsg, "not pending") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
@@ -1527,6 +1556,12 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	s.auditService.LogAction(r.Context(), claims.UserID, resp.OrgID, models.AuditOrgInvitationAccepted, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"invite_code": req.InviteCode,
+		"org_id":      resp.OrgID,
+		"role":        resp.Role,
+	})
 
 	s.writeJSON(w, http.StatusOK, resp)
 }
@@ -1677,6 +1712,12 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/members/{user_id}/role [put]
 func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
@@ -1709,6 +1750,12 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 
 	err := s.authService.UpdateMemberRole(r.Context(), claims.UserID, claims.OrgID, userID, req.NewRole)
 	if err != nil {
+		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditOrgRoleChanged, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
+			"target_user_id": userID,
+			"new_role":       req.NewRole,
+			"error":          err.Error(),
+		})
+
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "only admins") || strings.Contains(errorMsg, "not a member") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
@@ -1719,6 +1766,11 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditOrgRoleChanged, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"target_user_id": userID,
+		"new_role":       req.NewRole,
+	})
 
 	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member role updated successfully"})
 }

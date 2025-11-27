@@ -24,9 +24,9 @@ type AuditActionType string
 
 const (
 	// Authentication actions
-	AuditLoginSuccess AuditActionType = "login_success"
-	AuditLoginFailure AuditActionType = "login_failure"
-	AuditLogout       AuditActionType = "logout"
+	// AuditLoginSuccess AuditActionType = "login_success"
+	// AuditLoginFailure AuditActionType = "login_failure"
+	// AuditLogout       AuditActionType = "logout"
 
 	// Registration actions
 	AuditRegisterSuccess AuditActionType = "register_success"
@@ -40,9 +40,9 @@ const (
 	// AuditVideoDownloadPublic  AuditActionType = "video_download_public"
 
 	// Organization actions
-	// AuditOrgUserInvite         AuditActionType = "org_user_invite"
-	// AuditOrgInvitationAccepted AuditActionType = "org_invitation_accepted"
-	// AuditOrgRoleChanged        AuditActionType = "org_role_changed"
+	AuditOrgUserInvite         AuditActionType = "org_user_invite"
+	AuditOrgInvitationAccepted AuditActionType = "org_invitation_accepted"
+	AuditOrgRoleChanged        AuditActionType = "org_role_changed"
 
 	// Error actions
 	// AuditAPIError         AuditActionType = "api_error"
