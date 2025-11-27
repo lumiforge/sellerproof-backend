@@ -1,12 +1,12 @@
 meta {
-  name: Delete video missing video_id field
+  name: Delete video missing video_id (empty path param)
   type: http
   seq: 2
 }
 
-post {
-  url: {{baseUrl}}/api/v1/video/delete
-  body: json
+delete {
+  url: {{baseUrl}}/api/v1/video/
+  body: none
   auth: bearer
 }
 
@@ -14,17 +14,9 @@ auth:bearer {
   token: {{accessToken}}
 }
 
-body:json {
-  {}
-}
-
 tests {
-  test('Should return 400 Bad Request when video_id is missing', function() {
-    expect(res.status).to.equal(400);
-    expect(res.body).to.be.an('object');
-
-    expect(res.body).to.have.property('error');
-    expect(res.body.error).to.be.a('string');
-    expect(res.body.error.toLowerCase()).to.include('video_id');
+  test('Should return 404 or 405 when video_id is missing in path', function() {
+    // Go http.ServeMux вернет 404 или 405, если путь не совпадает с шаблоном {id}
+    expect(res.status).to.be.oneOf([404, 405]);
   });
 }

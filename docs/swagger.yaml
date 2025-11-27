@@ -96,14 +96,6 @@ definitions:
       org_id:
         type: string
     type: object
-  models.DeleteVideoRequest:
-    description: Delete video request
-    properties:
-      video_id:
-        type: string
-    required:
-    - video_id
-    type: object
   models.DeleteVideoResponse:
     description: Delete video response
     properties:
@@ -428,6 +420,24 @@ definitions:
       user_id:
         type: string
     type: object
+  models.RevokeVideoRequest:
+    description: Revoke video public access request
+    properties:
+      video_id:
+        type: string
+    required:
+    - video_id
+    type: object
+  models.RevokeVideoResponse:
+    description: Revoke video public access response
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      video_id:
+        type: string
+    type: object
   models.SearchVideosResponse:
     description: Search videos response
     properties:
@@ -496,32 +506,6 @@ definitions:
         type: string
       success:
         type: boolean
-    type: object
-  models.RevokeVideoRequest:
-    description: Revoke video publication request
-    properties:
-      video_id:
-        description: Video ID to revoke
-        type: string
-        example: "edad11df-b6c4-4b08-8fb6-76ab050ca5c1"
-    required:
-      - video_id
-    type: object
-  models.RevokeVideoResponse:
-    description: Revoke video publication response
-    properties:
-      message:
-        description: Success message
-        type: string
-        example: "Video access revoked successfully"
-      video_id:
-        description: Video ID
-        type: string
-        example: "edad11df-b6c4-4b08-8fb6-76ab050ca5c1"
-      status:
-        description: New video status
-        type: string
-        example: "private"
     type: object
   models.Video:
     description: Video information
@@ -901,18 +885,15 @@ paths:
       summary: Update member role
       tags:
       - organization
-  /api/v1/video/delete:
-    post:
-      consumes:
-      - application/json
+  /api/v1/video/{id}:
+    delete:
       description: Soft-delete a video belonging to current organization
       parameters:
-      - description: Delete video request
-        in: body
-        name: request
+      - description: Video ID
+        in: path
+        name: id
         required: true
-        schema:
-          $ref: '#/definitions/models.DeleteVideoRequest'
+        type: string
       produces:
       - application/json
       responses:
@@ -980,6 +961,50 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Get public video
+      tags:
+      - video
+  /api/v1/video/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Move video from public bucket back to private (admin/manager only)
+      parameters:
+      - description: Revoke video request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RevokeVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RevokeVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke video publication
       tags:
       - video
   /auth/login:
@@ -1322,50 +1347,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Publish video
-      tags:
-      - video
-  /video/revoke:
-    post:
-      consumes:
-      - application/json
-      description: Revoke video publication (admin/manager only)
-      parameters:
-      - description: Revoke video request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.RevokeVideoRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.RevokeVideoResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Revoke video publication
       tags:
       - video
   /video/search:

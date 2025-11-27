@@ -4,15 +4,10 @@ meta {
   seq: 4
 }
 
-post {
-  url: {{baseUrl}}/api/v1/video/delete
-  body: json
-}
-
-body:json {
-  {
-    "video_id": "{{testVideoId}}"
-  }
+delete {
+  url: {{baseUrl}}/api/v1/video/{{testVideoId}}
+  body: none
+  auth: none
 }
 
 tests {

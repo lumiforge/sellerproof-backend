@@ -4,20 +4,14 @@ meta {
   seq: 3
 }
 
-post {
-  url: {{baseUrl}}/api/v1/video/delete
-  body: json
+delete {
+  url: {{baseUrl}}/api/v1/video/{{testVideoId}}
+  body: none
   auth: bearer
 }
 
 auth:bearer {
   token: invalid.jwt.token
-}
-
-body:json {
-  {
-    "video_id": "{{testVideoId}}"
-  }
 }
 
 tests {
