@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/audit"
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
@@ -943,9 +944,15 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	if pageSizeStr != "" {
 		if ps, err := strconv.Atoi(pageSizeStr); err == nil {
 			pageSize = int32(ps)
+			// Ограничиваем максимальный размер страницы
+			if pageSize > 100 {
+				pageSize = 100
+			}
+			if pageSize <= 0 {
+				pageSize = 10
+			}
 		}
 	}
-
 	// Validate query parameter if provided (for Unicode support)
 	if query != "" {
 		// Additional checks for SQL injection and XSS on search query
@@ -2025,6 +2032,12 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	// Validate UUID format
+	if _, err := uuid.Parse(req.VideoID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
 		return
 	}
 
