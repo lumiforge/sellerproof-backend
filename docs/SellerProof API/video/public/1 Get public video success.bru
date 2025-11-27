@@ -1,0 +1,45 @@
+meta {
+  name: Get public video success
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/public?token=valid-public-token
+  headers: {
+    "Accept": "application/json"
+  }
+}
+
+tests {
+  test('Should return 200 OK and video metadata for a valid public token', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate required fields
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('title');
+    expect(res.body).to.have.property('description');
+    expect(res.body).to.have.property('thumbnail_url');
+    expect(res.body).to.have.property('duration_seconds');
+    expect(res.body).to.have.property('stream_url');
+    expect(res.body).to.have.property('expires_at');
+
+    // Validate field types
+    expect(res.body.video_id).to.be.a('string');
+    expect(res.body.title).to.be.a('string');
+    expect(res.body.description).to.be.a('string');
+    expect(res.body.thumbnail_url).to.be.a('string');
+    expect(res.body.duration_seconds).to.be.a('number');
+    expect(res.body.stream_url).to.be.a('string');
+    expect(res.body.expires_at).to.be.a('number');
+
+    // Validate field values
+    expect(res.body.video_id).to.not.equal('');
+    expect(res.body.title).to.not.equal('');
+    expect(res.body.thumbnail_url).to.match(/^https?:\/\//);
+    expect(res.body.stream_url).to.match(/^https?:\/\//);
+    expect(res.body.duration_seconds).to.be.gt(0);
+    expect(res.body.expires_at).to.be.at.least(Date.now() / 1000);
+  });
+}

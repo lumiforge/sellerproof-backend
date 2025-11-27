@@ -1,0 +1,27 @@
+meta {
+  name: Delete video without JWT token
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/delete
+  body: json
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}"
+  }
+}
+
+tests {
+  test('Should return 401 Unauthorized when JWT token is missing', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.error.toLowerCase()).to.include('token');
+  });
+}

@@ -1,0 +1,24 @@
+meta {
+  name: Get public video invalid token format
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/public?token=invalid-token
+  headers: {
+    "Accept": "application/json"
+  }
+}
+
+tests {
+  test('Should return 422 Unprocessable Entity for invalid token format', function() {
+    expect(res.status).to.equal(422);
+    expect(res.body).to.be.an('object');
+
+    // Validate error structure
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.error).to.not.equal('');
+  });
+}
