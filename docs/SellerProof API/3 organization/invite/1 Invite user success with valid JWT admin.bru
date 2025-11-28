@@ -57,5 +57,6 @@ tests {
     const currentTime = Math.floor(Date.now() / 1000);
     expect(res.body.expires_at).to.be.greaterThan(currentTime);
     bru.setEnvVar("validInvitationId", res.body.invitation_id);
+    bru.setEnvVar("validInviteCode", res.body.invite_code);
   });
 }

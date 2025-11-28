@@ -5,6 +5,7 @@ package models
 // InitiateMultipartUploadRequest represents a request to initiate multipart upload
 // @Description	Multipart upload initiation request
 type InitiateMultipartUploadRequest struct {
+	Title           string `json:"title"`
 	FileName        string `json:"file_name" validate:"required,max=255"`
 	FileSizeBytes   int64  `json:"file_size_bytes" validate:"required,min=1"`
 	DurationSeconds int32  `json:"duration_seconds" validate:"required,min=1"`
@@ -57,6 +58,7 @@ type CompleteMultipartUploadResponse struct {
 // @Description	Video information
 type Video struct {
 	VideoID         string `json:"video_id"`
+	Title           string `json:"title"`
 	FileName        string `json:"file_name"`
 	FileSizeBytes   int64  `json:"file_size_bytes"`
 	DurationSeconds int32  `json:"duration_seconds"`

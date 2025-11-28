@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
 	jwtmanager "github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
@@ -28,15 +29,18 @@ type Service struct {
 	jwtManager *jwtmanager.JWTManager
 	rbac       *rbac.RBAC
 	email      *email.Client
+	config     *config.Config
 }
 
 // NewService создает новый auth сервис
-func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager *rbac.RBAC, emailClient *email.Client) *Service {
+func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager *rbac.RBAC, emailClient *email.Client, cfg *config.Config) *Service {
+
 	return &Service{
 		db:         db,
 		jwtManager: jwtManager,
 		rbac:       rbacManager,
 		email:      emailClient,
+		config:     cfg,
 	}
 }
 
@@ -52,8 +56,8 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	if req.FullName == "" {
 		return nil, fmt.Errorf("full_name is required")
 	}
-	if req.OrganizationName == "" {
-		return nil, fmt.Errorf("organization_name is required")
+	if req.OrganizationName == "" && req.InviteCode == "" {
+		return nil, fmt.Errorf("organization_name or invite_code is required")
 	}
 
 	// Валидация email используя validation package
@@ -78,7 +82,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	}
 
 	// Валидация организации
-	if len(req.OrganizationName) > 200 {
+	if req.OrganizationName != "" && len(req.OrganizationName) > 200 {
 		return nil, fmt.Errorf("organization_name must be less than 201 characters long")
 	}
 
@@ -120,6 +124,26 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		if err := validation.ValidateInputWithError(req.OrganizationName, "organization_name", nameOptions); err != nil {
 			return nil, err
 		}
+	}
+
+	// Если передан код приглашения, проверяем его валидность ДО создания пользователя
+	var invitation *ydb.Invitation
+	if req.InviteCode != "" {
+		inv, err := s.db.GetInvitationByCode(ctx, req.InviteCode)
+		if err != nil {
+			return nil, fmt.Errorf("invalid invite code")
+		}
+		if inv.Status != "pending" {
+			return nil, fmt.Errorf("invitation is not pending")
+		}
+		if time.Now().After(inv.ExpiresAt) {
+			return nil, fmt.Errorf("invitation has expired")
+		}
+		// Проверяем, что email регистрации совпадает с приглашением
+		if !strings.EqualFold(inv.Email, req.Email) {
+			return nil, fmt.Errorf("registration email does not match invitation email")
+		}
+		invitation = inv
 	}
 
 	// Проверка, что email не занят
@@ -194,77 +218,114 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		}
 	}
 
-	// Создание персональной организации для пользователя
-	orgName := req.OrganizationName
-	if orgName == "" {
-		// Если имя организации не указано, используем значение по умолчанию
-		orgName = req.FullName
-	}
-	settings := make(map[string]string)
-	settingsJSON, err := json.Marshal(settings)
-	if err != nil {
-		slog.Error("Failed to marshal settings", "error", err)
-		return nil, fmt.Errorf("failed to marshal settings: %w", err)
-	}
-	settingsStr := string(settingsJSON)
-	org := &ydb.Organization{
-		OrgID:     uuid.New().String(),
-		Name:      orgName,
-		OwnerID:   user.UserID,
-		Settings:  settingsStr,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
+	// ЛОГИКА ВЕТВЛЕНИЯ: Приглашение ИЛИ Новая организация
 
-	err = s.db.CreateOrganization(ctx, org)
-	if err != nil {
-		slog.Error("Failed to create organization", "error", err, "user_id", user.UserID)
-		return nil, fmt.Errorf("failed to create organization: %w", err)
-	}
+	if invitation != nil {
+		// СЦЕНАРИЙ 1: Регистрация по приглашению (вступление в существующую организацию)
 
-	// Создание членства в организации с ролью admin
-	role := string(rbac.RoleAdmin)
-	status := "active"
-	membership := &ydb.Membership{
-		MembershipID: uuid.New().String(),
-		UserID:       user.UserID,
-		OrgID:        org.OrgID,
-		Role:         role,
-		Status:       status,
-		InvitedBy:    user.UserID,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
+		// Создание членства в организации на основе приглашения
+		membership := &ydb.Membership{
+			MembershipID: uuid.New().String(),
+			UserID:       user.UserID,
+			OrgID:        invitation.OrgID,
+			Role:         invitation.Role,
+			Status:       "active",
+			InvitedBy:    invitation.InvitedBy,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
 
-	err = s.db.CreateMembership(ctx, membership)
-	if err != nil {
-		slog.Error("Failed to create membership", "error", err, "user_id", user.UserID)
-	}
+		err = s.db.CreateMembership(ctx, membership)
+		if err != nil {
+			slog.Error("Failed to create membership from invite", "error", err, "user_id", user.UserID)
+			// Не возвращаем ошибку, так как юзер уже создан. Админ может добавить вручную или юзер через accept.
+		} else {
+			// Обновляем статус приглашения
+			_ = s.db.UpdateInvitationStatusWithAcceptTime(ctx, invitation.InvitationID, "accepted", time.Now())
+		}
 
-	// Создание триальной подписки
-	planID := "free"
-	storageLimitMB := int64(1024) // 1GB = 1024MB
-	videoCountLimit := int64(10)
-	isActive := true
-	trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
-	subscription := &ydb.Subscription{
-		SubscriptionID:  uuid.New().String(),
-		UserID:          user.UserID,
-		OrgID:           org.OrgID,
-		PlanID:          planID,
-		StorageLimitMB:  storageLimitMB,
-		VideoCountLimit: videoCountLimit,
-		IsActive:        isActive,
-		TrialEndsAt:     trialEndsAt,
-		StartedAt:       time.Now(),
-		ExpiresAt:       time.Now().Add(30 * 24 * time.Hour), // 30 дней
-		BillingCycle:    "monthly",
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-	}
-	err = s.db.CreateSubscription(ctx, subscription)
-	if err != nil {
-		slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
+	} else {
+		// СЦЕНАРИЙ 2: Создание новой организации (старая логика)
+
+		orgName := req.OrganizationName
+		if orgName == "" {
+			// Fallback, хотя валидация выше не должна пустить сюда с пустым именем
+			orgName = req.FullName
+		}
+		settings := make(map[string]string)
+		settingsJSON, err := json.Marshal(settings)
+		if err != nil {
+			slog.Error("Failed to marshal settings", "error", err)
+			// Не критично, продолжаем
+			settingsJSON = []byte("{}")
+		}
+		settingsStr := string(settingsJSON)
+		org := &ydb.Organization{
+			OrgID:     uuid.New().String(),
+			Name:      orgName,
+			OwnerID:   user.UserID,
+			Settings:  settingsStr,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		err = s.db.CreateOrganization(ctx, org)
+		if err != nil {
+			slog.Error("Failed to create organization", "error", err, "user_id", user.UserID)
+			return nil, fmt.Errorf("failed to create organization: %w", err)
+		}
+
+		// Создание членства в организации с ролью admin
+		role := string(rbac.RoleAdmin)
+		status := "active"
+		membership := &ydb.Membership{
+			MembershipID: uuid.New().String(),
+			UserID:       user.UserID,
+			OrgID:        org.OrgID,
+			Role:         role,
+			Status:       status,
+			InvitedBy:    user.UserID,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+
+		err = s.db.CreateMembership(ctx, membership)
+		if err != nil {
+			slog.Error("Failed to create membership", "error", err, "user_id", user.UserID)
+		}
+
+		// Создание триальной подписки (ТОЛЬКО ДЛЯ НОВЫХ ОРГАНИЗАЦИЙ)
+		planID := "free"
+		storageLimitMB := s.config.StorageLimitFree
+		videoCountLimit := s.config.VideoCountLimitFree
+		// Fallback на случай, если конфиг не загрузился корректно
+		if storageLimitMB == 0 {
+			storageLimitMB = 1024
+		}
+		if videoCountLimit == 0 {
+			videoCountLimit = 10
+		}
+		isActive := true
+		trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
+		subscription := &ydb.Subscription{
+			SubscriptionID:  uuid.New().String(),
+			UserID:          user.UserID,
+			OrgID:           org.OrgID,
+			PlanID:          planID,
+			StorageLimitMB:  storageLimitMB,
+			VideoCountLimit: videoCountLimit,
+			IsActive:        isActive,
+			TrialEndsAt:     trialEndsAt,
+			StartedAt:       time.Now(),
+			ExpiresAt:       time.Now().Add(30 * 24 * time.Hour), // 30 дней
+			BillingCycle:    "monthly",
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
+		}
+		err = s.db.CreateSubscription(ctx, subscription)
+		if err != nil {
+			slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
+		}
 	}
 
 	return &models.RegisterResponse{

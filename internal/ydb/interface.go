@@ -77,6 +77,7 @@ type Database interface {
 	// Публичные шаринги видео
 	CreatePublicVideoShare(ctx context.Context, share *PublicVideoShare) error
 	GetPublicVideoShareByToken(ctx context.Context, token string) (*PublicVideoShare, error)
+	GetActivePublicVideoShare(ctx context.Context, videoID string) (*PublicVideoShare, error)
 	IncrementAccessCount(ctx context.Context, token string) error
 	RevokePublicVideoShare(ctx context.Context, videoID, userID string) error
 

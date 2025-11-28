@@ -41,6 +41,7 @@ type CompletedPart struct {
 // VideoInfo represents video information
 type VideoInfo struct {
 	VideoID         string `json:"video_id"`
+	Title           string `json:"title"`
 	FileName        string `json:"file_name"`
 	FileSizeBytes   int64  `json:"file_size_bytes"`
 	DurationSeconds int32  `json:"duration_seconds"`
@@ -109,7 +110,7 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 }
 
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
-func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
+func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, title, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
 
 	// Проверка прав
 	// TODO: Реализовать проверку прав через RBAC
@@ -158,6 +159,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		UploadID:        uploadID,
 		UploadStatus:    uploadStatus,
 		IsDeleted:       false,
+		PublishStatus:   "private",
 		CreatedAt:       createdAt,
 	}
 
@@ -528,6 +530,7 @@ func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID,
 	// Сохраняем публичный URL в БД
 	video.PublicURL = &publicURL
 	video.PublishedAt = aws.Time(time.Now())
+	video.PublishStatus = "published"
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
 		return nil, fmt.Errorf("failed to update video record: %w", err)
 	}
@@ -570,6 +573,19 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		return nil, fmt.Errorf("video upload not completed")
 	}
 
+	baseURL := "https://api.sellerproof.ru" // TODO: вынести в конфиг
+
+	// 1. Проверяем, есть ли уже активный токен (Идемпотентность)
+	existingShare, err := s.db.GetActivePublicVideoShare(ctx, videoID)
+	if err == nil && existingShare != nil {
+		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", baseURL, existingShare.PublicToken)
+		return &models.PublishVideoResult{
+			PublicURL:   publicURL,
+			PublicToken: existingShare.PublicToken,
+			Message:     "Video already published",
+		}, nil
+	}
+
 	// Генерируем публичный токен
 	publicToken, err := generatePublicToken()
 	if err != nil {
@@ -604,13 +620,12 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		// Обновляем видео с публичным URL
 		video.PublicURL = &publicURL
 		video.PublishedAt = aws.Time(now)
+		video.PublishStatus = "published"
 		if err := s.db.UpdateVideo(ctx, video); err != nil {
 			return nil, fmt.Errorf("failed to update video record: %w", err)
 		}
 	}
 
-	// Формируем публичный URL
-	baseURL := "https://api.sellerproof.ru" // TODO: вынести в конфиг
 	publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", baseURL, publicToken)
 
 	return &models.PublishVideoResult{
@@ -660,11 +675,14 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 	if video.UploadedAt != nil {
 		uploadedAt = video.UploadedAt.Unix()
 	}
-
+	displayTitle := video.Title
+	if displayTitle == "" {
+		displayTitle = video.FileName
+	}
 	response := &models.PublicVideoResponse{
 		VideoID:         video.VideoID,
-		Title:           video.FileName, // TODO: добавить title в Video
-		Description:     "",             // TODO: добавить description в Video
+		Title:           displayTitle,
+		Description:     "", // TODO: добавить description в Video
 		FileName:        video.FileName,
 		ThumbnailURL:    "", // TODO: генерировать thumbnail
 		DurationSeconds: int(video.DurationSeconds),

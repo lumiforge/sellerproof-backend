@@ -121,7 +121,7 @@ func initialize(ctx context.Context) error {
 	}
 
 	// Инициализация сервисов
-	authService := auth.NewService(db, jwtManager, rbacManager, emailClient)
+	authService := auth.NewService(db, jwtManager, rbacManager, emailClient, cfgInstance)
 	videoService := video.NewService(db, storageClient, rbacManager)
 	auditService := audit.NewService(db)
 

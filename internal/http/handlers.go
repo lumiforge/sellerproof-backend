@@ -622,7 +622,12 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := s.videoService.InitiateMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, req.FileName, req.FileSizeBytes, req.DurationSeconds)
+	title := req.Title
+	if title == "" {
+		title = req.FileName
+	}
+
+	resp, err := s.videoService.InitiateMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, title, req.FileName, req.FileSizeBytes, req.DurationSeconds)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -883,6 +888,12 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate UUID format
+	if _, err := uuid.Parse(videoID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
+		return
+	}
+
 	resp, err := s.videoService.GetVideoDirect(r.Context(), claims.UserID, claims.OrgID, videoID)
 	if err != nil {
 		// Check error type and return appropriate HTTP status
@@ -900,6 +911,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	// Convert VideoInfo to our Video model
 	videoResp := &models.Video{
 		VideoID:         resp.VideoID,
+		Title:           resp.Title,
 		FileName:        resp.FileName,
 		FileSizeBytes:   resp.FileSizeBytes,
 		DurationSeconds: resp.DurationSeconds,
@@ -983,6 +995,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	for i, v := range resp.Videos {
 		videos[i] = &models.Video{
 			VideoID:         v.VideoID,
+			Title:           v.Title,
 			FileName:        v.FileName,
 			FileSizeBytes:   v.FileSizeBytes,
 			DurationSeconds: v.DurationSeconds,
@@ -1439,10 +1452,6 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	videoID := r.PathValue("id")
-	if videoID == "" {
-		s.writeError(w, http.StatusBadRequest, "video_id is required")
-		return
-	}
 
 	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
@@ -1517,6 +1526,11 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 	var req models.InviteUserRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	if req.OrgID == "" {
+		s.writeError(w, http.StatusBadRequest, "org_id is required")
 		return
 	}
 
@@ -1629,7 +1643,7 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/api/v1/organization/invitations [get]
 func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
-	_, ok := GetUserClaims(r)
+	claims, ok := GetUserClaims(r)
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -1644,6 +1658,18 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 	// Validate org_id
 	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
 		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// IDOR check
+	if claims.OrgID != orgID {
+		s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+		return
+	}
+
+	// RBAC check
+	if claims.Role != string(rbac.RoleAdmin) && claims.Role != string(rbac.RoleManager) {
+		s.writeError(w, http.StatusForbidden, "Only admins and managers can list invitations")
 		return
 	}
 

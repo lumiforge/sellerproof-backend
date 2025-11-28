@@ -43,7 +43,7 @@ tests {
     expect(res.body.public_url).to.include('http');
     
     // Исправлено ожидание: код возвращает успех, создавая новую ссылку
-    expect(res.body.message).to.equal('Video published successfully');
+    expect(res.body.message).to.equal('Video already published');
     
     // Опционально: можно сохранить новый токен, если он нужен для дальнейших тестов
     // bru.setEnvVar("publicShareToken2", res.body.public_token);

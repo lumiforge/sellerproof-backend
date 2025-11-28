@@ -320,6 +320,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				video_id Text NOT NULL,
 				org_id Text NOT NULL,
 				uploaded_by Text NOT NULL,
+				title Text,
 				file_name Text NOT NULL,
 				file_name_search Text NOT NULL,
 				file_size_bytes Int64 NOT NULL,
@@ -1185,6 +1186,7 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $uploaded_by AS Text;
+		DECLARE $title AS Text;
 		DECLARE $file_name AS Text;
 		DECLARE $file_name_search AS Text;
 		DECLARE $file_size_bytes AS Int64;
@@ -1204,11 +1206,11 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $published_at AS Optional<Timestamp>;
 
 		REPLACE INTO videos (
-			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
+			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
 			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 			public_url, publish_status, published_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at)
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1217,6 +1219,7 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$video_id", types.TextValue(video.VideoID)),
 				table.ValueParam("$org_id", types.TextValue(video.OrgID)),
 				table.ValueParam("$uploaded_by", types.TextValue(video.UploadedBy)),
+				table.ValueParam("$title", types.TextValue(video.Title)),
 				table.ValueParam("$file_name", types.TextValue(video.FileName)),
 				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
 				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
@@ -1279,7 +1282,7 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error) {
 	query := `
 		DECLARE $video_id AS Text;
-		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
+		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 		       public_url, publish_status, published_at
 		FROM videos WHERE video_id = $video_id
@@ -1312,6 +1315,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
+				named.Optional("title", &v.Title),
 				named.Required("file_name", &v.FileName),
 				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -1359,7 +1363,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 	query := `
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
-		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
+		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 		       public_url, publish_status, published_at
 		FROM videos
@@ -1394,6 +1398,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
+				named.Optional("title", &v.Title),
 				named.Required("file_name", &v.FileName),
 				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -1575,7 +1580,7 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Video, error) {
 	query := `
 		DECLARE $token AS Text;
-		SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes, storage_path,
+		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 		       public_url, publish_status, published_at
 		FROM videos
@@ -1609,6 +1614,7 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
+				named.Optional("title", &v.Title),
 				named.Required("file_name", &v.FileName),
 				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -1738,7 +1744,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	DECLARE $offset AS Uint64;`
 
 	dataQuery = declares + `
-	SELECT video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
+	SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
 	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 	       public_url, publish_status, published_at
@@ -1784,6 +1790,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					named.Required("video_id", &v.VideoID),
 					named.Required("org_id", &v.OrgID),
 					named.Required("uploaded_by", &v.UploadedBy),
+					named.Optional("title", &v.Title),
 					named.Required("file_name", &v.FileName),
 					named.Required("file_name_search", &v.FileNameSearch),
 					named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -2854,6 +2861,62 @@ func (c *YDBClient) GetPublicVideoShareByToken(ctx context.Context, token string
 	}
 	if !found {
 		return nil, fmt.Errorf("public video share not found")
+	}
+
+	return &share, nil
+}
+
+// GetActivePublicVideoShare gets the active (not revoked) public share for a video
+func (c *YDBClient) GetActivePublicVideoShare(ctx context.Context, videoID string) (*PublicVideoShare, error) {
+	query := `
+		DECLARE $video_id AS Text;
+		SELECT share_id, video_id, public_token, created_at, created_by, revoked, revoked_at, access_count, last_accessed_at
+		FROM public_video_shares
+		WHERE video_id = $video_id AND revoked = false
+		LIMIT 1
+	`
+
+	var share PublicVideoShare
+	var found bool
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$video_id", types.TextValue(videoID)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			var lastAccessedAt *time.Time
+			err := res.ScanNamed(
+				named.Required("share_id", &share.ShareID),
+				named.Required("video_id", &share.VideoID),
+				named.Required("public_token", &share.PublicToken),
+				named.Required("created_at", &share.CreatedAt),
+				named.Required("created_by", &share.CreatedBy),
+				named.Required("revoked", &share.Revoked),
+				named.Optional("revoked_at", &share.RevokedAt),
+				named.Required("access_count", &share.AccessCount),
+				named.Optional("last_accessed_at", &lastAccessedAt),
+			)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+			share.LastAccessedAt = lastAccessedAt
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("active public share not found")
 	}
 
 	return &share, nil
