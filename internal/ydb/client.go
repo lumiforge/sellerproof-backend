@@ -1516,7 +1516,7 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 					}
 					return table.ValueParam("$uploaded_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadedAt)))
 				}(),
-				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
+				table.ValueParam("$created_at", types.TimestampValueFromTime(video.CreatedAt)),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
 				func() table.ParameterOption {
 					if video.PublicURL == nil {
@@ -3117,53 +3117,96 @@ VALUES ($id, $timestamp, $user_id, $org_id, $action_type, $action_result, $ip_ad
 
 // GetAuditLogs получает логи аудита с фильтрацией и пагинацией
 
+// internal/ydb/client.go
+
+// ... (предыдущий код)
+
 // GetAuditLogs получает логи аудита с фильтрацией и пагинацией
 func (c *YDBClient) GetAuditLogs(ctx context.Context, filters map[string]interface{}, limit, offset int) ([]*models.AuditLog, int64, error) {
-	whereConditions := []string{}
+	var (
+		declarations []string
+		conditions   []string
+		queryParams  []table.ParameterOption
+	)
 
+	// Helper для добавления фильтров
+	addFilter := func(key, paramName, dbField, typeName string, value interface{}) {
+		declarations = append(declarations, fmt.Sprintf("DECLARE $%s AS %s;", paramName, typeName))
+		conditions = append(conditions, fmt.Sprintf("%s = $%s", dbField, paramName))
+
+		var paramValue types.Value
+		switch v := value.(type) {
+		case string:
+			paramValue = types.TextValue(v)
+		default:
+			// Fallback, хотя в текущем коде все фильтры строковые
+			paramValue = types.TextValue(fmt.Sprintf("%v", v))
+		}
+		queryParams = append(queryParams, table.ValueParam("$"+paramName, paramValue))
+	}
+
+	// 1. Сборка фильтров
 	if userID, ok := filters["user_id"].(string); ok && userID != "" {
-		whereConditions = append(whereConditions, fmt.Sprintf("user_id = '%s'", strings.ReplaceAll(userID, "'", "''")))
+		addFilter("user_id", "user_id", "user_id", "Text", userID)
 	}
 
 	if orgID, ok := filters["org_id"].(string); ok && orgID != "" {
-		whereConditions = append(whereConditions, fmt.Sprintf("org_id = '%s'", strings.ReplaceAll(orgID, "'", "''")))
+		addFilter("org_id", "org_id", "org_id", "Text", orgID)
 	}
 
 	if actionType, ok := filters["action_type"].(string); ok && actionType != "" {
-		whereConditions = append(whereConditions, fmt.Sprintf("action_type = '%s'", strings.ReplaceAll(actionType, "'", "''")))
+		addFilter("action_type", "action_type", "action_type", "Text", actionType)
 	}
 
 	if result, ok := filters["result"].(string); ok && result != "" {
-		whereConditions = append(whereConditions, fmt.Sprintf("action_result = '%s'", strings.ReplaceAll(result, "'", "''")))
+		addFilter("result", "action_result", "action_result", "Text", result)
 	}
 
+	// Обработка дат
 	if from, ok := filters["from"].(string); ok && from != "" {
 		fromTime, err := time.Parse("2006-01-02", from)
 		if err == nil {
-			whereConditions = append(whereConditions, fmt.Sprintf("timestamp >= CAST('%s' AS Timestamp)", fromTime.UTC().Format(time.RFC3339)))
+			declarations = append(declarations, "DECLARE $from_date AS Timestamp;")
+			conditions = append(conditions, "timestamp >= $from_date")
+			queryParams = append(queryParams, table.ValueParam("$from_date", types.TimestampValueFromTime(fromTime.UTC())))
 		}
 	}
 
 	if to, ok := filters["to"].(string); ok && to != "" {
 		toTime, err := time.Parse("2006-01-02", to)
 		if err == nil {
+			// Добавляем 1 день, чтобы включить конец даты
 			toTime = toTime.AddDate(0, 0, 1)
-			whereConditions = append(whereConditions, fmt.Sprintf("timestamp < CAST('%s' AS Timestamp)", toTime.UTC().Format(time.RFC3339)))
+			declarations = append(declarations, "DECLARE $to_date AS Timestamp;")
+			conditions = append(conditions, "timestamp < $to_date")
+			queryParams = append(queryParams, table.ValueParam("$to_date", types.TimestampValueFromTime(toTime.UTC())))
 		}
 	}
-
+	// Защита от отрицательных значений перед приведением к uint64
+	if limit < 0 {
+		limit = 0
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	// Сборка частей запроса
+	declareClause := strings.Join(declarations, "\n")
 	whereClause := ""
-	if len(whereConditions) > 0 {
-		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+	if len(conditions) > 0 {
+		// Добавляем перенос строки для чистоты запроса
+		whereClause = "\nWHERE " + strings.Join(conditions, " AND ")
 	}
 
 	var total int64
 	var logs []*models.AuditLog
 
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		// Get total count
-		countQuery := fmt.Sprintf("SELECT COUNT(*) as total FROM audit_logs %s", whereClause)
-		_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters())
+		// 2. Запрос количества (Count)
+		// Используем те же параметры, что собрали выше
+		// Убираем пробел перед %s, так как whereClause начинается с \n или пуст
+		countQuery := fmt.Sprintf("%s\nSELECT COUNT(*) as total FROM audit_logs%s", declareClause, whereClause)
+
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters(queryParams...))
 		if err != nil {
 			return err
 		}
@@ -3178,16 +3221,31 @@ func (c *YDBClient) GetAuditLogs(ctx context.Context, filters map[string]interfa
 			return err
 		}
 
-		// Get logs with pagination
-		logsQuery := fmt.Sprintf(`
-SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details
-FROM audit_logs
-%s
-ORDER BY timestamp DESC
-LIMIT %d OFFSET %d
-`, whereClause, limit, offset)
+		// 3. Запрос данных (Data)
+		// Добавляем параметры пагинации
+		dataDeclarations := append(declarations,
+			"DECLARE $limit AS Uint64;",
+			"DECLARE $offset AS Uint64;",
+		)
+		dataDeclareClause := strings.Join(dataDeclarations, "\n")
 
-		_, res, err = session.Execute(ctx, table.DefaultTxControl(), logsQuery, table.NewQueryParameters())
+		// Копируем параметры и добавляем limit/offset
+		dataParams := make([]table.ParameterOption, len(queryParams))
+		copy(dataParams, queryParams)
+		dataParams = append(dataParams,
+			table.ValueParam("$limit", types.Uint64Value(uint64(limit))),
+			table.ValueParam("$offset", types.Uint64Value(uint64(offset))),
+		)
+
+		logsQuery := fmt.Sprintf(`
+%s
+SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details
+FROM audit_logs%s
+ORDER BY timestamp DESC
+LIMIT $limit OFFSET $offset
+`, dataDeclareClause, whereClause)
+
+		_, res, err = session.Execute(ctx, table.DefaultTxControl(), logsQuery, table.NewQueryParameters(dataParams...))
 		if err != nil {
 			return err
 		}
@@ -3225,4 +3283,61 @@ LIMIT %d OFFSET %d
 	}
 
 	return logs, total, nil
+}
+
+func (c *YDBClient) GetOrganizationsByIDs(ctx context.Context, orgIDs []string) ([]*Organization, error) {
+	if len(orgIDs) == 0 {
+		return []*Organization{}, nil
+	}
+
+	query := `
+		DECLARE $org_ids AS List<Text>;
+		SELECT org_id, name, owner_id, settings, created_at, updated_at
+		FROM organizations
+		WHERE org_id IN $org_ids
+	`
+
+	// Конвертируем []string в []types.Value для YDB
+	ydbValues := make([]types.Value, len(orgIDs))
+	for i, id := range orgIDs {
+		ydbValues[i] = types.TextValue(id)
+	}
+
+	var orgs []*Organization
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$org_ids", types.ListValue(ydbValues...)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		for res.NextResultSet(ctx) {
+			for res.NextRow() {
+				var org Organization
+				if err := res.ScanNamed(
+					named.Required("org_id", &org.OrgID),
+					named.Required("name", &org.Name),
+					named.Required("owner_id", &org.OwnerID),
+					named.Required("settings", &org.Settings),
+					named.Required("created_at", &org.CreatedAt),
+					named.Required("updated_at", &org.UpdatedAt),
+				); err != nil {
+					return fmt.Errorf("scan failed: %w", err)
+				}
+				orgs = append(orgs, &org)
+			}
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return orgs, nil
 }

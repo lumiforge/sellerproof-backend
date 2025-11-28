@@ -184,7 +184,6 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := s.authService.VerifyEmail(r.Context(), authReq)
-	// Заменить текущую обработку ошибки на:
 	if err != nil {
 		// Log failed verification attempt
 		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditEmailVerified, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
@@ -256,6 +255,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.Login(r.Context(), authReq)
 	if err != nil {
+		// We don't log failed login attempts, since it is not useful for the client
 		// Log failed login attempt
 		// s.auditService.LogAction(r.Context(), "unknown", "", models.AuditLoginFailure, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 		// 	"email":  req.Email,
@@ -1074,31 +1074,7 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate temporary stream URL (presigned URL for 1 hour)
-	streamURL, err := s.videoService.GeneratePublicStreamURL(ctx, publicVideo.VideoID, 1*time.Hour)
-	if err != nil {
-		slog.Error("Failed to generate stream URL", "error", err)
-		s.writeError(w, http.StatusInternalServerError, "Failed to generate stream URL")
-		return
-	}
-
-	// Note: Access count is incremented asynchronously in the service layer
-
-	// Prepare response
-	response := models.PublicVideoResponse{
-		VideoID:         publicVideo.VideoID,
-		Title:           publicVideo.Title,
-		Description:     publicVideo.Description,
-		FileName:        publicVideo.FileName,
-		ThumbnailURL:    publicVideo.ThumbnailURL,
-		DurationSeconds: publicVideo.DurationSeconds,
-		FileSizeBytes:   publicVideo.FileSizeBytes,
-		StreamURL:       streamURL,
-		ExpiresAt:       time.Now().Add(1 * time.Hour).Unix(),
-		UploadedAt:      publicVideo.UploadedAt,
-	}
-
-	s.writeJSON(w, http.StatusOK, response)
+	s.writeJSON(w, http.StatusOK, publicVideo)
 }
 
 // CreatePublicShareLink handles creating public share link
@@ -1777,6 +1753,11 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "org_id is required")
 		return
 	}
+	// IDOR check
+	if claims.OrgID != orgID {
+		s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+		return
+	}
 
 	// Check admin role
 	if claims.Role != "admin" {
@@ -1890,6 +1871,34 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
+	}
+
+	orgID := r.URL.Query().Get("org_id")
+	if orgID == "" {
+		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		return
+	}
+
+	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// IDOR check
+	if claims.OrgID != orgID && claims.Role != "admin" {
+		if claims.OrgID != orgID {
+			s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+			return
+		}
+	}
+
+	if claims.OrgID != orgID && claims.Role != "admin" {
+		// Примечание: если claims.Role == "admin", он админ только в claims.OrgID.
+		// Поэтому строгая проверка:
+		if claims.OrgID != orgID {
+			s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+			return
+		}
 	}
 
 	// Check admin role
@@ -2148,8 +2157,8 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 // @Router /admin/audit-logs [get]
 func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	// Extract JWT claims
-	claims := r.Context().Value("claims").(*jwt.Claims)
-	if claims == nil {
+	claims, ok := GetUserClaims(r)
+	if !ok {
 		s.writeError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}

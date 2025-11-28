@@ -1,0 +1,45 @@
+--- internal/ydb/client.go
++++ internal/ydb/client.go
+@@ -1607,6 +1607,13 @@
+ 		}
+ 	}
+ 
++	// Защита от отрицательных значений перед приведением к uint64
++	if limit < 0 {
++		limit = 0
++	}
++	if offset < 0 {
++		offset = 0
++	}
++
+ 	// Сборка частей запроса
+ 	declareClause := strings.Join(declarations, "\n")
+ 	whereClause := ""
+ 	if len(conditions) > 0 {
+-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
++		// Добавляем перенос строки для чистоты запроса
++		whereClause = "\nWHERE " + strings.Join(conditions, " AND ")
+ 	}
+ 
+ 	var total int64
+ 	var logs []*models.AuditLog
+ 
+ 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+ 		// 2. Запрос количества (Count)
+ 		// Используем те же параметры, что собрали выше
+-		countQuery := fmt.Sprintf("%s\nSELECT COUNT(*) as total FROM audit_logs %s", declareClause, whereClause)
++		// Убираем пробел перед %s, так как whereClause теперь начинается с \n или пуст
++		countQuery := fmt.Sprintf("%s\nSELECT COUNT(*) as total FROM audit_logs%s", declareClause, whereClause)
+ 
+ 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters(queryParams...))
+ 		if err != nil {
+@@ -1645,8 +1652,7 @@
+ 		logsQuery := fmt.Sprintf(`
+ %s
+ SELECT id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details
+-FROM audit_logs
+-%s
++FROM audit_logs%s
+ ORDER BY timestamp DESC
+ LIMIT $limit OFFSET $offset
+ `, dataDeclareClause, whereClause)

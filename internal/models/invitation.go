@@ -3,9 +3,9 @@ package models
 // InviteUserRequest represents a request to invite a user to organization
 // @Description	Invite user request with email and role
 type InviteUserRequest struct {
-	Email string `json:"email" validate:"required,email"`
-	Role  string `json:"role" validate:"required,oneof=user manager admin"`
-	OrgID string `json:"org_id" validate:"required"`
+	Email string `json:"email"`
+	Role  string `json:"role"`
+	OrgID string `json:"org_id"`
 }
 
 // InviteUserResponse represents a response for user invitation
@@ -21,7 +21,7 @@ type InviteUserResponse struct {
 // AcceptInvitationRequest represents a request to accept invitation
 // @Description	Accept invitation request with invite code
 type AcceptInvitationRequest struct {
-	InviteCode string `json:"invite_code" validate:"required"`
+	InviteCode string `json:"invite_code"`
 }
 
 // AcceptInvitationResponse represents a response for accepting invitation
@@ -56,7 +56,7 @@ type InvitationInfo struct {
 // UpdateMemberRoleRequest represents a request to update member role
 // @Description	Update member role request
 type UpdateMemberRoleRequest struct {
-	NewRole string `json:"new_role" validate:"required,oneof=user manager admin"`
+	NewRole string `json:"new_role"`
 }
 
 // MemberInfo represents organization member information

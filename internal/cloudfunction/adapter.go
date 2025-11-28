@@ -8,19 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 
-	"github.com/lumiforge/sellerproof-backend/internal/audit"
-	"github.com/lumiforge/sellerproof-backend/internal/auth"
-	"github.com/lumiforge/sellerproof-backend/internal/config"
-	"github.com/lumiforge/sellerproof-backend/internal/email"
-	httpserver "github.com/lumiforge/sellerproof-backend/internal/http"
-	"github.com/lumiforge/sellerproof-backend/internal/jwt"
-	"github.com/lumiforge/sellerproof-backend/internal/logger"
-	"github.com/lumiforge/sellerproof-backend/internal/rbac"
-	"github.com/lumiforge/sellerproof-backend/internal/storage"
-	"github.com/lumiforge/sellerproof-backend/internal/telegram"
-	"github.com/lumiforge/sellerproof-backend/internal/video"
-	"github.com/lumiforge/sellerproof-backend/internal/ydb"
+	"github.com/lumiforge/sellerproof-backend/internal/bootstrap"
 )
 
 // CloudFunctionRequest структура запроса от API Gateway
@@ -42,20 +32,21 @@ type CloudFunctionResponse struct {
 }
 
 var (
-	router      http.Handler
-	initOnce    bool
-	cfgInstance *config.Config
+	apiHandler http.Handler
+	initOnce   sync.Once
+	initErr    error
 )
 
-// Handler - главная функция для Cloud Function
+// Handler - главная функция для Cloud Function (JSON trigger)
 func Handler(ctx context.Context, request []byte) ([]byte, error) {
-	// Инициализация при первом вызове (холодный старт)
-	if !initOnce {
-		if err := initialize(ctx); err != nil {
-			return respondError(500, "Failed to initialize: "+err.Error())
-		}
-		initOnce = true
-		slog.Info("Cloud Function initialized successfully")
+	// Ленивая инициализация через bootstrap
+	initOnce.Do(func() {
+		apiHandler, initErr = bootstrap.Initialize(ctx)
+	})
+
+	if initErr != nil {
+		slog.Error("Failed to initialize application", "error", initErr)
+		return respondError(500, "Failed to initialize: "+initErr.Error())
 	}
 
 	// Парсинг запроса от API Gateway
@@ -80,58 +71,11 @@ func Handler(ctx context.Context, request []byte) ([]byte, error) {
 	// Создаём ResponseRecorder для захвата ответа
 	rr := httptest.NewRecorder()
 
-	// Обрабатываем запрос через роутер
-	router.ServeHTTP(rr, httpReq)
+	// Обрабатываем запрос через инициализированный роутер
+	apiHandler.ServeHTTP(rr, httpReq)
 
 	// Конвертируем HTTP response в Cloud Function response
 	return buildCloudFunctionResponse(rr), nil
-}
-
-// initialize - инициализация всех компонентов
-func initialize(ctx context.Context) error {
-	// Загрузка конфигурации
-	cfgInstance = config.Load()
-
-	// Инициализация Telegram клиента
-	tgClient := telegram.NewClient(cfgInstance)
-
-	// Инициализация логгера
-	log := logger.New(tgClient)
-	slog.SetDefault(log)
-
-	// Инициализация YDB
-	db, err := ydb.NewYDBClient(ctx, cfgInstance)
-	if err != nil {
-		return err
-	}
-
-	// Инициализация JWT менеджера
-	jwtManager := jwt.NewJWTManager(cfgInstance)
-
-	// Инициализация RBAC
-	rbacManager := rbac.NewRBAC()
-
-	// Инициализация email клиента
-	emailClient := email.NewClient(cfgInstance)
-
-	// Инициализация S3 клиента
-	storageClient, err := storage.NewClient(ctx, cfgInstance)
-	if err != nil {
-		return err
-	}
-
-	// Инициализация сервисов
-	authService := auth.NewService(db, jwtManager, rbacManager, emailClient, cfgInstance)
-	videoService := video.NewService(db, storageClient, rbacManager)
-	auditService := audit.NewService(db)
-
-	// Инициализация HTTP сервера
-	server := httpserver.NewServer(authService, videoService, jwtManager, auditService)
-
-	// Настройка роутера
-	router = httpserver.SetupRouter(server, jwtManager)
-
-	return nil
 }
 
 // buildHTTPRequest - создание HTTP запроса из Cloud Function request

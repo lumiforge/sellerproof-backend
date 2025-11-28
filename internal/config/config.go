@@ -33,6 +33,7 @@ type Config struct {
 	SESSecretAccessKey    string
 	EmailFrom             string
 	AppLoginURL           string
+	APIBaseURL            string
 	SPYDBAutoCreateTables int
 
 	// Plan configuration
@@ -94,6 +95,7 @@ func Load() *Config {
 		SESSecretAccessKey: getEnv("SP_POSTBOX_SECRET_ACCESS_KEY", ""),
 		EmailFrom:          getEnv("SP_EMAIL_FROM", ""),
 		AppLoginURL:        getEnv("SP_APP_LOGIN_URL", ""),
+		APIBaseURL:         getEnv("SP_API_BASE_URL", "https://api.sellerproof.ru"),
 
 		// Plan configuration
 		StorageLimitFree:          int64(getEnvInt("storage_limit_free", 1024, 0, 0)),

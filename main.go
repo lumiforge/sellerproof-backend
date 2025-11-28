@@ -2,22 +2,14 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 
-	"github.com/lumiforge/sellerproof-backend/internal/audit"
-	"github.com/lumiforge/sellerproof-backend/internal/auth"
+	"github.com/lumiforge/sellerproof-backend/internal/bootstrap"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
-	"github.com/lumiforge/sellerproof-backend/internal/email"
-	httpserver "github.com/lumiforge/sellerproof-backend/internal/http"
-	"github.com/lumiforge/sellerproof-backend/internal/jwt"
-	"github.com/lumiforge/sellerproof-backend/internal/logger"
-	"github.com/lumiforge/sellerproof-backend/internal/rbac"
-	"github.com/lumiforge/sellerproof-backend/internal/storage"
-	"github.com/lumiforge/sellerproof-backend/internal/telegram"
-	"github.com/lumiforge/sellerproof-backend/internal/video"
-	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
 // @title			SellerProof API
@@ -41,59 +33,50 @@ import (
 // @description					Bearer token for authentication
 
 var (
-	router http.Handler
+	apiHandler http.Handler
+	initOnce   sync.Once
+	initErr    error
 )
 
-func init() {
-	ctx := context.Background()
-
-	// Загрузка конфигурации
-	cfg := config.Load()
-
-	// Инициализация Telegram клиента
-	tgClient := telegram.NewClient(cfg)
-
-	// Инициализация логгера
-	log := logger.New(tgClient)
-	slog.SetDefault(log)
-
-	// Инициализация YDB
-	db, err := ydb.NewYDBClient(ctx, cfg)
-	if err != nil {
-		slog.Error("Failed to connect to YDB", "error", err)
-		// Force output to stdout to ensure it appears in simple logs
-		println("CRITICAL ERROR: Failed to connect to YDB: " + err.Error())
-		os.Exit(1)
-	}
-
-	// Инициализация JWT менеджера
-	jwtManager := jwt.NewJWTManager(cfg)
-
-	// Инициализация RBAC
-	rbacManager := rbac.NewRBAC()
-
-	// Инициализация email клиента
-	emailClient := email.NewClient(cfg)
-
-	// Инициализация S3 клиента
-	storageClient, err := storage.NewClient(ctx, cfg)
-	if err != nil {
-		slog.Error("Failed to initialize storage client", "error", err)
-		os.Exit(1)
-	}
-
-	// Инициализация сервисов
-	authService := auth.NewService(db, jwtManager, rbacManager, emailClient, cfg)
-	videoService := video.NewService(db, storageClient, rbacManager)
-	auditService := audit.NewService(db)
-
-	// Инициализация HTTP сервера
-	server := httpserver.NewServer(authService, videoService, jwtManager, auditService)
-
-	// Настройка роутера
-	router = httpserver.SetupRouter(server, jwtManager)
+// getHandler обеспечивает ленивую инициализацию приложения (Singleton)
+func getHandler(ctx context.Context) (http.Handler, error) {
+	initOnce.Do(func() {
+		apiHandler, initErr = bootstrap.Initialize(ctx)
+	})
+	return apiHandler, initErr
 }
 
+// EntryPoint - точка входа для Yandex Cloud Functions (HttpTrigger)
 func EntryPoint(w http.ResponseWriter, r *http.Request) {
-	router.ServeHTTP(w, r)
+	handler, err := getHandler(r.Context())
+	if err != nil {
+		slog.Error("Failed to initialize application", "error", err)
+		http.Error(w, "Internal Server Error: Initialization failed", http.StatusInternalServerError)
+		return
+	}
+	handler.ServeHTTP(w, r)
+}
+
+// main - точка входа для локального запуска
+func main() {
+	ctx := context.Background()
+
+	// Инициализируем приложение
+	handler, err := getHandler(ctx)
+	if err != nil {
+		log.Fatalf("CRITICAL: Failed to initialize application: %v", err)
+	}
+
+	// Загружаем конфиг только для получения порта (сам конфиг уже загружен внутри bootstrap)
+	cfg := config.Load()
+	port := cfg.HTTPPort
+	if port == "" {
+		port = "8080"
+	}
+
+	slog.Info("Starting server", "port", port)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
+	}
 }

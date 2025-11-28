@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -167,16 +167,20 @@ func (c *Client) CopyToPublicBucket(ctx context.Context, sourceKey, destKey stri
 	}
 
 	// Формируем постоянный публичный URL
-	// Извлекаем доменное имя из endpoint (например: https://storage.yandexcloud.net -> storage.yandexcloud.net)
-	endpoint := c.endpoint
-	if strings.HasPrefix(endpoint, "https://") {
-		endpoint = strings.TrimPrefix(endpoint, "https://")
-	} else if strings.HasPrefix(endpoint, "http://") {
-		endpoint = strings.TrimPrefix(endpoint, "http://")
+	u, err := url.Parse(c.endpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse endpoint url: %w", err)
 	}
 
-	publicURL := fmt.Sprintf("https://%s.%s/%s", c.publicBucket, endpoint, destKey)
-	return publicURL, nil
+	// Принудительно ставим HTTPS для публичных ссылок
+	u.Scheme = "https"
+
+	// Формируем Virtual-Hosted Style URL: https://bucket.endpoint/key
+	// u.Host содержит только домен (например, storage.yandexcloud.net), без схемы
+	u.Host = fmt.Sprintf("%s.%s", c.publicBucket, u.Host)
+	u.Path = destKey
+
+	return u.String(), nil
 }
 
 // CopyObject copies object from one bucket to another

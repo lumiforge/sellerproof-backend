@@ -124,9 +124,10 @@ type SwitchOrganizationRequest struct {
 // SwitchOrganizationResponse represents a response for organization switching
 // @Description	Switch organization response
 type SwitchOrganizationResponse struct {
-	AccessToken string `json:"access_token"`
-	ExpiresAt   int64  `json:"expires_at"`
-	OrgID       string `json:"org_id"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresAt    int64  `json:"expires_at"`
+	OrgID        string `json:"org_id"`
 }
 
 // CreateOrganizationRequest represents organization create request

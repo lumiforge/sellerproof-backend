@@ -19,6 +19,7 @@ type Database interface {
 	// Организации
 	CreateOrganization(ctx context.Context, org *Organization) error
 	GetOrganizationByID(ctx context.Context, orgID string) (*Organization, error)
+	GetOrganizationsByIDs(ctx context.Context, orgIDs []string) ([]*Organization, error)
 	GetOrganizationsByOwner(ctx context.Context, ownerID string) ([]*Organization, error)
 	UpdateOrganization(ctx context.Context, org *Organization) error
 

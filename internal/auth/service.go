@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"log/slog"
 	"strings"
@@ -93,11 +92,6 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		validation.WithXSSCheck(),
 	)
 
-	passwordOptions := validation.CombineOptions(
-		validation.WithSQLInjectionCheck(),
-		validation.WithXSSCheck(),
-	)
-
 	// Для имени и организации отключаем Unicode проверку, чтобы разрешить кириллицу
 	nameOptions := validation.CombineOptions(
 		validation.WithSQLInjectionCheck(),
@@ -106,11 +100,6 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 	// Проверка email на инъекции
 	if err := validation.ValidateInputWithError(req.Email, "email", emailOptions); err != nil {
-		return nil, err
-	}
-
-	// Проверка пароля на инъекции
-	if err := validation.ValidateInputWithError(req.Password, "password", passwordOptions); err != nil {
 		return nil, err
 	}
 
@@ -428,6 +417,22 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 		return nil, fmt.Errorf("failed to get user membership: membership not found")
 	}
+	// Оптимизация: Получаем все организации одним запросом (Batch Fetch)
+	orgIDs := make([]string, 0, len(memberships))
+	for _, m := range memberships {
+		orgIDs = append(orgIDs, m.OrgID)
+	}
+
+	orgs, err := s.db.GetOrganizationsByIDs(ctx, orgIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get organizations: %w", err)
+	}
+
+	// Создаем карту для быстрого поиска организации по ID
+	orgMap := make(map[string]*ydb.Organization)
+	for _, o := range orgs {
+		orgMap[o.OrgID] = o
+	}
 
 	// Выбираем организацию по приоритету:
 	// 1. Где пользователь - владелец организации
@@ -436,9 +441,8 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	for _, m := range memberships {
 		if m.Status == "active" {
-			// Проверяем, является ли пользователь владельцем
-			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
-			if err == nil && org.OwnerID == user.UserID {
+			// Проверяем, является ли пользователь владельцем (используя карту)
+			if org, exists := orgMap[m.OrgID]; exists && org.OwnerID == user.UserID {
 				selectedMembership = m
 				break
 			}
@@ -447,7 +451,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 				selectedMembership = m
 			}
 		}
-		log.Println("Debug in loop ", m.OrgID)
+
 	}
 
 	// Если нет активных, берем первое
@@ -459,16 +463,15 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	// Собираем информацию об организациях для ответа
 	organizations := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {
-		// Получаем информацию об организации для всех членств
-		org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
-		if err != nil {
-			slog.Error("Failed to get organization", "error", err, "org_id", m.OrgID)
+		// Получаем информацию об организации из карты
+		org, exists := orgMap[m.OrgID]
+		if !exists {
+			slog.Warn("Organization not found for membership", "org_id", m.OrgID)
 			continue
 		}
 
 		orgName := org.Name
 		role := m.Role
-		log.Println("Organization added ", m.OrgID, orgName)
 		organizations = append(organizations, &models.OrganizationInfo{
 			OrgID: m.OrgID,
 			Name:  orgName,
@@ -505,9 +508,12 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	err = s.db.CreateRefreshToken(ctx, refreshTokenRecord)
 	if err != nil {
 		slog.Error("Failed to save refresh token", "error", err, "user_id", user.UserID)
+
+		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
 	fullName := user.FullName
+
 	role = selectedMembership.Role
 	return &models.LoginResponse{
 		AccessToken:  accessToken,
@@ -720,7 +726,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	// Генерируем новый токен с новой организацией
 	role := membership.Role
 
-	accessToken, _, err := s.jwtManager.GenerateTokenPair(
+	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
 		user.UserID,
 		user.Email,
 		role,
@@ -730,10 +736,28 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
+	// Сохранение нового refresh токена в базу
+	tokenHash := s.hashToken(refreshToken)
+	expiresAt := time.Now().Add(s.jwtManager.GetTokenExpiry("refresh"))
+	createdAt := time.Now()
+	refreshTokenRecord := &ydb.RefreshToken{
+		TokenID:   uuid.New().String(),
+		UserID:    user.UserID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+		CreatedAt: createdAt,
+		IsRevoked: false,
+	}
+	if err := s.db.CreateRefreshToken(ctx, refreshTokenRecord); err != nil {
+		slog.Error("Failed to save refresh token during org switch", "error", err, "user_id", user.UserID)
+		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
 	return &models.SwitchOrganizationResponse{
-		AccessToken: accessToken,
-		ExpiresAt:   time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
-		OrgID:       req.OrgID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
+		OrgID:        req.OrgID,
 	}, nil
 }
 
@@ -819,6 +843,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 		return nil, fmt.Errorf("failed to create invitation: %w", err)
 	}
 
+	// Do not use the email service for the time being, since it is not useful for the client (who can use any other messaging service).
 	// Отправляем email с приглашением
 	// if s.email.IsConfigured() {
 	// 	org, err := s.db.GetOrganizationByID(ctx, orgID)

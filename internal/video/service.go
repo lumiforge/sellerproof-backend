@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -22,13 +23,15 @@ type Service struct {
 	db      ydb.Database
 	storage *storage.Client
 	rbac    *rbac.RBAC
+	baseURL string
 }
 
-func NewService(db ydb.Database, storage *storage.Client, rbac *rbac.RBAC) *Service {
+func NewService(db ydb.Database, storage *storage.Client, rbac *rbac.RBAC, baseURL string) *Service {
 	return &Service{
 		db:      db,
 		storage: storage,
 		rbac:    rbac,
+		baseURL: baseURL,
 	}
 }
 
@@ -573,12 +576,10 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		return nil, fmt.Errorf("video upload not completed")
 	}
 
-	baseURL := "https://api.sellerproof.ru" // TODO: вынести в конфиг
-
 	// 1. Проверяем, есть ли уже активный токен (Идемпотентность)
 	existingShare, err := s.db.GetActivePublicVideoShare(ctx, videoID)
 	if err == nil && existingShare != nil {
-		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", baseURL, existingShare.PublicToken)
+		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, existingShare.PublicToken)
 		return &models.PublishVideoResult{
 			PublicURL:   publicURL,
 			PublicToken: existingShare.PublicToken,
@@ -626,7 +627,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		}
 	}
 
-	publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", baseURL, publicToken)
+	publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, publicToken)
 
 	return &models.PublishVideoResult{
 		PublicURL:   publicURL,
@@ -662,13 +663,11 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate stream URL: %w", err)
 	}
-
-	// Обновляем счетчик просмотров (асинхронно)
-	go func() {
-		if err := s.db.IncrementAccessCount(context.Background(), token); err != nil {
-			log.Printf("Failed to increment access count: %v", err)
-		}
-	}()
+	if err := s.db.IncrementAccessCount(ctx, token); err != nil {
+		// Логируем ошибку, но НЕ прерываем выполнение, чтобы пользователь все равно получил видео
+		// Используем slog, так как он инициализирован в проекте, вместо стандартного log
+		slog.Error("Failed to increment access count", "error", err, "token", token)
+	}
 
 	// Подготавливаем ответ
 	var uploadedAt int64
