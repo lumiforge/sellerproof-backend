@@ -843,17 +843,16 @@ func (c *YDBClient) GetMembership(ctx context.Context, userID, orgID string) (*M
 				named.Required("membership_id", &membership.MembershipID),
 				named.Required("user_id", &membership.UserID),
 				named.Required("org_id", &membership.OrgID),
-				named.Optional("role", &membership.Role),
-				named.Optional("status", &membership.Status),
-				named.Optional("invited_by", &membership.InvitedBy),
+				named.Required("role", &membership.Role),
+				named.Required("status", &membership.Status),
+				named.Required("invited_by", &membership.InvitedBy),
 				named.Required("created_at", &membership.CreatedAt),
 				named.Required("updated_at", &membership.UpdatedAt),
 			)
-			if err != nil {
+			{
 				return fmt.Errorf("scan failed: %w", err)
 			}
-			// TODO delete me
-			log.Println("Found membership", membership.MembershipID, "for user", userID, "and org", orgID)
+
 		}
 		// TODO delete me
 		log.Println("End of memberships query")
