@@ -544,6 +544,8 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Limit request body size to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 	// Read the body once
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -894,7 +896,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.videoService.GetVideoDirect(r.Context(), claims.UserID, claims.OrgID, videoID)
+	resp, err := s.videoService.GetVideoDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, videoID)
 	if err != nil {
 		// Check error type and return appropriate HTTP status
 		errorMsg := err.Error()
@@ -1374,7 +1376,7 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.videoService.GetPrivateDownloadURL(r.Context(), claims.UserID, claims.OrgID, videoID)
+	resp, err := s.videoService.GetPrivateDownloadURL(r.Context(), claims.UserID, claims.OrgID, claims.Role, videoID)
 	if err != nil {
 		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoDownloadPrivate, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 			"video_id": videoID,
@@ -1853,6 +1855,60 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	})
 
 	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member role updated successfully"})
+}
+
+// UpdateMemberStatus handles updating member status (block/unblock)
+// @Summary		Update member status
+// @Description	Update organization member status (active/suspended)
+// @Tags		organization
+// @Accept		json
+// @Produce	json
+// @Param		user_id	path		string	true	"User ID"
+// @Param		request	body		models.UpdateMemberStatusRequest	true	"Update member status request"
+// @Security	BearerAuth
+// @Success	200	{object}	map[string]string
+// @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
+// @Router		/api/v1/organization/members/{user_id}/status [put]
+func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	userAgent := r.Header.Get("User-Agent")
+
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	userID := r.PathValue("user_id")
+	if userID == "" {
+		s.writeError(w, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	var req models.UpdateMemberStatusRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	err := s.authService.UpdateMemberStatus(r.Context(), claims.UserID, claims.OrgID, userID, req.Status)
+	if err != nil {
+		// Логируем ошибку и возвращаем ответ (аналогично UpdateMemberRole)
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditOrgMemberStatusChanged, models.AuditResultSuccess, ipAddress, userAgent, map[string]interface{}{
+		"target_user_id": userID,
+		"new_status":     req.Status,
+	})
+
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member status updated successfully"})
 }
 
 // RemoveMember handles removing member from organization

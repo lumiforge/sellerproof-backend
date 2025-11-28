@@ -1,0 +1,30 @@
+meta {
+  name: Update member status access denied with user role
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{userAccessToken}}
+}
+
+body:json {
+  {
+    "status": "suspended"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for user role attempting to update member status', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('message');
+    expect(res.body.message.toLowerCase()).to.include('insufficient permissions');
+  });
+}

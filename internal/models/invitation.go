@@ -59,6 +59,12 @@ type UpdateMemberRoleRequest struct {
 	NewRole string `json:"new_role"`
 }
 
+// UpdateMemberStatusRequest represents a request to update member status
+// @Description	Update member status request
+type UpdateMemberStatusRequest struct {
+	Status string `json:"status"` // "active" or "suspended"
+}
+
 // MemberInfo represents organization member information
 // @Description	Organization member details
 type MemberInfo struct {

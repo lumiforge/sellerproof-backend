@@ -110,6 +110,10 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("PUT /api/v1/organization/members/{user_id}/role", chainMiddleware(server.UpdateMemberRole, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)
 	}))
+	// PUT /api/v1/organization/members/{user_id}/status
+	mux.HandleFunc("PUT /api/v1/organization/members/{user_id}/status", chainMiddleware(server.UpdateMemberStatus, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, next)
+	}))
 	// DELETE /api/v1/organization/members/{user_id}
 	mux.HandleFunc("DELETE /api/v1/organization/members/{user_id}", chainMiddleware(server.RemoveMember, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, next)

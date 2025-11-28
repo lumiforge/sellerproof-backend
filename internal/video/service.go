@@ -286,12 +286,16 @@ type CompleteMultipartUploadResult struct {
 }
 
 // GetVideoDirect gets video information with direct parameters
-func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, videoID string) (*VideoInfo, error) {
+func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, videoID string) (*VideoInfo, error) {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
 	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
 		return nil, fmt.Errorf("access denied")
 	}
 
@@ -487,13 +491,17 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 }
 
 // GetPrivateDownloadURL генерирует временный URL для скачивания приватного видео
-func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, videoID string) (*models.DownloadURLResult, error) {
+func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, role, videoID string) (*models.DownloadURLResult, error) {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("video not found")
 	}
 
 	if video.OrgID != orgID {
+		return nil, fmt.Errorf("access denied")
+	}
+
+	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
 		return nil, fmt.Errorf("access denied")
 	}
 

@@ -1,0 +1,21 @@
+meta {
+  name: Update member status wrong HTTP method GET
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/status
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Should return 405 Method Not Allowed for GET request', function() {
+    expect(res.status).to.equal(405);
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Update member status missing Content-Type
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "status": "active"
+  }
+}
+
+headers {
+  Content-Type:
+}
+
+tests {
+  test('Should return 415 Unsupported Media Type for missing Content-Type header', function() {
+    expect(res.status).to.equal(415);
+  });
+}

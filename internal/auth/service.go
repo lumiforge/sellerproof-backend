@@ -412,9 +412,9 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	}
 
-	// Если нет активных, берем первое
+	// Если нет активных организаций, запрещаем вход
 	if selectedMembership == nil {
-		selectedMembership = memberships[0]
+		return nil, fmt.Errorf("no active memberships found")
 	}
 
 	// Собираем информацию об организациях для ответа
@@ -595,9 +595,9 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 		}
 	}
 
-	// Если нет активных, берем первое
+	// Если нет активных организаций, запрещаем вход
 	if selectedMembership == nil {
-		selectedMembership = memberships[0]
+		return nil, fmt.Errorf("no active memberships found")
 	}
 
 	fullName := user.FullName
@@ -1018,6 +1018,50 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 	}
 
 	return nil
+}
+
+// UpdateMemberStatus обновляет статус члена организации (active/suspended)
+func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, targetUserID, newStatus string) error {
+	// Валидация статуса
+	if newStatus != "active" && newStatus != "suspended" {
+		return fmt.Errorf("invalid status: %s", newStatus)
+	}
+
+	// Получаем членство администратора
+	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
+	if err != nil {
+		return fmt.Errorf("admin is not a member of this organization")
+	}
+
+	// Проверяем права: только Admin и Manager могут менять статусы
+	if adminMembership.Role != string(rbac.RoleAdmin) && adminMembership.Role != string(rbac.RoleManager) {
+		return fmt.Errorf("insufficient permissions")
+	}
+
+	// Получаем целевое членство
+	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
+	if err != nil {
+		return fmt.Errorf("target user is not a member of this organization")
+	}
+
+	// Проверка иерархии: Manager не может блокировать Admin или другого Manager
+	if adminMembership.Role == string(rbac.RoleManager) {
+		if targetMembership.Role == string(rbac.RoleAdmin) || targetMembership.Role == string(rbac.RoleManager) {
+			return fmt.Errorf("managers cannot manage admins or other managers")
+		}
+	}
+
+	// Нельзя заблокировать владельца организации
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err == nil && org.OwnerID == targetUserID {
+		return fmt.Errorf("cannot change status of organization owner")
+	}
+
+	targetMembership.Status = newStatus
+	targetMembership.UpdatedAt = time.Now()
+
+	// Обновляем запись в БД
+	return s.db.UpdateMembership(ctx, targetMembership)
 }
 
 // ListOrgMembers возвращает список членов организации

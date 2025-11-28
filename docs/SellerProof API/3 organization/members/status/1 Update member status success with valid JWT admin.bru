@@ -1,0 +1,30 @@
+meta {
+  name: Update member status success with valid JWT admin
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{userId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "status": "suspended"
+  }
+}
+
+tests {
+  test('Should return 200 OK and confirmation message for valid JWT with admin role', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.be.a('string').that.equals('Member status updated successfully');
+  });
+}

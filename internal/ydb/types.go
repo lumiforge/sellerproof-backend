@@ -95,6 +95,10 @@ type EmailLog struct {
 }
 
 // Invitation представляет приглашение пользователя в организацию
+// "pending": Приглашение создано, но не принято.
+// "accepted": Пользователь принял приглашение (в этот момент создается Membership со статусом "active").
+// "expired": Истек срок действия ссылки.
+// "cancelled": Приглашение отозвано администратором.
 type Invitation struct {
 	InvitationID string     `db:"invitation_id"`
 	OrgID        string     `db:"org_id"`
