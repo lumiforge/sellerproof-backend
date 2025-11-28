@@ -839,6 +839,8 @@ func (c *YDBClient) GetMembership(ctx context.Context, userID, orgID string) (*M
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			found = true
+			log.Println("About to scan membership data")
+
 			err := res.ScanNamed(
 				named.Required("membership_id", &membership.MembershipID),
 				named.Required("user_id", &membership.UserID),
@@ -849,14 +851,19 @@ func (c *YDBClient) GetMembership(ctx context.Context, userID, orgID string) (*M
 				named.Required("created_at", &membership.CreatedAt),
 				named.Required("updated_at", &membership.UpdatedAt),
 			)
-			{
+
+			log.Println("ScanNamed error:", err) // ✅ Проверим что возвращает ScanNamed
+
+			if err != nil {
+				log.Println("Scan failed with error:", err)
 				return fmt.Errorf("scan failed: %w", err)
 			}
-
+			log.Println("Successfully scanned membership:", membership.MembershipID)
 		}
-		// TODO delete me
-		log.Println("End of memberships query")
+
+		log.Println("res.Err():", res.Err()) // ✅ Проверим res.Err()
 		return res.Err()
+
 	})
 
 	if err != nil {
