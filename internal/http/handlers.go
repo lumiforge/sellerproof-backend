@@ -60,6 +60,7 @@ func (s *Server) writeError(w http.ResponseWriter, status int, message string) {
 
 // validateRequest validates and decodes a request struct
 func (s *Server) validateRequest(r *http.Request, req interface{}) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, 1048576) // 1MB limit
 	return json.NewDecoder(r.Body).Decode(req)
 }
 

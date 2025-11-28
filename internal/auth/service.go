@@ -269,9 +269,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 				SentAt:           emailMessage.SentAt,
 				ErrorMessage:     emailMessage.Error,
 			}
-			go func() {
-				_ = s.db.CreateEmailLog(context.Background(), emailLog)
-			}()
+			if err := s.db.CreateEmailLog(ctx, emailLog); err != nil {
+				slog.Error("Failed to create email log", "error", err)
+			}
 		}
 	}
 
@@ -346,6 +346,9 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")
+	}
+	if len(req.Password) > 72 {
+		return nil, fmt.Errorf("password must be less than 73 characters long")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
@@ -521,13 +524,28 @@ func (s *Service) RefreshToken(ctx context.Context, req *models.RefreshTokenRequ
 	if err != nil || tokenRecord == nil || tokenRecord.IsRevoked {
 		return nil, fmt.Errorf("refresh token not found or revoked")
 	}
-
+	// FIX: Проверяем актуальный статус пользователя и его права перед обновлением
+	user, err := s.db.GetUserByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	if !user.IsActive {
+		return nil, fmt.Errorf("user account is deactivated")
+	}
+	// Проверяем, что пользователь всё ещё состоит в этой организации и получаем актуальную роль
+	membership, err := s.db.GetMembership(ctx, claims.UserID, claims.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("membership not found or revoked")
+	}
+	if membership.Status != "active" {
+		return nil, fmt.Errorf("membership is not active")
+	}
 	// Генерация новой пары токенов
 	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
-		claims.UserID,
-		claims.Email,
-		claims.Role,
-		claims.OrgID,
+		user.UserID,
+		user.Email,
+		membership.Role,
+		membership.OrgID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate new tokens: %w", err)

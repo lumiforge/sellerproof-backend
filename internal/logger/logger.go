@@ -16,9 +16,10 @@ type TelegramHandler struct {
 func (h *TelegramHandler) Handle(ctx context.Context, r slog.Record) error {
 	if r.Level >= slog.LevelError && h.tg != nil {
 		msg := r.Message
-		go func() {
-			_ = h.tg.SendAlert(msg)
-		}()
+		if err := h.tg.SendAlert(msg); err != nil {
+			// Используем стандартный логгер или fmt, чтобы избежать рекурсии, если h.Handler тоже пишет в лог
+			os.Stderr.WriteString("Failed to send telegram alert: " + err.Error() + "\n")
+		}
 	}
 	return h.Handler.Handle(ctx, r)
 }
