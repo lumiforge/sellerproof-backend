@@ -3371,11 +3371,29 @@ func (c *YDBClient) GetOrganizationsByIDs(ctx context.Context, orgIDs []string) 
 }
 
 // RegisterUserTx выполняет регистрацию пользователя, организации и подписки в одной транзакции
+// RegisterUserTx выполняет регистрацию пользователя, организации и подписки в одной транзакции
 func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organization, membership *Membership, subscription *Subscription, invitationID string) error {
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		// Собираем параметры запроса (накапливаем условно)
-		paramOpts := []table.ParameterOption{
-			// Пользователь
+		var declarations strings.Builder
+		var statements strings.Builder
+		var paramOpts []table.ParameterOption
+
+		// ========== ДЕКЛАРАЦИИ ==========
+		// 1) Декларации для пользователя
+		declarations.WriteString(`
+		DECLARE $user_id AS Text;
+		DECLARE $email AS Text;
+		DECLARE $password_hash AS Text;
+		DECLARE $full_name AS Text;
+		DECLARE $email_verified AS Bool;
+		DECLARE $verification_code AS Text;
+		DECLARE $verification_expires_at AS Timestamp;
+		DECLARE $user_created_at AS Timestamp;
+		DECLARE $user_updated_at AS Timestamp;
+		DECLARE $is_active AS Bool;
+`)
+
+		paramOpts = append(paramOpts,
 			table.ValueParam("$user_id", types.TextValue(user.UserID)),
 			table.ValueParam("$email", types.TextValue(user.Email)),
 			table.ValueParam("$password_hash", types.TextValue(user.PasswordHash)),
@@ -3386,60 +3404,23 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			table.ValueParam("$user_created_at", types.TimestampValueFromTime(user.CreatedAt)),
 			table.ValueParam("$user_updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 			table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
+		)
 
-			// Членство
-			table.ValueParam("$membership_id", types.TextValue(membership.MembershipID)),
-			table.ValueParam("$mem_user_id", types.TextValue(membership.UserID)),
-			table.ValueParam("$mem_org_id", types.TextValue(membership.OrgID)),
-			table.ValueParam("$role", types.TextValue(membership.Role)),
-			table.ValueParam("$status", types.TextValue(membership.Status)),
-			table.ValueParam("$invited_by", types.TextValue(membership.InvitedBy)),
-			table.ValueParam("$mem_created_at", types.TimestampValueFromTime(membership.CreatedAt)),
-			table.ValueParam("$mem_updated_at", types.TimestampValueFromTime(membership.UpdatedAt)),
-		}
-
-		var queryBuilder strings.Builder
-
-		// 1) Пользователь
-		queryBuilder.WriteString(`
-			DECLARE $user_id AS Text;
-			DECLARE $email AS Text;
-			DECLARE $password_hash AS Text;
-			DECLARE $full_name AS Text;
-			DECLARE $email_verified AS Bool;
-			DECLARE $verification_code AS Text;
-			DECLARE $verification_expires_at AS Timestamp;
-			DECLARE $user_created_at AS Timestamp;
-			DECLARE $user_updated_at AS Timestamp;
-			DECLARE $is_active AS Bool;
-
-			-- Используем INSERT, чтобы поймать уникальность email
-			INSERT INTO users (
-				user_id, email, password_hash, full_name, email_verified,
-				verification_code, verification_expires_at, created_at, updated_at, is_active
-			) VALUES (
-				$user_id, $email, $password_hash, $full_name, $email_verified,
-				$verification_code, $verification_expires_at, $user_created_at, $user_updated_at, $is_active
-			);
-		`)
-
-		// 2) Организация (опционально)
+		// 2) Декларации для организации (если нужна)
 		if org != nil {
+			declarations.WriteString(`
+		DECLARE $org_id AS Text;
+		DECLARE $org_name AS Text;
+		DECLARE $owner_id AS Text;
+		DECLARE $settings AS Json;
+		DECLARE $org_created_at AS Timestamp;
+		DECLARE $org_updated_at AS Timestamp;
+`)
+
 			settingsJSON := "{}"
 			if org.Settings != "" {
 				settingsJSON = org.Settings
 			}
-			queryBuilder.WriteString(`
-				DECLARE $org_id AS Text;
-				DECLARE $org_name AS Text;
-				DECLARE $owner_id AS Text;
-				DECLARE $settings AS Json;
-				DECLARE $org_created_at AS Timestamp;
-				DECLARE $org_updated_at AS Timestamp;
-
-				INSERT INTO organizations (org_id, name, owner_id, settings, created_at, updated_at)
-				VALUES ($org_id, $org_name, $owner_id, $settings, $org_created_at, $org_updated_at);
-			`)
 
 			paramOpts = append(paramOpts,
 				table.ValueParam("$org_id", types.TextValue(org.OrgID)),
@@ -3451,49 +3432,47 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			)
 		}
 
-		// 3) Членство
-		queryBuilder.WriteString(`
-			DECLARE $membership_id AS Text;
-			DECLARE $mem_user_id AS Text;
-			DECLARE $mem_org_id AS Text;
-			DECLARE $role AS Text;
-			DECLARE $status AS Text;
-			DECLARE $invited_by AS Text;
-			DECLARE $mem_created_at AS Timestamp;
-			DECLARE $mem_updated_at AS Timestamp;
+		// 3) Декларации для членства
+		declarations.WriteString(`
+		DECLARE $membership_id AS Text;
+		DECLARE $mem_user_id AS Text;
+		DECLARE $mem_org_id AS Text;
+		DECLARE $role AS Text;
+		DECLARE $status AS Text;
+		DECLARE $invited_by AS Text;
+		DECLARE $mem_created_at AS Timestamp;
+		DECLARE $mem_updated_at AS Timestamp;
+`)
 
-			INSERT INTO memberships (
-				membership_id, user_id, org_id, role, status, invited_by, created_at, updated_at
-			) VALUES (
-				$membership_id, $mem_user_id, $mem_org_id, $role, $status, $invited_by, $mem_created_at, $mem_updated_at
-			);
-		`)
+		paramOpts = append(paramOpts,
+			table.ValueParam("$membership_id", types.TextValue(membership.MembershipID)),
+			table.ValueParam("$mem_user_id", types.TextValue(membership.UserID)),
+			table.ValueParam("$mem_org_id", types.TextValue(membership.OrgID)),
+			table.ValueParam("$role", types.TextValue(membership.Role)),
+			table.ValueParam("$status", types.TextValue(membership.Status)),
+			table.ValueParam("$invited_by", types.TextValue(membership.InvitedBy)),
+			table.ValueParam("$mem_created_at", types.TimestampValueFromTime(membership.CreatedAt)),
+			table.ValueParam("$mem_updated_at", types.TimestampValueFromTime(membership.UpdatedAt)),
+		)
 
-		// 4) Подписка (опционально)
+		// 4) Декларации для подписки (если нужна)
 		if subscription != nil {
-			queryBuilder.WriteString(`
-				DECLARE $subscription_id AS Text;
-				DECLARE $sub_user_id AS Text;
-				DECLARE $sub_org_id AS Text;
-				DECLARE $plan_id AS Text;
-				DECLARE $storage_limit_mb AS Int64;
-				DECLARE $video_count_limit AS Int64;
-				DECLARE $sub_is_active AS Bool;
-				DECLARE $trial_ends_at AS Timestamp;
-				DECLARE $started_at AS Timestamp;
-				DECLARE $expires_at AS Timestamp;
-				DECLARE $billing_cycle AS Text;
-				DECLARE $sub_created_at AS Timestamp;
-				DECLARE $sub_updated_at AS Timestamp;
+			declarations.WriteString(`
+		DECLARE $subscription_id AS Text;
+		DECLARE $sub_user_id AS Text;
+		DECLARE $sub_org_id AS Text;
+		DECLARE $plan_id AS Text;
+		DECLARE $storage_limit_mb AS Int64;
+		DECLARE $video_count_limit AS Int64;
+		DECLARE $sub_is_active AS Bool;
+		DECLARE $trial_ends_at AS Timestamp;
+		DECLARE $started_at AS Timestamp;
+		DECLARE $expires_at AS Timestamp;
+		DECLARE $billing_cycle AS Text;
+		DECLARE $sub_created_at AS Timestamp;
+		DECLARE $sub_updated_at AS Timestamp;
+`)
 
-				INSERT INTO subscriptions (
-					subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
-					is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-				) VALUES (
-					$subscription_id, $sub_user_id, $sub_org_id, $plan_id, $storage_limit_mb, $video_count_limit,
-					$sub_is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $sub_created_at, $sub_updated_at
-				);
-			`)
 			paramOpts = append(paramOpts,
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$sub_user_id", types.TextValue(subscription.UserID)),
@@ -3511,17 +3490,14 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			)
 		}
 
-		// 5) Обновление приглашения (опционально)
+		// 5) Декларации для приглашения (если нужно)
 		if invitationID != "" {
-			queryBuilder.WriteString(`
-				DECLARE $invitation_id AS Text;
-				DECLARE $inv_status AS Text;
-				DECLARE $accepted_at AS Timestamp;
+			declarations.WriteString(`
+		DECLARE $invitation_id AS Text;
+		DECLARE $inv_status AS Text;
+		DECLARE $accepted_at AS Timestamp;
+`)
 
-				UPDATE invitations
-				SET status = $inv_status, accepted_at = $accepted_at
-				WHERE invitation_id = $invitation_id;
-			`)
 			paramOpts = append(paramOpts,
 				table.ValueParam("$invitation_id", types.TextValue(invitationID)),
 				table.ValueParam("$inv_status", types.TextValue("accepted")),
@@ -3529,11 +3505,65 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			)
 		}
 
-		// Выполняем все выражения в одной транзакции
+		// ========== SQL STATEMENTS ==========
+		// 1) INSERT пользователя
+		statements.WriteString(`
+		INSERT INTO users (
+			user_id, email, password_hash, full_name, email_verified,
+			verification_code, verification_expires_at, created_at, updated_at, is_active
+		) VALUES (
+			$user_id, $email, $password_hash, $full_name, $email_verified,
+			$verification_code, $verification_expires_at, $user_created_at, $user_updated_at, $is_active
+		);
+`)
+
+		// 2) INSERT организации (если нужна)
+		if org != nil {
+			statements.WriteString(`
+		INSERT INTO organizations (org_id, name, owner_id, settings, created_at, updated_at)
+		VALUES ($org_id, $org_name, $owner_id, $settings, $org_created_at, $org_updated_at);
+`)
+		}
+
+		// 3) INSERT членства
+		statements.WriteString(`
+		INSERT INTO memberships (
+			membership_id, user_id, org_id, role, status, invited_by, created_at, updated_at
+		) VALUES (
+			$membership_id, $mem_user_id, $mem_org_id, $role, $status, $invited_by, $mem_created_at, $mem_updated_at
+		);
+`)
+
+		// 4) INSERT подписки (если нужна)
+		if subscription != nil {
+			statements.WriteString(`
+		INSERT INTO subscriptions (
+			subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
+			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
+		) VALUES (
+			$subscription_id, $sub_user_id, $sub_org_id, $plan_id, $storage_limit_mb, $video_count_limit,
+			$sub_is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $sub_created_at, $sub_updated_at
+		);
+`)
+		}
+
+		// 5) UPDATE приглашения (если нужно)
+		if invitationID != "" {
+			statements.WriteString(`
+		UPDATE invitations
+		SET status = $inv_status, accepted_at = $accepted_at
+		WHERE invitation_id = $invitation_id;
+`)
+		}
+
+		// Собираем финальный запрос: сначала ВСЕ декларации, потом ВСЕ statements
+		finalQuery := declarations.String() + "\n" + statements.String()
+
+		// Выполняем все в одной транзакции
 		_, _, err := session.Execute(
 			ctx,
 			table.TxControl(table.BeginTx(table.WithSerializableReadWrite()), table.CommitTx()),
-			queryBuilder.String(),
+			finalQuery,
 			table.NewQueryParameters(paramOpts...),
 		)
 		return err
