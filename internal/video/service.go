@@ -151,6 +151,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	uploadStatus := "pending"
 
 	createdAt := time.Now()
+	ttl := createdAt.Add(24 * time.Hour)
 	video := &ydb.Video{
 		VideoID:         videoID,
 		OrgID:           orgID,
@@ -165,6 +166,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		IsDeleted:       false,
 		PublishStatus:   "private",
 		CreatedAt:       createdAt,
+		UploadExpiresAt: &ttl,
 	}
 
 	if err := s.db.CreateVideo(ctx, video); err != nil {
@@ -266,6 +268,8 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	video.UploadStatus = uploadStatus
 	now := time.Now()
 	video.UploadedAt = &now
+	// Сбрасываем TTL, чтобы видео не удалилось
+	video.UploadExpiresAt = nil
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
 		return nil, fmt.Errorf("failed to update video status: %w", err)
 	}

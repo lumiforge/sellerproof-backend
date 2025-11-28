@@ -338,12 +338,16 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				public_url Optional<Text>,
 				publish_status Text DEFAULT 'private',
 				published_at Optional<Timestamp>,
+				upload_expires_at Optional<Timestamp>,
 				PRIMARY KEY (video_id),
 				INDEX org_idx GLOBAL ON (org_id),
 				INDEX org_user_idx GLOBAL ON (org_id, uploaded_by),
 				INDEX org_deleted_idx GLOBAL ON (org_id, is_deleted),
 				INDEX share_token_idx GLOBAL ON (public_share_token),
 				INDEX publish_status_idx GLOBAL ON (publish_status)
+			)
+			WITH (
+				TTL = Interval("PT0S") ON upload_expires_at
 			)
 		`
 		err := c.executeSchemeQuery(ctx, query)
@@ -1204,13 +1208,14 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $public_url AS Optional<Text>;
 		DECLARE $publish_status AS Text;
 		DECLARE $published_at AS Optional<Timestamp>;
+		DECLARE $upload_expires_at AS Optional<Timestamp>;
 
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
 			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
-			public_url, publish_status, published_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at)
+			public_url, publish_status, published_at, upload_expires_at
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1271,6 +1276,12 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 						return table.ValueParam("$published_at", types.NullValue(types.TypeTimestamp))
 					}
 					return table.ValueParam("$published_at", types.OptionalValue(types.TimestampValueFromTime(*video.PublishedAt)))
+				}(),
+				func() table.ParameterOption {
+					if video.UploadExpiresAt == nil {
+						return table.ValueParam("$upload_expires_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$upload_expires_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadExpiresAt)))
 				}(),
 			),
 		)
@@ -1464,13 +1475,14 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $public_url AS Optional<Text>;
 		DECLARE $publish_status AS Text;
 		DECLARE $published_at AS Optional<Timestamp>;
+		DECLARE $upload_expires_at AS Optional<Timestamp>;
 
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
 			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
-			public_url, publish_status, published_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at)
+			public_url, publish_status, published_at, upload_expires_at
+		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1530,6 +1542,12 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 						return table.ValueParam("$published_at", types.NullValue(types.TypeTimestamp))
 					}
 					return table.ValueParam("$published_at", types.OptionalValue(types.TimestampValueFromTime(*video.PublishedAt)))
+				}(),
+				func() table.ParameterOption {
+					if video.UploadExpiresAt == nil {
+						return table.ValueParam("$upload_expires_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$upload_expires_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadExpiresAt)))
 				}(),
 			),
 		)

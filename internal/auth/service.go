@@ -395,16 +395,23 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	// Выбираем организацию по приоритету:
 	// 1. Где пользователь - владелец организации
 	// 2. Первая активная организация
+	// 3. Любая существующая организация (если нет активных)
 	var selectedMembership *ydb.Membership
 
 	for _, m := range memberships {
+		// Проверяем, существует ли организация физически
+		org, exists := orgMap[m.OrgID]
+		if !exists {
+			continue
+		}
+
 		if m.Status == "active" {
-			// Проверяем, является ли пользователь владельцем (используя карту)
-			if org, exists := orgMap[m.OrgID]; exists && org.OwnerID == user.UserID {
+			// Приоритет 1: Активный владелец
+			if org.OwnerID == user.UserID {
 				selectedMembership = m
 				break
 			}
-			// Сохраняем первую активную как запасной вариант
+			// Приоритет 2: Первая активная
 			if selectedMembership == nil {
 				selectedMembership = m
 			}
@@ -412,12 +419,21 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	}
 
-	// Если нет активных организаций, запрещаем вход
+	// Приоритет 3: Если активных не найдено, берем первую валидную
 	if selectedMembership == nil {
-		return nil, fmt.Errorf("no active memberships found")
+		for _, m := range memberships {
+			if _, exists := orgMap[m.OrgID]; exists {
+				selectedMembership = m
+				break
+			}
+		}
 	}
 
-	// Собираем информацию об организациях для ответа
+	// Если после всех проверок организация не выбрана (все удалены или рассинхрон), возвращаем ошибку
+	if selectedMembership == nil {
+		return nil, fmt.Errorf("no valid organizations found for user")
+	}
+
 	// Собираем информацию об организациях для ответа
 	organizations := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {
@@ -578,26 +594,63 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 		return nil, fmt.Errorf("failed to get user membership: membership not found")
 	}
 
-	// Выбираем активное членство (приоритет - где пользователь владелец)
-	var selectedMembership *ydb.Membership
+	// Оптимизация: Получаем все организации одним запросом (Batch Fetch)
+	orgIDs := make([]string, 0, len(memberships))
 	for _, m := range memberships {
+		orgIDs = append(orgIDs, m.OrgID)
+	}
+
+	orgs, err := s.db.GetOrganizationsByIDs(ctx, orgIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get organizations: %w", err)
+	}
+
+	// Создаем карту для быстрого поиска организации по ID
+	orgMap := make(map[string]*ydb.Organization)
+	for _, o := range orgs {
+		orgMap[o.OrgID] = o
+	}
+
+	// Выбираем организацию по приоритету:
+	// 1. Где пользователь - владелец организации
+	// 2. Первая активная организация
+	// 3. Любая существующая организация (если нет активных)
+	var selectedMembership *ydb.Membership
+
+	for _, m := range memberships {
+		// Проверяем, существует ли организация физически
+		org, exists := orgMap[m.OrgID]
+		if !exists {
+			continue
+		}
+
 		if m.Status == "active" {
-			// Проверяем, является ли пользователь владельцем
-			org, err := s.db.GetOrganizationByID(ctx, m.OrgID)
-			if err == nil && org.OwnerID == user.UserID {
+			// Приоритет 1: Активный владелец
+			if org.OwnerID == user.UserID {
 				selectedMembership = m
 				break
 			}
-			// Сохраняем первую активную как запасной вариант
+			// Приоритет 2: Первая активная
 			if selectedMembership == nil {
 				selectedMembership = m
 			}
 		}
+
 	}
 
-	// Если нет активных организаций, запрещаем вход
+	// Приоритет 3: Если активных не найдено, берем первую валидную
 	if selectedMembership == nil {
-		return nil, fmt.Errorf("no active memberships found")
+		for _, m := range memberships {
+			if _, exists := orgMap[m.OrgID]; exists {
+				selectedMembership = m
+				break
+			}
+		}
+	}
+
+	// Если после всех проверок организация не выбрана (все удалены или рассинхрон), возвращаем ошибку
+	if selectedMembership == nil {
+		return nil, fmt.Errorf("no valid organizations found for user")
 	}
 
 	fullName := user.FullName
