@@ -823,7 +823,8 @@ func (c *YDBClient) GetMembership(ctx context.Context, userID, orgID string) (*M
 
 	var membership Membership
 	var found bool
-
+	// TODO delete me
+	log.Println("Querying memberships for user", userID, "and org", orgID)
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
@@ -851,17 +852,26 @@ func (c *YDBClient) GetMembership(ctx context.Context, userID, orgID string) (*M
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
+			// TODO delete me
+			log.Println("Found membership", membership.MembershipID, "for user", userID, "and org", orgID)
 		}
+		// TODO delete me
+		log.Println("End of memberships query")
 		return res.Err()
 	})
 
 	if err != nil {
+		// TODO delete me
+		log.Println("Error in memberships query ", err)
 		return nil, err
 	}
 	if !found {
+		// TODO delete me
+		log.Println("Membership not found")
 		return nil, fmt.Errorf("membership not found")
 	}
-
+	// TODO delete me
+	log.Println("End of memberships loop")
 	return &membership, nil
 }
 

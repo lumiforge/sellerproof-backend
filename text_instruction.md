@@ -21,8 +21,8 @@ Legend:
 - docs/SellerProof API/2 auth/1 register/1 Register success.bru — Variables used: baseUrl, testEmail, testEmailPassword; Saves: none
 
 ### 2 login
-- docs/SellerProof API/2 auth/2 login/3 Verify Email correct.bru — Variables used: baseUrl, testEmail, validVerificationCode; Saves: none
-- docs/SellerProof API/2 auth/2 login/9 User login success verified.bru — Variables used: baseUrl, testEmail, testEmailPassword; Saves: accessToken, refreshToken, testOrgId, userId
+- docs/SellerProof API/2 auth/2 login/3 Verify Email correct.bru — Variables used: baseUrl, testEmail, validVerificationCode, secondUserEmail, secondUserVerificationCode; Saves: none
+- docs/SellerProof API/2 auth/2 login/9 User login success verified.bru — Variables used: baseUrl, testEmail, testEmailPassword, secondUserEmail, secondUserVerificationCode; Saves: accessToken, refreshToken, testOrgId, userId, secondUserAccessToken, secondUserRefreshToken, secondUserOrgId, secondUserId
 
 ### 5 refresh
 - docs/SellerProof API/2 auth/5 refresh/4 Refresh token success.bru — Variables used: baseUrl, refreshToken; Saves: accessToken, refreshToken

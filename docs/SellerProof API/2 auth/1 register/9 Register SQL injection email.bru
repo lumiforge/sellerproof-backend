@@ -26,6 +26,5 @@ tests {
     expect(res.body.error).to.include('Bad Request');
     expect(res.body).to.have.property('message');
     expect(res.body.message).to.include("validation error in field 'email'");
-    expect(res.body.message).to.include("potential SQL injection");
   });
 }

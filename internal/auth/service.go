@@ -535,7 +535,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *models.RefreshTokenRequ
 	// Проверяем, что пользователь всё ещё состоит в этой организации и получаем актуальную роль
 	membership, err := s.db.GetMembership(ctx, claims.UserID, claims.OrgID)
 	if err != nil {
-		return nil, fmt.Errorf("membership not found or revoked")
+		return nil, fmt.Errorf("membership not found or revoked: %w", err)
 	}
 	if membership.Status != "active" {
 		return nil, fmt.Errorf("membership is not active")
