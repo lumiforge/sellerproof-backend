@@ -3111,19 +3111,19 @@ func (c *YDBClient) GetInvitationByEmail(ctx context.Context, orgID, email strin
 // InsertAuditLog сохраняет запись аудита
 func (c *YDBClient) InsertAuditLog(ctx context.Context, auditLog *models.AuditLog) error {
 	query := `
-DECLARE $id AS Text;
-DECLARE $timestamp AS Timestamp;
-DECLARE $user_id AS Text;
-DECLARE $org_id AS Text;
-DECLARE $action_type AS Text;
-DECLARE $action_result AS Text;
-DECLARE $ip_address AS Text;
-DECLARE $user_agent AS Text;
-DECLARE $details AS Json;
+		DECLARE $id AS Text;
+		DECLARE $timestamp AS Timestamp;
+		DECLARE $user_id AS Text;
+		DECLARE $org_id AS Text;
+		DECLARE $action_type AS Text;
+		DECLARE $action_result AS Text;
+		DECLARE $ip_address AS Text;
+		DECLARE $user_agent AS Text;
+		DECLARE $details AS Json;
 
-INSERT INTO audit_logs (id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details)
-VALUES ($id, $timestamp, $user_id, $org_id, $action_type, $action_result, $ip_address, $user_agent, $details)
-`
+		INSERT INTO audit_logs (id, timestamp, user_id, org_id, action_type, action_result, ip_address, user_agent, details)
+		VALUES ($id, $timestamp, $user_id, $org_id, $action_type, $action_result, $ip_address, $user_agent, $details);
+	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
