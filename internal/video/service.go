@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
@@ -214,7 +215,9 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 	video.TotalParts = &totalParts
 	uploadStatus := "uploading"
 	video.UploadStatus = uploadStatus
-	s.db.UpdateVideo(ctx, video)
+	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		return nil, fmt.Errorf("failed to update video status: %w", err)
+	}
 
 	return &GetPartUploadURLsResult{
 		PartURLs:  urls,
@@ -240,6 +243,11 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, fmt.Errorf("access denied")
 	}
 
+	// S3 требует, чтобы части были отсортированы по возрастанию номера
+	sort.Slice(parts, func(i, j int) bool {
+		return parts[i].PartNumber < parts[j].PartNumber
+	})
+
 	s3Parts := make([]types.CompletedPart, len(parts))
 	for i, p := range parts {
 		s3Parts[i] = types.CompletedPart{
@@ -258,7 +266,9 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	video.UploadStatus = uploadStatus
 	now := time.Now()
 	video.UploadedAt = &now
-	s.db.UpdateVideo(ctx, video)
+	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		return nil, fmt.Errorf("failed to update video status: %w", err)
+	}
 
 	// Генерация URL для просмотра (опционально)
 	url, _ := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)

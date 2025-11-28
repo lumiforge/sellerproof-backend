@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // FilenameRegex содержит регулярное выражение для базовой валидации имен файлов
@@ -232,9 +233,19 @@ func SanitizeFilename(filename string) string {
 		filename = filename[:len(filename)-1]
 	}
 
-	// Ограничение длины
+	// Ограничение длины (по байтам, с сохранением валидности UTF-8)
 	if len(filename) > 255 {
 		filename = filename[:255]
+		// Если обрезка пришлась на середину UTF-8 символа, DecodeLastRuneInString вернет RuneError.
+		// Мы удаляем байты с конца, пока не получим валидный символ.
+		for len(filename) > 0 {
+			r, size := utf8.DecodeLastRuneInString(filename)
+			if r == utf8.RuneError && size == 1 {
+				filename = filename[:len(filename)-1]
+			} else {
+				break
+			}
+		}
 	}
 
 	// Удаление опасных Unicode-символов
