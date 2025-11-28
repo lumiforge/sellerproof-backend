@@ -442,7 +442,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				INDEX user_id_idx GLOBAL ON (user_id),
 				INDEX org_id_idx GLOBAL ON (org_id),
 				INDEX action_type_idx GLOBAL ON (action_type),
-				INDEX composite_idx GLOBAL ON (org_id, timestamp DESC)
+				INDEX composite_idx GLOBAL ON (org_id, timestamp)
 				)
 				`
 		err := c.executeSchemeQuery(ctx, query)

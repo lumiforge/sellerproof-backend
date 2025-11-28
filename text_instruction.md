@@ -40,6 +40,27 @@ Legend:
 - [docs/SellerProof API/2 auth/1 register/2 Register second user success.bru](docs/SellerProof API/2 auth/1 register/2 Register second user success.bru)
   - Variables used: `{{baseUrl}}`, `{{secondUserEmail}}`, `{{secondUserPassword}}`
   - Saves: none
+- [docs/SellerProof API/2 auth/1 register/12 Register SQL injection password.bru](docs/SellerProof API/2 auth/1 register/12 Register SQL injection password.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/1 register/13 Register Unicode Chinese.bru](docs/SellerProof API/2 auth/1 register/13 Register Unicode Chinese.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/1 register/14 Register Unicode Cyrillic.bru](docs/SellerProof API/2 auth/1 register/14 Register Unicode Cyrillic.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/1 register/15 Register Unicode emojis.bru](docs/SellerProof API/2 auth/1 register/15 Register Unicode emojis.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/1 register/16 Register Unicode special symbols.bru](docs/SellerProof API/2 auth/1 register/16 Register Unicode special symbols.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/1 register/17 Register XSS full_name.bru](docs/SellerProof API/2 auth/1 register/17 Register XSS full_name.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/1 register/18 Register XSS organization_name.bru](docs/SellerProof API/2 auth/1 register/18 Register XSS organization_name.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
 - [docs/SellerProof API/2 auth/1 register/3 Register email already exists.bru](docs/SellerProof API/2 auth/1 register/3 Register email already exists.bru)
   - Variables used: `{{baseUrl}}`, `{{testEmail}}`
   - Saves: none
@@ -114,6 +135,24 @@ Legend:
 - [docs/SellerProof API/2 auth/2 login/9 User login success verified.bru](docs/SellerProof API/2 auth/2 login/9 User login success verified.bru)
   - Variables used: `{{baseUrl}}`, `{{testEmail}}`, `{{testEmailPassword}}`
   - Saves: [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/9 User login success verified.bru:29) → `accessToken`; [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/9 User login success verified.bru:30) → `refreshToken`; [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/9 User login success verified.bru:31) → `testOrgId`; [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/9 User login success verified.bru:32) → `userId`
+- [docs/SellerProof API/2 auth/2 login/10 Verify Email invalid request format.bru](docs/SellerProof API/2 auth/2 login/10 Verify Email invalid request format.bru)
+  - Variables used: `{{baseUrl}}`, `{{testEmail}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/2 login/11 Login with non-standard valid email.bru](docs/SellerProof API/2 auth/2 login/11 Login with non-standard valid email.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/2 login/12 Login with incorrect HTTP method.bru](docs/SellerProof API/2 auth/2 login/12 Login with incorrect HTTP method.bru)
+  - Variables used: `{{baseUrl}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/2 login/13 Login with extra fields.bru](docs/SellerProof API/2 auth/2 login/13 Login with extra fields.bru)
+  - Variables used: `{{baseUrl}}`, `{{testEmail}}`, `{{testEmailPassword}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/2 login/14 Verify second user email correct.bru](docs/SellerProof API/2 auth/2 login/14 Verify second user email correct.bru)
+  - Variables used: `{{baseUrl}}`, `{{secondUserEmail}}`, `{{secondUserVerificationCode}}`
+  - Saves: none
+- [docs/SellerProof API/2 auth/2 login/15 Second user login success verified.bru](docs/SellerProof API/2 auth/2 login/15 Second user login success verified.bru)
+  - Variables used: `{{baseUrl}}`, `{{secondUserEmail}}`, `{{secondUserPassword}}`
+  - Saves: [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/15 Second user login success verified.bru:29) → `secondUserAccessToken`; [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/15 Second user login success verified.bru:30) → `secondUserRefreshToken`; [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/15 Second user login success verified.bru:31) → `secondUserOrgId`; [bru.setEnvVar()](docs/SellerProof API/2 auth/2 login/15 Second user login success verified.bru:32) → `secondUserId`
 
 ## 2 auth — 5 refresh
 - [docs/SellerProof API/2 auth/5 refresh/folder.bru](docs/SellerProof API/2 auth/5 refresh/folder.bru)
