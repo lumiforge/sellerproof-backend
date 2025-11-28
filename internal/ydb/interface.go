@@ -44,6 +44,10 @@ type Database interface {
 	CreateSubscriptionHistory(ctx context.Context, history *SubscriptionHistory) error
 	GetSubscriptionHistory(ctx context.Context, subscriptionID string) ([]*SubscriptionHistory, error)
 
+	// Транзакционная регистрация
+	// invitationID передается, если регистрация по приглашению (для обновления статуса)
+	RegisterUserTx(ctx context.Context, user *User, org *Organization, membership *Membership, subscription *Subscription, invitationID string) error
+
 	// Email логи
 	CreateEmailLog(ctx context.Context, log *EmailLog) error
 	GetEmailLogsByUser(ctx context.Context, userID string) ([]*EmailLog, error)

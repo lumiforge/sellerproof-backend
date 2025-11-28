@@ -137,7 +137,6 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 	// Проверка, что email не занят
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
-
 	if err == nil && existingUser != nil {
 		return nil, fmt.Errorf("email already exists")
 	}
@@ -154,8 +153,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		return nil, fmt.Errorf("failed to generate verification code: %w", err)
 	}
 
-	// Создание пользователя
+	// Подготовка структуры User
 	passwordHashStr := string(passwordHash)
+	now := time.Now()
 	user := &ydb.User{
 		UserID:                uuid.New().String(),
 		Email:                 req.Email,
@@ -163,157 +163,115 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		FullName:              req.FullName,
 		EmailVerified:         false,
 		VerificationCode:      verificationCode,
-		VerificationExpiresAt: time.Now().Add(24 * time.Hour),
-		CreatedAt:             time.Now(),
-		UpdatedAt:             time.Now(),
+		VerificationExpiresAt: now.Add(24 * time.Hour),
+		CreatedAt:             now,
+		UpdatedAt:             now,
 		IsActive:              true,
 	}
 
-	err = s.db.CreateUser(ctx, user)
-	if err != nil {
-		// Check if error is due to duplicate email (UNIQUE constraint violation)
-		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique constraint") {
-			return nil, fmt.Errorf("email already exists")
-		}
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	// Отправка email верификации
-	if s.email.IsConfigured() {
-		emailMessage, err := s.email.SendVerificationEmail(ctx, req.Email, verificationCode)
-		if err != nil {
-			// Логируем ошибку, но не прерываем регистрацию
-			slog.Error("Failed to send verification email", "error", err, "email", req.Email)
-		} else {
-			// Сохраняем лог email в базу
-			emailType := string(email.EmailTypeVerification)
-			status := string(emailMessage.Status)
-			errorMessage := ""
-			if emailMessage.Error != "" {
-				errorMessage = emailMessage.Error
-			}
-			emailLog := &ydb.EmailLog{
-				EmailID:          emailMessage.ID,
-				UserID:           user.UserID,
-				EmailType:        emailType,
-				Recipient:        req.Email,
-				Status:           status,
-				PostboxMessageID: emailMessage.MessageID,
-				SentAt:           emailMessage.SentAt,
-				DeliveredAt:      time.Time{}, // Zero value for non-nullable time
-				ErrorMessage:     errorMessage,
-			}
-			s.db.CreateEmailLog(ctx, emailLog)
-		}
-	}
-
-	// ЛОГИКА ВЕТВЛЕНИЯ: Приглашение ИЛИ Новая организация
+	// Переменные для транзакции
+	var org *ydb.Organization
+	var membership *ydb.Membership
+	var subscription *ydb.Subscription
+	var invitationID string
 
 	if invitation != nil {
-		// СЦЕНАРИЙ 1: Регистрация по приглашению (вступление в существующую организацию)
-
-		// Создание членства в организации на основе приглашения
-		membership := &ydb.Membership{
+		// СЦЕНАРИЙ 1: Регистрация по приглашению
+		invitationID = invitation.InvitationID
+		membership = &ydb.Membership{
 			MembershipID: uuid.New().String(),
 			UserID:       user.UserID,
 			OrgID:        invitation.OrgID,
 			Role:         invitation.Role,
 			Status:       "active",
 			InvitedBy:    invitation.InvitedBy,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
-
-		err = s.db.CreateMembership(ctx, membership)
-		if err != nil {
-			slog.Error("Failed to create membership from invite", "error", err, "user_id", user.UserID)
-			// Не возвращаем ошибку, так как юзер уже создан. Админ может добавить вручную или юзер через accept.
-		} else {
-			// Обновляем статус приглашения
-			_ = s.db.UpdateInvitationStatusWithAcceptTime(ctx, invitation.InvitationID, "accepted", time.Now())
-		}
-
 	} else {
-		// СЦЕНАРИЙ 2: Создание новой организации (старая логика)
-
+		// СЦЕНАРИЙ 2: Создание новой организации
 		orgName := req.OrganizationName
 		if orgName == "" {
-			// Fallback, хотя валидация выше не должна пустить сюда с пустым именем
 			orgName = req.FullName
 		}
 		settings := make(map[string]string)
-		settingsJSON, err := json.Marshal(settings)
-		if err != nil {
-			slog.Error("Failed to marshal settings", "error", err)
-			// Не критично, продолжаем
-			settingsJSON = []byte("{}")
-		}
-		settingsStr := string(settingsJSON)
-		org := &ydb.Organization{
+		settingsJSON, _ := json.Marshal(settings)
+		org = &ydb.Organization{
 			OrgID:     uuid.New().String(),
 			Name:      orgName,
 			OwnerID:   user.UserID,
-			Settings:  settingsStr,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			Settings:  string(settingsJSON),
+			CreatedAt: now,
+			UpdatedAt: now,
 		}
 
-		err = s.db.CreateOrganization(ctx, org)
-		if err != nil {
-			slog.Error("Failed to create organization", "error", err, "user_id", user.UserID)
-			return nil, fmt.Errorf("failed to create organization: %w", err)
-		}
-
-		// Создание членства в организации с ролью admin
-		role := string(rbac.RoleAdmin)
-		status := "active"
-		membership := &ydb.Membership{
+		// Membership (Admin)
+		membership = &ydb.Membership{
 			MembershipID: uuid.New().String(),
 			UserID:       user.UserID,
 			OrgID:        org.OrgID,
-			Role:         role,
-			Status:       status,
+			Role:         string(rbac.RoleAdmin),
+			Status:       "active",
 			InvitedBy:    user.UserID,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
 
-		err = s.db.CreateMembership(ctx, membership)
-		if err != nil {
-			slog.Error("Failed to create membership", "error", err, "user_id", user.UserID)
-		}
-
-		// Создание триальной подписки (ТОЛЬКО ДЛЯ НОВЫХ ОРГАНИЗАЦИЙ)
-		planID := "free"
+		// Subscription (trial)
 		storageLimitMB := s.config.StorageLimitFree
-		videoCountLimit := s.config.VideoCountLimitFree
-		// Fallback на случай, если конфиг не загрузился корректно
 		if storageLimitMB == 0 {
 			storageLimitMB = 1024
 		}
+		videoCountLimit := s.config.VideoCountLimitFree
 		if videoCountLimit == 0 {
 			videoCountLimit = 10
 		}
-		isActive := true
-		trialEndsAt := time.Now().Add(7 * 24 * time.Hour)
-		subscription := &ydb.Subscription{
+
+		subscription = &ydb.Subscription{
 			SubscriptionID:  uuid.New().String(),
 			UserID:          user.UserID,
 			OrgID:           org.OrgID,
-			PlanID:          planID,
+			PlanID:          "free",
 			StorageLimitMB:  storageLimitMB,
 			VideoCountLimit: videoCountLimit,
-			IsActive:        isActive,
-			TrialEndsAt:     trialEndsAt,
-			StartedAt:       time.Now(),
-			ExpiresAt:       time.Now().Add(30 * 24 * time.Hour), // 30 дней
+			IsActive:        true,
+			TrialEndsAt:     now.Add(7 * 24 * time.Hour),
+			StartedAt:       now,
+			ExpiresAt:       now.Add(30 * 24 * time.Hour),
 			BillingCycle:    "monthly",
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
+			CreatedAt:       now,
+			UpdatedAt:       now,
 		}
-		err = s.db.CreateSubscription(ctx, subscription)
+	}
+
+	// ВЫПОЛНЕНИЕ ТРАНЗАКЦИИ
+	err = s.db.RegisterUserTx(ctx, user, org, membership, subscription, invitationID)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") {
+			return nil, fmt.Errorf("email already exists")
+		}
+		return nil, fmt.Errorf("registration failed: %w", err)
+	}
+
+	// ПОСТ-ТРАНЗАКЦИОННЫЕ ДЕЙСТВИЯ (Side Effects)
+	if s.email.IsConfigured() {
+		emailMessage, err := s.email.SendVerificationEmail(ctx, req.Email, verificationCode)
 		if err != nil {
-			slog.Error("Failed to create subscription", "error", err, "user_id", user.UserID)
+			slog.Error("Failed to send verification email", "error", err, "email", req.Email)
+		} else {
+			emailLog := &ydb.EmailLog{
+				EmailID:          emailMessage.ID,
+				UserID:           user.UserID,
+				EmailType:        string(email.EmailTypeVerification),
+				Recipient:        req.Email,
+				Status:           string(emailMessage.Status),
+				PostboxMessageID: emailMessage.MessageID,
+				SentAt:           emailMessage.SentAt,
+				ErrorMessage:     emailMessage.Error,
+			}
+			go func() {
+				_ = s.db.CreateEmailLog(context.Background(), emailLog)
+			}()
 		}
 	}
 
