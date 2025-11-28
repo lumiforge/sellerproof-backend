@@ -1701,7 +1701,12 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$user_id", types.TextValue(userID)))
 	}
 	if hasQueryFilter {
-		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.TextValue("%"+strings.ToLower(query)+"%")))
+		// Экранируем спецсимволы для LIKE, чтобы предотвратить инъекцию логики поиска
+		safeQuery := strings.ToLower(query)
+		safeQuery = strings.ReplaceAll(safeQuery, "\\", "\\\\") // Сначала экранируем сам экранирующий символ
+		safeQuery = strings.ReplaceAll(safeQuery, "%", "\\%")   // Экранируем процент
+		safeQuery = strings.ReplaceAll(safeQuery, "_", "\\_")   // Экранируем подчеркивание
+		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.TextValue("%"+safeQuery+"%")))
 	}
 	countParams = table.NewQueryParameters(countParamsBuilder...)
 
@@ -1749,7 +1754,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 	       public_url, publish_status, published_at
 	FROM videos ` + whereClause + `
-	ORDER BY uploaded_at DESC 
+	ORDER BY uploaded_at DESC
 	LIMIT $limit OFFSET $offset`
 
 	// Параметры для получения данных
@@ -1760,7 +1765,12 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$user_id", types.TextValue(userID)))
 	}
 	if hasQueryFilter {
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.TextValue("%"+strings.ToLower(query)+"%")))
+		// Повторяем экранирование для второго запроса
+		safeQuery := strings.ToLower(query)
+		safeQuery = strings.ReplaceAll(safeQuery, "\\", "\\\\")
+		safeQuery = strings.ReplaceAll(safeQuery, "%", "\\%")
+		safeQuery = strings.ReplaceAll(safeQuery, "_", "\\_")
+		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.TextValue("%"+safeQuery+"%")))
 	}
 	dataParamsBuilder = append(dataParamsBuilder,
 		table.ValueParam("$limit", types.Uint64Value(uint64(limit))),
