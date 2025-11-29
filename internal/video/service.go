@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -143,14 +144,10 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	videoID := uuid.New().String()
 	objectKey := fmt.Sprintf("videos/%s/%s/%s", orgID, videoID, fileName)
 
-	// Определяем Content-Type по расширению файла
 	contentType := validation.GetContentTypeFromExtension(fileName)
-	if contentType == "" {
-		contentType = "video/mp4"
-	}
 
-	if !validation.IsVideoContentType(contentType) {
-		return nil, fmt.Errorf("invalid file type: %s. Only video files are allowed", contentType)
+	if contentType == "" || !validation.IsVideoContentType(contentType) {
+		return nil, fmt.Errorf("invalid file type or extension. Only video files are allowed")
 	}
 
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, contentType)
@@ -283,9 +280,55 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	if err := s.storage.CompleteMultipartUpload(ctx, storagePath, uploadID, s3Parts); err != nil {
 		return nil, fmt.Errorf("failed to complete s3 upload: %w", err)
 	}
+	headerBytes, err := s.storage.GetObjectHeader(ctx, storagePath)
+	if err != nil {
+		slog.Error("Failed to get object header for verification", "error", err, "video_id", videoID)
+		// В случае ошибки чтения S3 лучше прервать процесс, чем пропустить потенциально опасный файл
+		return nil, fmt.Errorf("failed to verify file integrity")
+	}
+	// Определяем реальный тип контента
+	detectedType := http.DetectContentType(headerBytes)
+
+	// Проверяем, является ли файл видео.
+	// Примечание: http.DetectContentType может вернуть application/octet-stream для некоторых видео контейнеров (например, MKV или некоторые MP4).
+	// Поэтому мы разрешаем octet-stream, но явно запрещаем опасные типы (text/html, application/x-dosexec и т.д.)
+	// или требуем, чтобы тип начинался с video/.
+	isValidVideo := strings.HasPrefix(detectedType, "video/") || detectedType == "application/octet-stream"
+
+	// Дополнительная защита: если это octet-stream, но расширение было mp4/webm, это подозрительно,
+	// но часто бывает с MP4 (ftyp box).
+	// Строгая проверка: запрещаем явные не-видео типы.
+	if strings.HasPrefix(detectedType, "text/") ||
+		strings.HasPrefix(detectedType, "image/") ||
+		strings.Contains(detectedType, "javascript") ||
+		strings.Contains(detectedType, "json") ||
+		strings.Contains(detectedType, "xml") {
+		isValidVideo = false
+	}
+
+	if !isValidVideo {
+		slog.Warn("Malicious file upload attempt detected",
+			"user_id", userID,
+			"video_id", videoID,
+			"detected_type", detectedType,
+			"claimed_filename", video.FileName)
+
+		// Удаляем файл из S3
+		if err := s.storage.DeletePrivateObject(ctx, storagePath); err != nil {
+			slog.Error("Failed to delete malicious file", "error", err)
+		}
+
+		// Помечаем как failed
+		video.UploadStatus = "failed"
+		video.IsDeleted = true
+		_ = s.db.UpdateVideo(ctx, video)
+
+		return nil, fmt.Errorf("invalid file content: detected %s, expected video", detectedType)
+	}
 
 	// Размер файла
 	actualSize, err := s.storage.GetObjectSize(ctx, storagePath)
+
 	if err != nil {
 		slog.Error("Failed to get object size after upload", "error", err, "video_id", videoID)
 		return nil, fmt.Errorf("failed to verify upload integrity")
@@ -780,6 +823,7 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 	}
 
 	// TODO Potentially DoS: Increment access count for each download
+	// TODO: Safeguard against DoS will be added on proxy server (share.sellerproof.ru)
 	if err := s.db.IncrementAccessCount(ctx, token); err != nil {
 		slog.Error("Failed to increment access count", "error", err, "token", token)
 	}

@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -139,8 +141,14 @@ func (c *Client) CompleteMultipartUpload(ctx context.Context, key, uploadID stri
 
 // GeneratePresignedDownloadURL генерирует URL для скачивания
 func (c *Client) GeneratePresignedDownloadURL(ctx context.Context, key string, lifetime time.Duration) (string, error) {
+	// Определяем бакет на основе префикса ключа
+	bucket := c.privateBucket
+	if strings.HasPrefix(key, "public/") {
+		bucket = c.publicBucket
+	}
+
 	input := &s3.GetObjectInput{
-		Bucket: aws.String(c.bucketName),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	}
 
@@ -229,4 +237,20 @@ func (c *Client) GetObjectSize(ctx context.Context, key string) (int64, error) {
 		return 0, err
 	}
 	return *output.ContentLength, nil
+}
+
+func (c *Client) GetObjectHeader(ctx context.Context, key string) ([]byte, error) {
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(key),
+		Range:  aws.String("bytes=0-511"), // Читаем только первые 512 байт
+	}
+
+	resp, err := c.s3Client.GetObject(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
 }

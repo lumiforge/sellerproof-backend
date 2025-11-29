@@ -158,7 +158,7 @@ func isPublicEndpoint(path string) bool {
 	}
 
 	for _, publicPath := range publicPaths {
-		if path == publicPath || (path == "/api/v1/video/public/" && strings.HasPrefix(path, publicPath)) {
+		if path == publicPath || (publicPath != "/" && strings.HasPrefix(path, publicPath+"/")) {
 			return true
 		}
 	}

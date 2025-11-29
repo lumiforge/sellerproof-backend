@@ -6,9 +6,9 @@ package models
 // @Description	Multipart upload initiation request
 type InitiateMultipartUploadRequest struct {
 	Title           string `json:"title"`
-	FileName        string `json:"file_name" validate:"required,max=255"`
-	FileSizeBytes   int64  `json:"file_size_bytes" validate:"required,min=1"`
-	DurationSeconds int32  `json:"duration_seconds" validate:"required,min=1"`
+	FileName        string `json:"file_name"`
+	FileSizeBytes   int64  `json:"file_size_bytes"`
+	DurationSeconds int32  `json:"duration_seconds"`
 }
 
 // InitiateMultipartUploadResponse represents a response for initiated multipart upload
@@ -22,8 +22,8 @@ type InitiateMultipartUploadResponse struct {
 // GetPartUploadURLsRequest represents a request to get part upload URLs
 // @Description	Part upload URLs request
 type GetPartUploadURLsRequest struct {
-	VideoID    string `json:"video_id" validate:"required"`
-	TotalParts int32  `json:"total_parts" validate:"required,min=1"`
+	VideoID    string `json:"video_id"`
+	TotalParts int32  `json:"total_parts"`
 }
 
 // GetPartUploadURLsResponse represents a response with part upload URLs
@@ -43,8 +43,8 @@ type CompletedPart struct {
 // CompleteMultipartUploadRequest represents a request to complete multipart upload
 // @Description	Multipart upload completion request
 type CompleteMultipartUploadRequest struct {
-	VideoID string          `json:"video_id" validate:"required"`
-	Parts   []CompletedPart `json:"parts" validate:"required,min=1"`
+	VideoID string          `json:"video_id"`
+	Parts   []CompletedPart `json:"parts"`
 }
 
 // CompleteMultipartUploadResponse represents a response for completed multipart upload
@@ -69,7 +69,7 @@ type Video struct {
 // GetVideoRequest represents a request to get video information
 // @Description	Get video information request
 type GetVideoRequest struct {
-	VideoID string `json:"video_id" validate:"required"`
+	VideoID string `json:"video_id"`
 }
 
 // GetVideoResponse represents a response with video information
@@ -82,8 +82,8 @@ type GetVideoResponse struct {
 // @Description	Search videos request
 type SearchVideosRequest struct {
 	Query    string `json:"query"`
-	Page     int32  `json:"page" validate:"min=1"`
-	PageSize int32  `json:"page_size" validate:"min=1,max=100"`
+	Page     int32  `json:"page"`
+	PageSize int32  `json:"page_size"`
 }
 
 // SearchVideosResponse represents a response with search results
@@ -96,8 +96,8 @@ type SearchVideosResponse struct {
 // CreateShareLinkRequest represents a request to create a share link
 // @Description	Create share link request
 type CreateShareLinkRequest struct {
-	VideoID        string `json:"video_id" validate:"required"`
-	ExpiresInHours int32  `json:"expires_in_hours" validate:"min=0"`
+	VideoID        string `json:"video_id"`
+	ExpiresInHours int32  `json:"expires_in_hours"`
 }
 
 // CreateShareLinkResponse represents a response with created share link
@@ -110,7 +110,7 @@ type CreateShareLinkResponse struct {
 // GetPublicVideoRequest represents a request to get public video
 // @Description	Get public video request
 type GetPublicVideoRequest struct {
-	ShareToken string `json:"share_token" validate:"required"`
+	ShareToken string `json:"share_token"`
 }
 
 // GetPublicVideoResponse represents a response with public video information
@@ -140,7 +140,7 @@ type PublicVideoResponse struct {
 // RevokeShareLinkRequest represents a request to revoke share link
 // @Description	Revoke share link request
 type RevokeShareLinkRequest struct {
-	VideoID string `json:"video_id" validate:"required"`
+	VideoID string `json:"video_id"`
 }
 
 // RevokeShareLinkResponse represents a response for revoked share link
@@ -159,7 +159,7 @@ type DownloadURLResult struct {
 // PublishVideoRequest represents a request to publish video to public bucket
 // @Description	Publish video request
 type PublishVideoRequest struct {
-	VideoID string `json:"video_id" validate:"required"`
+	VideoID string `json:"video_id"`
 }
 
 // PublishVideoResult represents the result of publishing video
@@ -173,7 +173,7 @@ type PublishVideoResult struct {
 // DeleteVideoRequest represents a request to delete a video
 // @Description	Delete video request
 type DeleteVideoRequest struct {
-	VideoID string `json:"video_id" validate:"required"`
+	VideoID string `json:"video_id"`
 }
 
 // DeleteVideoResponse represents the response for a video deletion
@@ -185,7 +185,7 @@ type DeleteVideoResponse struct {
 // RevokeVideoRequest represents a request to revoke public access to a video
 // @Description	Revoke video public access request
 type RevokeVideoRequest struct {
-	VideoID string `json:"video_id" validate:"required,uuid"`
+	VideoID string `json:"video_id"`
 }
 
 // RevokeVideoResponse represents a response for revoked video access

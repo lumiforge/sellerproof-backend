@@ -115,7 +115,12 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
 		if errorMsg == "email already exists" {
-			s.writeError(w, http.StatusCreated, "если такого пользователя не существует, мы отправили письмо с кодом подтверждения на его email")
+			s.writeJSON(w, http.StatusCreated, models.RegisterResponse{
+				UserID:  resp.UserID,
+				Message: resp.Message,
+			})
+			return
+
 		} else if strings.Contains(errorMsg, "invalid email format") ||
 			strings.Contains(errorMsg, "must be at least") ||
 			strings.Contains(errorMsg, "must be less than") ||

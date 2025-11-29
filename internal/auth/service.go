@@ -268,22 +268,18 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		}
 
 		// Subscription (trial)
-		storageLimitMB := s.config.StorageLimitFree
-		if storageLimitMB == 0 {
-			storageLimitMB = 1024
-		}
-		videoCountLimit := s.config.VideoCountLimitFree
-		if videoCountLimit == 0 {
-			videoCountLimit = 10
+		freePlan, err := s.db.GetPlanByID(ctx, "free")
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch free plan details: %w", err)
 		}
 
 		subscription = &ydb.Subscription{
 			SubscriptionID:  uuid.New().String(),
 			UserID:          user.UserID,
 			OrgID:           org.OrgID,
-			PlanID:          "free",
-			StorageLimitMB:  storageLimitMB,
-			VideoCountLimit: videoCountLimit,
+			PlanID:          freePlan.PlanID,
+			StorageLimitMB:  freePlan.StorageLimitMB,
+			VideoCountLimit: freePlan.VideoCountLimit,
 			IsActive:        true,
 			TrialEndsAt:     now.Add(7 * 24 * time.Hour),
 			StartedAt:       now,
@@ -298,7 +294,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	err = s.db.RegisterUserTx(ctx, user, org, membership, subscription, invitationID)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") {
-			return nil, fmt.Errorf("если такого пользователя не существует, мы отправили письмо с кодом подтверждения на его email")
+			return nil, fmt.Errorf("email already exists")
 		}
 		return nil, fmt.Errorf("registration failed: %w", err)
 	}

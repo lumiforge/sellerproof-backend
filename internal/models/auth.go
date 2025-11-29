@@ -5,9 +5,9 @@ package models
 // RegisterRequest represents a registration request
 // @Description	Registration request with user details
 type RegisterRequest struct {
-	Email            string `json:"email" validate:"required,email"`
-	Password         string `json:"password" validate:"required,min=8"`
-	FullName         string `json:"full_name" validate:"required"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	FullName         string `json:"full_name"`
 	OrganizationName string `json:"organization_name"`
 	InviteCode       string `json:"invite_code"`
 }
@@ -22,8 +22,8 @@ type RegisterResponse struct {
 // VerifyEmailRequest represents an email verification request
 // @Description	Email verification request with email and code
 type VerifyEmailRequest struct {
-	Email string `json:"email" validate:"required,email"`
-	Code  string `json:"code" validate:"required"`
+	Email string `json:"email"`
+	Code  string `json:"code"`
 }
 
 // VerifyEmailResponse represents an email verification response
@@ -36,8 +36,8 @@ type VerifyEmailResponse struct {
 // LoginRequest represents a login request
 // @Description	Login request with email and password
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // LoginResponse represents a login response
@@ -53,7 +53,7 @@ type LoginResponse struct {
 // RefreshTokenRequest represents a refresh token request
 // @Description	Refresh token request
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // RefreshTokenResponse represents a refresh token response
@@ -67,7 +67,7 @@ type RefreshTokenResponse struct {
 // LogoutRequest represents a logout request
 // @Description	Logout request with refresh token
 type LogoutRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // LogoutResponse represents a logout response
@@ -91,7 +91,7 @@ type GetProfileResponse struct {
 // UpdateProfileRequest represents a profile update request
 // @Description	Profile update request with full name
 type UpdateProfileRequest struct {
-	FullName string `json:"full_name" validate:"required"`
+	FullName string `json:"full_name"`
 }
 
 // UserInfo represents user information
@@ -119,7 +119,7 @@ type OrganizationInfo struct {
 // @Description	Switch organization request
 type SwitchOrganizationRequest struct {
 	OrgID        string `json:"org_id"`
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // SwitchOrganizationResponse represents a response for organization switching
