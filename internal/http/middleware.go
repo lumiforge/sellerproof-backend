@@ -195,35 +195,3 @@ func GetRequestID(r *http.Request) (string, bool) {
 	requestID, ok := r.Context().Value(RequestIDKey).(string)
 	return requestID, ok
 }
-
-// RBACMiddleware checks if user has required permission
-func RBACMiddleware(rbacManager interface{}, requiredPermission string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get user claims from context
-			claims, ok := r.Context().Value(UserClaimsKey).(*jwt.Claims)
-			if !ok || claims == nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			// If no permission is required, allow access
-			if requiredPermission == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Check if user is admin or has required role
-			// In the current implementation, we check role-based access
-			// Admin always has access
-			if claims.Role == "admin" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// For other roles, check specific permissions based on the requirement
-			// This is a simplified version - in production you'd use the RBAC manager
-			http.Error(w, "Access denied", http.StatusForbidden)
-		})
-	}
-}

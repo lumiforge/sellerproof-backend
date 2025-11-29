@@ -1,6 +1,7 @@
 package video
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -289,21 +290,57 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	// Определяем реальный тип контента
 	detectedType := http.DetectContentType(headerBytes)
 
-	// Проверяем, является ли файл видео.
-	// Примечание: http.DetectContentType может вернуть application/octet-stream для некоторых видео контейнеров (например, MKV или некоторые MP4).
-	// Поэтому мы разрешаем octet-stream, но явно запрещаем опасные типы (text/html, application/x-dosexec и т.д.)
-	// или требуем, чтобы тип начинался с video/.
-	isValidVideo := strings.HasPrefix(detectedType, "video/") || detectedType == "application/octet-stream"
+	// http.DetectContentType определяет только ограниченный набор типов.
+	// Если тип video/* - доверяем (Go stdlib проверяет сигнатуры для них).
+	// Если application/octet-stream - проверяем магические байты вручную.
 
-	// Дополнительная защита: если это octet-stream, но расширение было mp4/webm, это подозрительно,
-	// но часто бывает с MP4 (ftyp box).
-	// Строгая проверка: запрещаем явные не-видео типы.
-	if strings.HasPrefix(detectedType, "text/") ||
-		strings.HasPrefix(detectedType, "image/") ||
-		strings.Contains(detectedType, "javascript") ||
-		strings.Contains(detectedType, "json") ||
-		strings.Contains(detectedType, "xml") {
-		isValidVideo = false
+	isValidVideo := strings.HasPrefix(detectedType, "video/")
+
+	if detectedType == "application/octet-stream" {
+		// Проверяем сигнатуры популярных видео-форматов
+		if len(headerBytes) >= 12 {
+			// MP4/MOV/3GP (обычно содержат 'ftyp' с 4 по 8 байт)
+			if string(headerBytes[4:8]) == "ftyp" {
+				isValidVideo = true
+			}
+			// AVI (RIFF .... AVI )
+			if string(headerBytes[:4]) == "RIFF" && string(headerBytes[8:12]) == "AVI " {
+				isValidVideo = true
+			}
+		}
+		// MKV / WebM (0x1A 0x45 0xDF 0xA3)
+		if len(headerBytes) >= 4 && bytes.Equal(headerBytes[:4], []byte{0x1A, 0x45, 0xDF, 0xA3}) {
+			isValidVideo = true
+		}
+		// MPEG-TS (Sync byte 0x47)
+		if len(headerBytes) > 0 && headerBytes[0] == 0x47 {
+			isValidVideo = true
+		}
+	}
+
+	// Дополнительная защита: Явный запрет исполняемых файлов (MZ, ELF, Mach-O, Scripts)
+	// Даже если каким-то образом они прошли проверку выше (маловероятно), блокируем их.
+	if len(headerBytes) >= 4 {
+		// Windows PE (EXE, DLL)
+		if string(headerBytes[:2]) == "MZ" {
+			isValidVideo = false
+		}
+		// Linux ELF
+		if string(headerBytes[:4]) == "\x7fELF" {
+			isValidVideo = false
+		}
+		// Mach-O (macOS) - различные варианты magic bytes
+		if bytes.Equal(headerBytes[:4], []byte{0xfe, 0xed, 0xfa, 0xcf}) ||
+			bytes.Equal(headerBytes[:4], []byte{0xfe, 0xed, 0xfa, 0xce}) ||
+			bytes.Equal(headerBytes[:4], []byte{0xcf, 0xfa, 0xed, 0xfe}) {
+			isValidVideo = false
+		}
+		// Shell scripts / XML / HTML
+		if strings.HasPrefix(strings.TrimSpace(string(headerBytes)), "<!") ||
+			strings.HasPrefix(strings.TrimSpace(string(headerBytes)), "<?xml") ||
+			strings.HasPrefix(strings.TrimSpace(string(headerBytes)), "#!") {
+			isValidVideo = false
+		}
 	}
 
 	if !isValidVideo {

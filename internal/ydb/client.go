@@ -345,7 +345,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				INDEX org_user_idx GLOBAL ON (org_id, uploaded_by),
 				INDEX org_deleted_idx GLOBAL ON (org_id, is_deleted),
 				INDEX share_token_idx GLOBAL ON (public_share_token),
-				INDEX publish_status_idx GLOBAL ON (publish_status)
+				INDEX publish_status_idx GLOBAL ON (publish_status),
+				INDEX org_filename_idx GLOBAL ON (org_id, file_name_search)
 			)
 			WITH (
 				TTL = Interval("PT0S") ON upload_expires_at
@@ -1824,7 +1825,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		safeQuery = strings.ReplaceAll(safeQuery, "\\", "\\\\") // Сначала экранируем сам экранирующий символ
 		safeQuery = strings.ReplaceAll(safeQuery, "%", "\\%")   // Экранируем процент
 		safeQuery = strings.ReplaceAll(safeQuery, "_", "\\_")   // Экранируем подчеркивание
-		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.TextValue("%"+safeQuery+"%")))
+		countParamsBuilder = append(countParamsBuilder, table.ValueParam("$query", types.TextValue(safeQuery+"%")))
 	}
 	countParams = table.NewQueryParameters(countParamsBuilder...)
 
@@ -1888,7 +1889,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 		safeQuery = strings.ReplaceAll(safeQuery, "\\", "\\\\")
 		safeQuery = strings.ReplaceAll(safeQuery, "%", "\\%")
 		safeQuery = strings.ReplaceAll(safeQuery, "_", "\\_")
-		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.TextValue("%"+safeQuery+"%")))
+		dataParamsBuilder = append(dataParamsBuilder, table.ValueParam("$query", types.TextValue(safeQuery+"%")))
 	}
 	dataParamsBuilder = append(dataParamsBuilder,
 		table.ValueParam("$limit", types.Uint64Value(uint64(limit))),

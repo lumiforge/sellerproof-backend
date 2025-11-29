@@ -949,10 +949,12 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 		return nil, fmt.Errorf("user already invited to this organization")
 	}
 
-	// Проверяем, что пользователь не состоит уже в организации
-	membership, _ := s.db.GetMembership(ctx, "", orgID)
-	if membership != nil {
-		return nil, fmt.Errorf("user is already a member of this organization")
+	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
+	if err == nil && existingUser != nil {
+		membership, _ := s.db.GetMembership(ctx, existingUser.UserID, orgID)
+		if membership != nil {
+			return nil, fmt.Errorf("user is already a member of this organization")
+		}
 	}
 
 	// Генерируем уникальный код приглашения
