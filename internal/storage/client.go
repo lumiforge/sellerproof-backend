@@ -60,7 +60,7 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	privateBucket := cfg.SPObjStorePrivateBucket
 	publicBucket := cfg.SPObjStorePublicBucket
 	endpoint := cfg.S3Endpoint
-	region := "ru-central1"
+	region := cfg.SESRegion
 
 	if accessKey == "" || secretKey == "" || privateBucket == "" || publicBucket == "" {
 		return nil, fmt.Errorf("AWS credentials and bucket names must be set")
