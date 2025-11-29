@@ -138,6 +138,56 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	// Проверка, что email не занят
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
+		// Allow unverified users to re-register to resend verification code
+		if !existingUser.EmailVerified {
+			// Hash new password
+			newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash password: %w", err)
+			}
+
+			// Generate new verification code
+			newVerificationCode, err := email.GenerateVerificationCode()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate verification code: %w", err)
+			}
+
+			// Update user record
+			existingUser.PasswordHash = string(newPasswordHash)
+			existingUser.VerificationCode = newVerificationCode
+			existingUser.VerificationExpiresAt = time.Now().Add(24 * time.Hour)
+			existingUser.FullName = req.FullName
+			existingUser.UpdatedAt = time.Now()
+
+			if err := s.db.UpdateUser(ctx, existingUser); err != nil {
+				return nil, fmt.Errorf("failed to update user: %w", err)
+			}
+
+			// Resend email
+			if s.email.IsConfigured() {
+				emailMessage, err := s.email.SendVerificationEmail(ctx, req.Email, newVerificationCode)
+				if err != nil {
+					slog.Error("Failed to resend verification email", "error", err, "email", req.Email)
+				} else {
+					emailLog := &ydb.EmailLog{
+						EmailID:          emailMessage.ID,
+						UserID:           existingUser.UserID,
+						EmailType:        string(email.EmailTypeVerification),
+						Recipient:        req.Email,
+						Status:           string(emailMessage.Status),
+						PostboxMessageID: emailMessage.MessageID,
+						SentAt:           emailMessage.SentAt,
+						ErrorMessage:     emailMessage.Error,
+					}
+					_ = s.db.CreateEmailLog(ctx, emailLog)
+				}
+			}
+
+			return &models.RegisterResponse{
+				UserID:  existingUser.UserID,
+				Message: "Registration successful. Please check your email for verification.",
+			}, nil
+		}
 		return nil, fmt.Errorf("email already exists")
 	}
 
@@ -735,7 +785,33 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.
 }
 
 // SwitchOrganization переключает организацию пользователя
+// SwitchOrganization переключает организацию пользователя
 func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *models.SwitchOrganizationRequest) (*models.SwitchOrganizationResponse, error) {
+	// 1. Валидация и отзыв старого Refresh токена (Ротация)
+	// Валидация формата токена
+	claims, err := s.jwtManager.ValidateToken(req.RefreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	// Проверка принадлежности токена пользователю
+	if claims.UserID != userID {
+		return nil, fmt.Errorf("refresh token does not belong to user")
+	}
+
+	// Проверка существования и статуса токена в БД
+	oldTokenHash := s.hashToken(req.RefreshToken)
+	tokenRecord, err := s.db.GetRefreshToken(ctx, oldTokenHash)
+	if err != nil || tokenRecord == nil || tokenRecord.IsRevoked {
+		return nil, fmt.Errorf("refresh token not found or revoked")
+	}
+
+	// Отзыв старого токена
+	if err := s.db.RevokeRefreshToken(ctx, oldTokenHash); err != nil {
+		return nil, fmt.Errorf("failed to revoke old token: %w", err)
+	}
+
+	// 2. Проверка прав доступа к новой организации
 	// Проверяем, что пользователь состоит в этой организации
 	membership, err := s.db.GetMembership(ctx, userID, req.OrgID)
 	if err != nil {
@@ -752,6 +828,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 		return nil, fmt.Errorf("user not found")
 	}
 
+	// 3. Генерация новой сессии
 	// Генерируем новый токен с новой организацией
 	role := membership.Role
 

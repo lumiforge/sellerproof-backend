@@ -17,6 +17,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
+	"github.com/lumiforge/sellerproof-backend/internal/validation"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
 )
 
@@ -142,7 +143,13 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	videoID := uuid.New().String()
 	objectKey := fmt.Sprintf("videos/%s/%s/%s", orgID, videoID, fileName)
 
-	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, "video/mp4")
+	// Определяем Content-Type по расширению файла
+	contentType := validation.GetContentTypeFromExtension(fileName)
+	if contentType == "" {
+		contentType = "video/mp4"
+	}
+
+	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, contentType)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to initiate s3 upload: %w", err)

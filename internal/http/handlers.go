@@ -1234,6 +1234,11 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.RefreshToken == "" {
+		s.writeError(w, http.StatusBadRequest, "refresh_token is required")
+		return
+	}
+
 	// Additional checks for SQL injection and XSS
 	options := validation.CombineOptions(
 		validation.WithSQLInjectionCheck(),
@@ -2222,7 +2227,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	} // Parse query parameters
 	userID := r.URL.Query().Get("user_id")
-	orgID := r.URL.Query().Get("org_id")
+	// orgID := r.URL.Query().Get("org_id")
 	actionType := r.URL.Query().Get("action_type")
 	result := r.URL.Query().Get("result")
 	from := r.URL.Query().Get("from")
@@ -2252,12 +2257,14 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Build filters map
 	filters := make(map[string]interface{})
+
+	// IDOR
+	filters["org_id"] = claims.OrgID
+
 	if userID != "" {
 		filters["user_id"] = userID
 	}
-	if orgID != "" {
-		filters["org_id"] = orgID
-	}
+
 	if actionType != "" {
 		filters["action_type"] = actionType
 	}

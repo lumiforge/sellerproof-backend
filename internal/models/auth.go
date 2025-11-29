@@ -118,7 +118,8 @@ type OrganizationInfo struct {
 // SwitchOrganizationRequest represents a request to switch organization
 // @Description	Switch organization request
 type SwitchOrganizationRequest struct {
-	OrgID string `json:"org_id"`
+	OrgID        string `json:"org_id"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 // SwitchOrganizationResponse represents a response for organization switching
