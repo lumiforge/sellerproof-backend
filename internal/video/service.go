@@ -200,6 +200,14 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 		return nil, fmt.Errorf("access denied")
 	}
 
+	// Fix: Check video status to prevent overwriting completed or deleted videos
+	if video.IsDeleted {
+		return nil, fmt.Errorf("video is deleted")
+	}
+	if video.UploadStatus == "completed" {
+		return nil, fmt.Errorf("video upload is already completed")
+	}
+
 	urls := make([]string, totalParts)
 	for i := 0; i < int(totalParts); i++ {
 		storagePath := video.StoragePath
