@@ -683,6 +683,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 	return &user, nil
 }
 
+// TODO Potentially Race Condition / Lost Update
 // UpdateUser обновляет данные пользователя
 func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 	query := `

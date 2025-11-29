@@ -737,9 +737,9 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate stream URL: %w", err)
 	}
+
+	// TODO Potentially DoS: Increment access count for each download
 	if err := s.db.IncrementAccessCount(ctx, token); err != nil {
-		// Логируем ошибку, но НЕ прерываем выполнение, чтобы пользователь все равно получил видео
-		// Используем slog, так как он инициализирован в проекте, вместо стандартного log
 		slog.Error("Failed to increment access count", "error", err, "token", token)
 	}
 

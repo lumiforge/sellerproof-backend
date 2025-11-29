@@ -139,44 +139,32 @@ func ValidateXSSStrict(input string, fieldName string) error {
 
 // SanitizeForHTML очищает строку для безопасного отображения в HTML
 func SanitizeForHTML(input string) string {
-	// HTML escaping
-	replacements := map[string]string{
-		"&":  "&amp;",
-		"<":  "&lt;",
-		">":  "&gt;",
-		"\"": "&quot;",
-		"'":  "&#x27;",
-	}
-
-	result := input
-	for old, new := range replacements {
-		result = strings.ReplaceAll(result, old, new)
-	}
-
-	return result
+	// Используем strings.NewReplacer для детерминированной замены за один проход.
+	// Это предотвращает двойное экранирование (например, & -> &amp; -> &amp;amp;)
+	// и гарантирует предсказуемый результат.
+	return strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\"", "&quot;",
+		"'", "&#x27;",
+	).Replace(input)
 }
 
 // SanitizeForAttribute очищает строку для безопасного использования в атрибутах HTML
 func SanitizeForAttribute(input string) string {
 	// Более строгое экранирование для атрибутов
-	replacements := map[string]string{
-		"&":  "&amp;",
-		"<":  "&lt;",
-		">":  "&gt;",
-		"\"": "&quot;",
-		"'":  "&#x27;",
-		"/":  "&#x2F;", // по желанию
-		"=":  "&#x3D;",
-		"`":  "&#x60;",
-		"\n": "&#xA;",
-		"\r": "&#xD;",
-		"\t": "&#x9;",
-	}
-
-	result := input
-	for old, new := range replacements {
-		result = strings.ReplaceAll(result, old, new)
-	}
-
-	return result
+	return strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\"", "&quot;",
+		"'", "&#x27;",
+		"/", "&#x2F;",
+		"=", "&#x3D;",
+		"`", "&#x60;",
+		"\n", "&#xA;",
+		"\r", "&#xD;",
+		"\t", "&#x9;",
+	).Replace(input)
 }

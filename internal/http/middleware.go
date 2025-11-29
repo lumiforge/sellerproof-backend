@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/logger"
 )
@@ -21,7 +22,7 @@ const (
 )
 
 // AuthMiddleware creates a middleware for JWT authentication
-func AuthMiddleware(jwtManager *jwt.JWTManager, next http.Handler) http.Handler {
+func AuthMiddleware(jwtManager *jwt.JWTManager, authService *auth.Service, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip authentication for public endpoints
 		if isPublicEndpoint(r.URL.Path) {
@@ -51,7 +52,11 @@ func AuthMiddleware(jwtManager *jwt.JWTManager, next http.Handler) http.Handler 
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
-
+		// Проверяем актуальный статус пользователя в БД
+		if err := authService.ValidateActiveSession(r.Context(), claims.UserID, claims.OrgID); err != nil {
+			http.Error(w, "Session invalidated: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
 		// Add claims to context
 		ctx := context.WithValue(r.Context(), UserClaimsKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -108,6 +113,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 // CORSMiddleware adds CORS headers
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Add Origins before production release
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")

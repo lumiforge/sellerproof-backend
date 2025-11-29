@@ -81,20 +81,13 @@ func ValidateSQLInjectionStrict(input string, fieldName string) error {
 // SanitizeForSQL очищает строку для безопасного использования в SQL
 // ВАЖНО: Эта функция не заменяет параметризованные запросы!
 func SanitizeForSQL(input string) string {
-	// Удаляем потенциально опасные символы
-	replacements := map[string]string{
-		"'":  "''",
-		"\"": "\\\"",
-		"\\": "\\\\",
-		"\n": "\\n",
-		"\r": "\\r",
-		"\t": "\\t",
-	}
-
-	result := input
-	for old, new := range replacements {
-		result = strings.ReplaceAll(result, old, new)
-	}
-
-	return result
+	// Используем strings.NewReplacer для детерминированной замены
+	return strings.NewReplacer(
+		"'", "''",
+		"\"", "\\\"",
+		"\\", "\\\\",
+		"\n", "\\n",
+		"\r", "\\r",
+		"\t", "\\t",
+	).Replace(input)
 }

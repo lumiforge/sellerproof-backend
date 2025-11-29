@@ -1280,3 +1280,23 @@ func (s *Service) CreateOrganization(ctx context.Context, userID string, req *mo
 		Message:     "Organization created successfully",
 	}, nil
 }
+
+// ValidateActiveSession проверяет, что пользователь активен и имеет доступ к организации
+func (s *Service) ValidateActiveSession(ctx context.Context, userID, orgID string) error {
+
+	user, err := s.db.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+	if !user.IsActive {
+		return fmt.Errorf("user account is deactivated")
+	}
+
+	if orgID != "" {
+		membership, err := s.db.GetMembership(ctx, userID, orgID)
+		if err != nil || membership.Status != "active" {
+			return fmt.Errorf("membership is not active or revoked")
+		}
+	}
+	return nil
+}
