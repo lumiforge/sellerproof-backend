@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -116,7 +115,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
 		if errorMsg == "email already exists" {
-			s.writeError(w, http.StatusConflict, errorMsg)
+			s.writeError(w, http.StatusConflict, "если такого пользователя не существует, мы отправили письмо с кодом подтверждения на его email")
 		} else if strings.Contains(errorMsg, "invalid email format") ||
 			strings.Contains(errorMsg, "must be at least") ||
 			strings.Contains(errorMsg, "must be less than") ||
@@ -547,37 +546,32 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	// Limit request body size to 1MB
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-	// Read the body once
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "Failed to read request body: "+err.Error())
-		return
-	}
 
-	// Parse raw JSON to check data types
-	var rawBody map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid JSON format: "+err.Error())
-		return
-	}
-
-	// Check for string values instead of numbers
-	if fileSizeStr, ok := rawBody["file_size_bytes"].(string); ok {
-		if _, err := strconv.ParseInt(fileSizeStr, 10, 64); err != nil {
-			s.writeError(w, http.StatusBadRequest, "file_size_bytes must be a number, not a string")
-			return
-		}
-	}
-	if durationStr, ok := rawBody["duration_seconds"].(string); ok {
-		if _, err := strconv.ParseInt(durationStr, 10, 64); err != nil {
-			s.writeError(w, http.StatusBadRequest, "duration_seconds must be a number, not a string")
-			return
-		}
-	}
-
-	// Now decode into the struct
 	var req models.InitiateMultipartUploadRequest
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+
+	// Используем потоковый декодер вместо io.ReadAll + двойной Unmarshal
+	dec := json.NewDecoder(r.Body)
+	// Запретить неизвестные поля
+	// dec.DisallowUnknownFields()
+
+	if err := dec.Decode(&req); err != nil {
+		// Обработка ошибок типов (например, строка вместо числа)
+		var typeErr *json.UnmarshalTypeError
+		if errors.As(err, &typeErr) {
+			if typeErr.Value == "string" {
+				if typeErr.Field == "file_size_bytes" {
+					s.writeError(w, http.StatusBadRequest, "file_size_bytes must be a number, not a string")
+					return
+				}
+				if typeErr.Field == "duration_seconds" {
+					s.writeError(w, http.StatusBadRequest, "duration_seconds must be a number, not a string")
+					return
+				}
+			}
+			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("Invalid type for field %s: expected %s, got %s", typeErr.Field, typeErr.Type, typeErr.Value))
+			return
+		}
+
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}

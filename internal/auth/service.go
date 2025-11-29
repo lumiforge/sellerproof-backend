@@ -248,7 +248,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	err = s.db.RegisterUserTx(ctx, user, org, membership, subscription, invitationID)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") {
-			return nil, fmt.Errorf("email already exists")
+			return nil, fmt.Errorf("если такого пользователя не существует, мы отправили письмо с кодом подтверждения на его email")
 		}
 		return nil, fmt.Errorf("registration failed: %w", err)
 	}

@@ -1576,7 +1576,11 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, error) {
 	query := `
 		DECLARE $org_id AS Text;
-		SELECT COALESCE(SUM(file_size_bytes), 0)
+		
+		SELECT COALESCE(SUM(
+			file_size_bytes + 
+			CASE WHEN publish_status = 'published' THEN file_size_bytes ELSE 0 END
+		), 0)
 		FROM videos
 		WHERE org_id = $org_id AND is_deleted = false AND upload_status != 'failed'
 	`
@@ -1609,6 +1613,78 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 		return 0, err
 	}
 	return usage, nil
+}
+
+// PublishVideoTx выполняет публикацию видео в одной транзакции:
+// 1. Создает запись public_video_shares
+// 2. Обновляет статус и URL в таблице videos
+func (c *YDBClient) PublishVideoTx(ctx context.Context, share *PublicVideoShare, videoID, publicURL, status string) error {
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		// Декларации
+		declarations := `
+			DECLARE $share_id AS Text;
+			DECLARE $video_id AS Text;
+			DECLARE $public_token AS Text;
+			DECLARE $created_at AS Timestamp;
+			DECLARE $created_by AS Text;
+			DECLARE $revoked AS Bool;
+			DECLARE $access_count AS Uint64;
+			DECLARE $last_accessed_at AS Optional<Timestamp>;
+			
+			DECLARE $vid_id AS Text;
+			DECLARE $vid_status AS Text;
+			DECLARE $vid_public_url AS Text;
+			DECLARE $vid_published_at AS Timestamp;
+			DECLARE $vid_updated_at AS Timestamp;
+		`
+
+		// Запросы
+		statements := `
+			-- 1. Создаем шаринг
+			REPLACE INTO public_video_shares (
+				share_id, video_id, public_token, created_at, created_by, revoked, access_count, last_accessed_at
+			) VALUES ($share_id, $video_id, $public_token, $created_at, $created_by, $revoked, $access_count, $last_accessed_at);
+
+			-- 2. Обновляем видео
+			UPDATE videos
+			SET publish_status = $vid_status, 
+				public_url = $vid_public_url, 
+				published_at = $vid_published_at,
+				updated_at = $vid_updated_at
+			WHERE video_id = $vid_id;
+		`
+
+		finalQuery := declarations + "\n" + statements
+		now := time.Now()
+
+		// Параметры
+		params := table.NewQueryParameters(
+			// Params for Share
+			table.ValueParam("$share_id", types.TextValue(share.ShareID)),
+			table.ValueParam("$video_id", types.TextValue(share.VideoID)),
+			table.ValueParam("$public_token", types.TextValue(share.PublicToken)),
+			table.ValueParam("$created_at", types.TimestampValueFromTime(share.CreatedAt)),
+			table.ValueParam("$created_by", types.TextValue(share.CreatedBy)),
+			table.ValueParam("$revoked", types.BoolValue(share.Revoked)),
+			table.ValueParam("$access_count", types.Uint64Value(share.AccessCount)),
+			table.ValueParam("$last_accessed_at", types.NullValue(types.TypeTimestamp)), // Изначально null
+
+			// Params for Video Update
+			table.ValueParam("$vid_id", types.TextValue(videoID)),
+			table.ValueParam("$vid_status", types.TextValue(status)),
+			table.ValueParam("$vid_public_url", types.TextValue(publicURL)),
+			table.ValueParam("$vid_published_at", types.TimestampValueFromTime(now)),
+			table.ValueParam("$vid_updated_at", types.TimestampValueFromTime(now)),
+		)
+
+		_, _, err := session.Execute(
+			ctx,
+			table.TxControl(table.BeginTx(table.WithSerializableReadWrite()), table.CommitTx()),
+			finalQuery,
+			params,
+		)
+		return err
+	})
 }
 
 // GetVideoByShareToken получает видео по токену

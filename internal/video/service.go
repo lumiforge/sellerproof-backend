@@ -123,6 +123,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, fmt.Errorf("failed to get subscription: %w", err)
 	}
 
+	// TODO Race Condition при проверке квоты хранилища
 	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
 	if err != nil {
 
@@ -661,13 +662,44 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		}, nil
 	}
 
-	// Генерируем публичный токен
+	// 2. ПРОВЕРКА КВОТЫ
+	// Если видео еще не опубликовано, публикация создаст копию, занимающую место.
+	if video.PublishStatus != "published" {
+		sub, err := s.db.GetSubscriptionByUser(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get subscription: %w", err)
+		}
+
+		currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get storage usage: %w", err)
+		}
+
+		// Проверяем, хватит ли места для копии файла
+		limitBytes := sub.StorageLimitMB * 1024 * 1024
+		if sub.StorageLimitMB > 0 && (currentUsage+video.FileSizeBytes) > limitBytes {
+			return nil, fmt.Errorf("storage limit exceeded: publishing requires additional storage space")
+		}
+	}
+
+	// 3. Копируем видео в публичный bucket (Fix for Data Consistency: S3 first)
+	// Формируем ключ для публичного бакета
+	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
+
+	// Выполняем копирование. Если упадет здесь - база данных останется чистой.
+	s3PublicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy video to public bucket: %w", err)
+	}
+
+	// 4. Подготовка данных для БД
 	publicToken, err := generatePublicToken()
 	if err != nil {
+		// Если генерация токена упала, нужно почистить S3, чтобы не оставлять мусор
+		_ = s.storage.DeletePublicObject(ctx, publicKey)
 		return nil, fmt.Errorf("failed to generate public token: %w", err)
 	}
 
-	// Создаем запись в public_video_shares
 	shareID := uuid.New().String()
 	now := time.Now()
 	publicShare := &ydb.PublicVideoShare{
@@ -680,31 +712,23 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		AccessCount: 0,
 	}
 
-	if err := s.db.CreatePublicVideoShare(ctx, publicShare); err != nil {
-		return nil, fmt.Errorf("failed to create public share: %w", err)
+	// 5. Транзакционное сохранение в БД (Fix for Data Consistency: Atomic DB update)
+	err = s.db.PublishVideoTx(ctx, publicShare, videoID, s3PublicURL, "published")
+	if err != nil {
+		// КРИТИЧНО: Если транзакция в БД не прошла, мы должны удалить файл из S3,
+		// иначе он останется там навечно ("сирота"), занимая место и деньги.
+		slog.Error("Failed to commit publish transaction, rolling back S3", "error", err, "video_id", videoID)
+		if delErr := s.storage.DeletePublicObject(ctx, publicKey); delErr != nil {
+			slog.Error("Failed to rollback S3 object after DB failure", "error", delErr, "key", publicKey)
+		}
+		return nil, fmt.Errorf("failed to publish video record: %w", err)
 	}
 
-	// Копируем видео в публичный bucket (если еще не скопировано)
-	if video.PublicURL == nil || *video.PublicURL == "" {
-		publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
-		publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to copy video to public bucket: %w", err)
-		}
-
-		// Обновляем видео с публичным URL
-		video.PublicURL = &publicURL
-		video.PublishedAt = aws.Time(now)
-		video.PublishStatus = "published"
-		if err := s.db.UpdateVideo(ctx, video); err != nil {
-			return nil, fmt.Errorf("failed to update video record: %w", err)
-		}
-	}
-
-	publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, publicToken)
+	// Формируем ссылку для ответа API
+	apiPublicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, publicToken)
 
 	return &models.PublishVideoResult{
-		PublicURL:   publicURL,
+		PublicURL:   apiPublicURL,
 		PublicToken: publicToken,
 		Message:     "Video published successfully",
 	}, nil

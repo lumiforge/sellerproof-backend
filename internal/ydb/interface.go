@@ -93,4 +93,6 @@ type Database interface {
 	// Инициализация и миграции
 	Initialize(ctx context.Context) error
 	Close() error
+
+	PublishVideoTx(ctx context.Context, share *PublicVideoShare, videoID, publicURL, status string) error
 }
