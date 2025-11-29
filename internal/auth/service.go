@@ -329,7 +329,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 // VerifyEmail подтверждает email пользователя
 func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailRequest) (*models.VerifyEmailResponse, error) {
-
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
 		return nil, err
 	}
