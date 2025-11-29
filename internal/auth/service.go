@@ -422,15 +422,15 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	}
 
-	// Приоритет 3: Если активных не найдено, берем первую валидную
-	if selectedMembership == nil {
-		for _, m := range memberships {
-			if _, exists := orgMap[m.OrgID]; exists {
-				selectedMembership = m
-				break
-			}
-		}
-	}
+	// // Приоритет 3: Если активных не найдено, берем первую валидную
+	// if selectedMembership == nil {
+	// 	for _, m := range memberships {
+	// 		if _, exists := orgMap[m.OrgID]; exists {
+	// 			selectedMembership = m
+	// 			break
+	// 		}
+	// 	}
+	// }
 
 	// Если после всех проверок организация не выбрана (все удалены или рассинхрон), возвращаем ошибку
 	if selectedMembership == nil {

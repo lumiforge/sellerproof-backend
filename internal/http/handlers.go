@@ -2241,6 +2241,11 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	offset := 0
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
 		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			// Limit offset to prevent DoS via deep pagination
+			if o > 10000 {
+				s.writeError(w, http.StatusBadRequest, "offset cannot exceed 10000. Please use date filters to narrow down results.")
+				return
+			}
 			offset = o
 		}
 	}

@@ -131,9 +131,12 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	}
 
 	var limitBytes int64 = sub.StorageLimitMB * 1024 * 1024
-	if sub.StorageLimitMB > 0 && (currentUsage+fileSizeBytes) > limitBytes {
-
-		return nil, fmt.Errorf("storage limit exceeded")
+	// Fix: Check against remaining quota to avoid integer overflow in (currentUsage + fileSizeBytes)
+	if sub.StorageLimitMB > 0 {
+		remainingQuota := limitBytes - currentUsage
+		if fileSizeBytes > remainingQuota {
+			return nil, fmt.Errorf("storage limit exceeded")
+		}
 	}
 
 	videoID := uuid.New().String()
