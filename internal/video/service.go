@@ -149,6 +149,10 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		contentType = "video/mp4"
 	}
 
+	if !validation.IsVideoContentType(contentType) {
+		return nil, fmt.Errorf("invalid file type: %s. Only video files are allowed", contentType)
+	}
+
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, contentType)
 	if err != nil {
 

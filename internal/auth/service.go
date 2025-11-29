@@ -140,11 +140,6 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	if err == nil && existingUser != nil {
 		// Allow unverified users to re-register to resend verification code
 		if !existingUser.EmailVerified {
-			// Hash new password
-			newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-			if err != nil {
-				return nil, fmt.Errorf("failed to hash password: %w", err)
-			}
 
 			// Generate new verification code
 			newVerificationCode, err := email.GenerateVerificationCode()
@@ -153,7 +148,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			}
 
 			// Update user record
-			existingUser.PasswordHash = string(newPasswordHash)
+
 			existingUser.VerificationCode = newVerificationCode
 			existingUser.VerificationExpiresAt = time.Now().Add(24 * time.Hour)
 			existingUser.FullName = req.FullName
@@ -1122,7 +1117,16 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 	if err != nil {
 		return fmt.Errorf("target user is not a member of this organization")
 	}
+	// Получаем организацию для проверки владельца
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return fmt.Errorf("failed to get organization info: %w", err)
+	}
 
+	// Нельзя менять роль владельца организации
+	if org.OwnerID == targetUserID {
+		return fmt.Errorf("cannot change role of organization owner")
+	}
 	// Обновляем роль
 	targetMembership.Role = newRole
 	targetMembership.UpdatedAt = time.Now()

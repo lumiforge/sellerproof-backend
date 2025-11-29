@@ -246,7 +246,7 @@ func (c *Client) SendInvitationEmail(ctx context.Context, email, inviteCode, org
 			</div>
 		</body>
 		</html>
-	`, orgName, inviteLink, inviteLink, inviteLink)
+	`, safeOrgName, inviteLink, inviteLink, inviteLink)
 
 	message := &EmailMessage{
 		Type:      EmailTypeInvitation,

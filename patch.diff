@@ -1,0 +1,17 @@
+diff --git a/internal/video/service.go b/internal/video/service.go
+index 1234567..89abcdef 100644
+--- a/internal/video/service.go
++++ b/internal/video/service.go
+@@ -105,6 +105,13 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
+ 		contentType = "video/mp4"
+ 	}
+ 
++	// FIX: Строгая проверка типа контента для предотвращения Stored XSS.
++	// Разрешаем только видео-типы. Это предотвратит загрузку .html, .svg, .js и других опасных файлов,
++	// даже если злоумышленник попытается их загрузить.
++	if !validation.IsVideoContentType(contentType) {
++		return nil, fmt.Errorf("invalid file type: %s. Only video files are allowed", contentType)
++	}
++
+ 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, contentType)
+ 	if err != nil {

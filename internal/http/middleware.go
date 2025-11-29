@@ -52,11 +52,7 @@ func AuthMiddleware(jwtManager *jwt.JWTManager, authService *auth.Service, next 
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
-		// Проверяем актуальный статус пользователя в БД
-		if err := authService.ValidateActiveSession(r.Context(), claims.UserID, claims.OrgID); err != nil {
-			http.Error(w, "Session invalidated: "+err.Error(), http.StatusUnauthorized)
-			return
-		}
+
 		// Add claims to context
 		ctx := context.WithValue(r.Context(), UserClaimsKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
