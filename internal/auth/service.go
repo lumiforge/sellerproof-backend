@@ -939,7 +939,12 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	}
 
 	// Проверяем, что пользователь еще не приглашен в эту организацию
-	existingInvitation, _ := s.db.GetInvitationByEmail(ctx, orgID, req.Email)
+	existingInvitation, err := s.db.GetInvitationByEmail(ctx, orgID, req.Email)
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		slog.Error("Failed to check existing invitations", "error", err)
+		return nil, fmt.Errorf("failed to check existing invitations: %w", err)
+	}
+
 	if existingInvitation != nil {
 		return nil, fmt.Errorf("user already invited to this organization")
 	}

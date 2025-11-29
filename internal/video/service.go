@@ -710,7 +710,10 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 
 	// 1. Проверяем, есть ли уже активный токен (Идемпотентность)
 	existingShare, err := s.db.GetActivePublicVideoShare(ctx, videoID)
-	if err == nil && existingShare != nil {
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		return nil, fmt.Errorf("failed to check active share: %w", err)
+	}
+	if existingShare != nil {
 		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, existingShare.PublicToken)
 		return &models.PublishVideoResult{
 			PublicURL:   publicURL,

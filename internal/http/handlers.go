@@ -2239,7 +2239,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	to := r.URL.Query().Get("to")
 
 	// Parse limit and offset
-	limit := 100
+	limit := 1000
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil {
 			if l > 0 && l <= 1000 {

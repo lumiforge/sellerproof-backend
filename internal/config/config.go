@@ -98,15 +98,15 @@ func Load() *Config {
 		APIBaseURL:         getEnv("SP_API_BASE_URL", "https://api.sellerproof.ru"),
 
 		// Plan configuration
-		StorageLimitFree:          int64(getEnvInt("storage_limit_free", 1024, 0, 0)),
-		StorageLimitPro:           int64(getEnvInt("storage_limit_pro", 102400, 0, 0)),
-		StorageLimitEnterprise:    int64(getEnvInt("storage_limit_enterprise", 1024000, 0, 0)),
-		VideoCountLimitFree:       int64(getEnvInt("video_count_limit_free", 10, 0, 0)),
-		VideoCountLimitPro:        int64(getEnvInt("video_count_limit_pro", 1000, 0, 0)),
-		VideoCountLimitEnterprise: int64(getEnvInt("video_count_limit_enterprise", 10000, 0, 0)),
-		PriceRubFree:              float64(getEnvInt("price_rub_free", 0, 0, 0)),
-		PriceRubPro:               float64(getEnvInt("price_rub_pro", 990, 0, 0)),
-		PriceRubEnterprise:        float64(getEnvInt("price_rub_enterprise", 4990, 0, 0)),
+		StorageLimitFree:          int64(getEnvInt("storage_limit_free", 1024, 0, 1024)),
+		StorageLimitPro:           int64(getEnvInt("storage_limit_pro", 102400, 0, 102400)),
+		StorageLimitEnterprise:    int64(getEnvInt("storage_limit_enterprise", 1024000, 0, 1024000)),
+		VideoCountLimitFree:       int64(getEnvInt("video_count_limit_free", 10, 0, 10)),
+		VideoCountLimitPro:        int64(getEnvInt("video_count_limit_pro", 1000, 0, 1000)),
+		VideoCountLimitEnterprise: int64(getEnvInt("video_count_limit_enterprise", 10000, 0, 10000)),
+		PriceRubFree:              float64(getEnvInt("price_rub_free", 0, 0, 1)),
+		PriceRubPro:               float64(getEnvInt("price_rub_pro", 990, 0, 990)),
+		PriceRubEnterprise:        float64(getEnvInt("price_rub_enterprise", 4990, 0, 4990)),
 
 		// HTTP configuration
 		HTTPPort: getEnv("SP_HTTP_PORT", "8080"),
