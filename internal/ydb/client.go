@@ -94,6 +94,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				email_verified Bool DEFAULT false,
 				verification_code Text NOT NULL,
 				verification_expires_at Timestamp NOT NULL,
+				verification_attempts Int32 DEFAULT 0,
 				created_at Timestamp NOT NULL,
 				updated_at Timestamp NOT NULL,
 				is_active Bool DEFAULT true,
@@ -538,14 +539,15 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 		DECLARE $email_verified AS Bool;
 		DECLARE $verification_code AS Text;
 		DECLARE $verification_expires_at AS Timestamp;
+		DECLARE $verification_attempts AS Int32;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 		DECLARE $is_active AS Bool;
 
 		REPLACE INTO users (
 			user_id, email, password_hash, full_name, email_verified,
-			verification_code, verification_expires_at, created_at, updated_at, is_active
-		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $created_at, $updated_at, $is_active)
+			verification_code, verification_expires_at,verification_attempts, created_at, updated_at, is_active
+		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $verification_attempts, $created_at, $updated_at, $is_active)
 	`
 
 	now := time.Now()
@@ -562,6 +564,7 @@ func (c *YDBClient) CreateUser(ctx context.Context, user *User) error {
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
 				table.ValueParam("$verification_code", types.TextValue(user.VerificationCode)),
 				table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(user.VerificationExpiresAt)),
+				table.ValueParam("$verification_attempts", types.Int32Value(user.VerificationAttempts)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -576,7 +579,7 @@ func (c *YDBClient) GetUserByID(ctx context.Context, userID string) (*User, erro
 	query := `
 		DECLARE $user_id AS Text;
 		SELECT user_id, email, password_hash, full_name, email_verified,
-			   verification_code, verification_expires_at, created_at, updated_at, is_active
+			   verification_code, verification_expires_at, verification_attempts, created_at, updated_at, is_active
 		FROM users
 		WHERE user_id = $user_id
 	`
@@ -605,6 +608,7 @@ func (c *YDBClient) GetUserByID(ctx context.Context, userID string) (*User, erro
 				named.Required("email_verified", &user.EmailVerified),
 				named.Required("verification_code", &user.VerificationCode),
 				named.Required("verification_expires_at", &user.VerificationExpiresAt),
+				named.Required("verification_attempts", &user.VerificationAttempts),
 				named.Required("created_at", &user.CreatedAt),
 				named.Required("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
@@ -631,7 +635,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 	query := `
 		DECLARE $email AS Text;
 		SELECT user_id, email, password_hash, full_name, email_verified,
-			   verification_code, verification_expires_at, created_at, updated_at, is_active
+			   verification_code, verification_expires_at, verification_attempts, created_at, updated_at, is_active
 		FROM users
 		WHERE email = $email
 	`
@@ -660,6 +664,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 				named.Required("email_verified", &user.EmailVerified),
 				named.Required("verification_code", &user.VerificationCode),
 				named.Required("verification_expires_at", &user.VerificationExpiresAt),
+				named.Required("verification_attempts", &user.VerificationAttempts),
 				named.Required("created_at", &user.CreatedAt),
 				named.Required("updated_at", &user.UpdatedAt),
 				named.Required("is_active", &user.IsActive),
@@ -694,14 +699,15 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 		DECLARE $email_verified AS Bool;
 		DECLARE $verification_code AS Text;
 		DECLARE $verification_expires_at AS Timestamp;
+		DECLARE $verification_attempts AS Int32;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $updated_at AS Timestamp;
 		DECLARE $is_active AS Bool;
 
 		REPLACE INTO users (
 			user_id, email, password_hash, full_name, email_verified,
-			verification_code, verification_expires_at, created_at, updated_at, is_active
-		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $created_at, $updated_at, $is_active)
+			verification_code, verification_expires_at, verification_attempts, created_at, updated_at, is_active
+		) VALUES ($user_id, $email, $password_hash, $full_name, $email_verified, $verification_code, $verification_expires_at, $verification_attempts, $created_at, $updated_at, $is_active)
 	`
 
 	user.UpdatedAt = time.Now()
@@ -716,6 +722,7 @@ func (c *YDBClient) UpdateUser(ctx context.Context, user *User) error {
 				table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
 				table.ValueParam("$verification_code", types.TextValue(user.VerificationCode)),
 				table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(user.VerificationExpiresAt)),
+				table.ValueParam("$verification_attempts", types.Int32Value(user.VerificationAttempts)),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(user.CreatedAt)),
 				table.ValueParam("$updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 				table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -3464,7 +3471,6 @@ func (c *YDBClient) GetOrganizationsByIDs(ctx context.Context, orgIDs []string) 
 }
 
 // RegisterUserTx выполняет регистрацию пользователя, организации и подписки в одной транзакции
-// RegisterUserTx выполняет регистрацию пользователя, организации и подписки в одной транзакции
 func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organization, membership *Membership, subscription *Subscription, invitationID string) error {
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		var declarations strings.Builder
@@ -3481,6 +3487,7 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		DECLARE $email_verified AS Bool;
 		DECLARE $verification_code AS Text;
 		DECLARE $verification_expires_at AS Timestamp;
+		DECLARE $verification_attempts AS Int32;
 		DECLARE $user_created_at AS Timestamp;
 		DECLARE $user_updated_at AS Timestamp;
 		DECLARE $is_active AS Bool;
@@ -3494,6 +3501,7 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			table.ValueParam("$email_verified", types.BoolValue(user.EmailVerified)),
 			table.ValueParam("$verification_code", types.TextValue(user.VerificationCode)),
 			table.ValueParam("$verification_expires_at", types.TimestampValueFromTime(user.VerificationExpiresAt)),
+			table.ValueParam("$verification_attempts", types.Int32Value(user.VerificationAttempts)),
 			table.ValueParam("$user_created_at", types.TimestampValueFromTime(user.CreatedAt)),
 			table.ValueParam("$user_updated_at", types.TimestampValueFromTime(user.UpdatedAt)),
 			table.ValueParam("$is_active", types.BoolValue(user.IsActive)),
@@ -3603,10 +3611,10 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		statements.WriteString(`
 		INSERT INTO users (
 			user_id, email, password_hash, full_name, email_verified,
-			verification_code, verification_expires_at, created_at, updated_at, is_active
+			verification_code, verification_expires_at, verification_attempts, created_at, updated_at, is_active
 		) VALUES (
 			$user_id, $email, $password_hash, $full_name, $email_verified,
-			$verification_code, $verification_expires_at, $user_created_at, $user_updated_at, $is_active
+			$verification_code, $verification_expires_at, $verification_attempts, $user_created_at, $user_updated_at, $is_active
 		);
 `)
 

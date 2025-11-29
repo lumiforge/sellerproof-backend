@@ -690,6 +690,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		}
 
 		// Проверяем, хватит ли места для копии файла
+		// TODO Race Condition
 		limitBytes := sub.StorageLimitMB * 1024 * 1024
 		if sub.StorageLimitMB > 0 && (currentUsage+video.FileSizeBytes) > limitBytes {
 			return nil, fmt.Errorf("storage limit exceeded: publishing requires additional storage space")
@@ -701,6 +702,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
 
 	// Выполняем копирование. Если упадет здесь - база данных останется чистой.
+	// TODO Race Condition
 	s3PublicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to copy video to public bucket: %w", err)
@@ -727,6 +729,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 	}
 
 	// 5. Транзакционное сохранение в БД (Fix for Data Consistency: Atomic DB update)
+	// TODO Race Condition
 	err = s.db.PublishVideoTx(ctx, publicShare, videoID, s3PublicURL, "published")
 	if err != nil {
 		// КРИТИЧНО: Если транзакция в БД не прошла, мы должны удалить файл из S3,

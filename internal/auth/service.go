@@ -59,6 +59,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		return nil, fmt.Errorf("organization_name or invite_code is required")
 	}
 
+	// Нормализация email (Fix: Case Sensitivity)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	// Валидация email используя validation package
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
 		return nil, err
@@ -151,6 +154,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 			existingUser.VerificationCode = newVerificationCode
 			existingUser.VerificationExpiresAt = time.Now().Add(24 * time.Hour)
+			existingUser.VerificationAttempts = 0
 			existingUser.FullName = req.FullName
 			existingUser.UpdatedAt = time.Now()
 
@@ -209,6 +213,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		EmailVerified:         false,
 		VerificationCode:      verificationCode,
 		VerificationExpiresAt: now.Add(24 * time.Hour),
+		VerificationAttempts:  0,
 		CreatedAt:             now,
 		UpdatedAt:             now,
 		IsActive:              true,
@@ -343,9 +348,11 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 			Success: true,
 		}, nil
 	}
-	// Проверка кода верификации
-	if user.VerificationCode != req.Code {
-		return nil, fmt.Errorf("invalid verification code")
+
+	// 1. Проверка на превышение лимита попыток
+	const MaxVerificationAttempts = 5
+	if user.VerificationAttempts >= MaxVerificationAttempts {
+		return nil, fmt.Errorf("too many failed attempts. please request a new verification code")
 	}
 
 	// Проверка срока действия кода
@@ -353,9 +360,29 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 		return nil, fmt.Errorf("verification code expired")
 	}
 
-	// Обновление статуса верификации
+	// 2. Проверка кода верификации
+	if user.VerificationCode != req.Code {
+		// Инкремент счетчика неудачных попыток
+		user.VerificationAttempts++
+		user.UpdatedAt = time.Now()
+
+		// Сохраняем обновленный счетчик в БД
+		if updateErr := s.db.UpdateUser(ctx, user); updateErr != nil {
+			slog.Error("Failed to update user verification attempts", "error", updateErr)
+		}
+
+		// Если это была последняя попытка
+		if user.VerificationAttempts >= MaxVerificationAttempts {
+			return nil, fmt.Errorf("too many failed attempts. please request a new verification code")
+		}
+
+		return nil, fmt.Errorf("invalid verification code. attempts remaining: %d", MaxVerificationAttempts-user.VerificationAttempts)
+	}
+
+	// Обновление статуса верификации (Успех)
 	user.EmailVerified = true
-	user.VerificationCode = "" // Очищаем код
+	user.VerificationCode = ""    // Очищаем код
+	user.VerificationAttempts = 0 // Сбрасываем счетчик
 	user.UpdatedAt = time.Now()
 
 	err = s.db.UpdateUser(ctx, user)
@@ -371,6 +398,7 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 
 // Login выполняет вход пользователя
 func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.LoginResponse, error) {
+
 	// Валидация обязательных полей
 	if req.Email == "" {
 		return nil, fmt.Errorf("email is required")
@@ -383,6 +411,9 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	if len(req.Email) > 254 {
 		return nil, fmt.Errorf("email must be less than 255 characters long")
 	}
+	// Нормализация email (Fix: Case Sensitivity)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	// Затем валидация формата email
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
 		return nil, err
@@ -877,7 +908,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	if req.Role == "" {
 		return nil, fmt.Errorf("role is required")
 	}
-
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	// Валидация email
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
 		return nil, err
