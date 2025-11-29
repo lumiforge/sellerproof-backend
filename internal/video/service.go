@@ -116,9 +116,6 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, title, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
 
-	// Проверка прав
-	// TODO: Реализовать проверку прав через RBAC
-
 	// Проверка квоты
 	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
 	if err != nil {
@@ -264,6 +261,54 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, fmt.Errorf("failed to complete s3 upload: %w", err)
 	}
 
+	// Размер файла
+	actualSize, err := s.storage.GetObjectSize(ctx, storagePath)
+	if err != nil {
+		slog.Error("Failed to get object size after upload", "error", err, "video_id", videoID)
+		return nil, fmt.Errorf("failed to verify upload integrity")
+	}
+
+	// Подписка
+	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subscription: %w", err)
+	}
+
+	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage usage: %w", err)
+	}
+
+	// video.FileSizeBytes - заявленный размер
+	// Проверяем, если заявленный размер отличается от реального
+	projectedUsage := (currentUsage - video.FileSizeBytes) + actualSize
+	limitBytes := sub.StorageLimitMB * 1024 * 1024
+
+	// Квота превышена реальным размером файла
+	if sub.StorageLimitMB > 0 && projectedUsage > limitBytes {
+
+		slog.Warn("Storage quota exceeded after upload verification",
+			"user_id", userID,
+			"declared_size", video.FileSizeBytes,
+			"actual_size", actualSize,
+			"limit", limitBytes)
+
+		// Удаляем файл из S3
+		if err := s.storage.DeletePrivateObject(ctx, storagePath); err != nil {
+			slog.Error("Failed to delete oversized file", "error", err)
+		}
+
+		// Помечаем видео как failed
+		video.UploadStatus = "failed"
+		video.IsDeleted = true
+		_ = s.db.UpdateVideo(ctx, video)
+
+		return nil, fmt.Errorf("storage limit exceeded: actual file size is larger than quota")
+	}
+
+	// Обновляем размер файла в БД на реальный
+	video.FileSizeBytes = actualSize
+
 	uploadStatus := "completed"
 	video.UploadStatus = uploadStatus
 	now := time.Now()
@@ -274,7 +319,6 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, fmt.Errorf("failed to update video status: %w", err)
 	}
 
-	// Генерация URL для просмотра (опционально)
 	url, _ := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
 
 	return &CompleteMultipartUploadResult{

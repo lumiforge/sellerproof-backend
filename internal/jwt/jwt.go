@@ -27,6 +27,9 @@ type JWTManager struct {
 
 // NewJWTManager создает новый JWT менеджер
 func NewJWTManager(cfg *config.Config) *JWTManager {
+	if cfg.JWTSecretKey == "" {
+		return nil
+	}
 	return &JWTManager{
 		secretKey:     cfg.JWTSecretKey,
 		accessExpiry:  time.Hour * 24,     // 24 часа

@@ -3,6 +3,7 @@ package email
 import (
 	"context"
 	"fmt"
+	"html"
 	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -213,7 +214,8 @@ func (c *Client) IsConfigured() bool {
 
 // SendInvitationEmail отправляет email приглашения пользователю
 func (c *Client) SendInvitationEmail(ctx context.Context, email, inviteCode, orgName string) (*EmailMessage, error) {
-	subject := fmt.Sprintf("Вы приглашены в организацию %s на SellerProof", orgName)
+	safeOrgName := html.EscapeString(orgName)
+	subject := fmt.Sprintf("Вы приглашены в организацию %s на SellerProof", safeOrgName)
 
 	inviteLink := fmt.Sprintf("%s?invite_code=%s", c.LoginURL, inviteCode)
 

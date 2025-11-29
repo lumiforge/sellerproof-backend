@@ -41,6 +41,9 @@ func Initialize(ctx context.Context) (http.Handler, error) {
 
 	// Инициализация JWT менеджера
 	jwtManager := jwt.NewJWTManager(cfg)
+	if jwtManager == nil {
+		return nil, fmt.Errorf("JWT secret key is not configured")
+	}
 
 	// Инициализация RBAC
 	rbacManager := rbac.NewRBAC()

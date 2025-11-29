@@ -86,7 +86,7 @@ func Load() *Config {
 		TelegramAdminChatID: getEnv("TELEGRAM_CHAT_ID", ""),
 
 		// JWT configuration
-		JWTSecretKey: getEnv("SP_JWT_SECRET_KEY", "default-secret-key-change-in-production"),
+		JWTSecretKey: getEnv("SP_JWT_SECRET_KEY", ""),
 
 		// Email/Postbox configuration
 		SESEndpoint:        getEnv("SP_POSTBOX_ENDPOINT", ""),

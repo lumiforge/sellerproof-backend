@@ -218,3 +218,15 @@ func (c *Client) DeleteObject(ctx context.Context, bucket, key string) error {
 	})
 	return err
 }
+
+// GetObjectSize returns the size of the object in bytes
+func (c *Client) GetObjectSize(ctx context.Context, key string) (int64, error) {
+	output, err := c.s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return *output.ContentLength, nil
+}
