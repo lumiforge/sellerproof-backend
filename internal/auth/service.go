@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"log/slog"
 	"strings"
@@ -176,7 +177,6 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 						Status:           string(emailMessage.Status),
 						PostboxMessageID: emailMessage.MessageID,
 						SentAt:           emailMessage.SentAt,
-						ErrorMessage:     emailMessage.Error,
 					}
 					_ = s.db.CreateEmailLog(ctx, emailLog)
 				}
@@ -188,6 +188,10 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			}, nil
 		}
 		return nil, fmt.Errorf("email already exists")
+	}
+
+	if err := validation.ValidateInputWithError(req.Password, "password", nameOptions); err != nil {
+		return nil, err
 	}
 
 	// Хеширование пароля
@@ -313,7 +317,6 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 				Status:           string(emailMessage.Status),
 				PostboxMessageID: emailMessage.MessageID,
 				SentAt:           emailMessage.SentAt,
-				ErrorMessage:     emailMessage.Error,
 			}
 			if err := s.db.CreateEmailLog(ctx, emailLog); err != nil {
 				slog.Error("Failed to create email log", "error", err)
@@ -417,6 +420,9 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
+		// TODO delete me
+		log.Println("Error in login 1", err)
+
 		return nil, fmt.Errorf("invalid credentials")
 	}
 	if len(req.Password) > 72 {
@@ -425,6 +431,8 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
+		// TODO delete me
+		log.Println("Error in login 2", err)
 		return nil, fmt.Errorf("invalid credentials")
 	}
 

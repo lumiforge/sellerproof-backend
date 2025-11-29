@@ -658,39 +658,36 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.GetPartUploadURLsRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	if req.TotalParts < 1 {
+		slog.Error("Invalid request format", "error", "minimum 1 part required")
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: minimum 1 part required")
 		return
 	} else if req.TotalParts > 100 {
+		slog.Error("Invalid request format", "error", "maximum 100 parts allowed")
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: maximum 100 parts allowed")
 		return
 	} else if req.VideoID == "" {
+		slog.Error("Invalid request format", "error", "video_id is required")
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: video_id is required")
-		return
-	}
-	if err := uuid.Validate(req.VideoID); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
-		return
-	}
-	// Validate video_id using Unicode-friendly validation
-	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
-		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -702,7 +699,20 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	result := validation.ValidateInput(req.VideoID, options)
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
+		slog.Error("Invalid video_id", "error", errorMessage, "video_id", req.VideoID)
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		return
+	}
+
+	// Validate video_id using Unicode-friendly validation
+	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		slog.Error("Invalid video_id using Unicode-friendly validation", "error", err.Error(), "video_id", req.VideoID)
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := uuid.Validate(req.VideoID); err != nil {
+		slog.Error("Invalid video_id", "error", err.Error(), "video_id", req.VideoID)
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
 		return
 	}
 
@@ -711,10 +721,13 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		// Check if the error is related to video not found
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "video not found") {
+			slog.Error("Invalid video_id", "error", errorMsg, "video_id", req.VideoID)
 			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
 		} else if strings.Contains(errorMsg, "access denied") {
+			slog.Error("Access denied", "error", errorMsg, "video_id", req.VideoID)
 			s.writeError(w, http.StatusForbidden, "access denied")
 		} else {
+			slog.Error("Internal server error", "error", err.Error(), "video_id", req.VideoID)
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
 		return

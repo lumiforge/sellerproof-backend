@@ -2,8 +2,10 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/lumiforge/sellerproof-backend/internal/telegram"
 )
@@ -15,9 +17,16 @@ type TelegramHandler struct {
 
 func (h *TelegramHandler) Handle(ctx context.Context, r slog.Record) error {
 	if r.Level >= slog.LevelError && h.tg != nil {
-		msg := r.Message
-		if err := h.tg.SendAlert(msg); err != nil {
-			// Используем стандартный логгер или fmt, чтобы избежать рекурсии, если h.Handler тоже пишет в лог
+		var sb strings.Builder
+		sb.WriteString(r.Message)
+
+		r.Attrs(func(a slog.Attr) bool {
+			sb.WriteString(fmt.Sprintf(" | %s: %v", a.Key, a.Value.Any()))
+			return true
+		})
+
+		fullMessage := sb.String()
+		if err := h.tg.SendAlert(fullMessage); err != nil {
 			os.Stderr.WriteString("Failed to send telegram alert: " + err.Error() + "\n")
 		}
 	}

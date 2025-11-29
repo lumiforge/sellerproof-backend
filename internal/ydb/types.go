@@ -84,15 +84,15 @@ type SubscriptionHistory struct {
 
 // EmailLog представляет лог отправленного email
 type EmailLog struct {
-	EmailID          string    `db:"email_id"`
-	UserID           string    `db:"user_id"`
-	EmailType        string    `db:"email_type"`
-	Recipient        string    `db:"recipient"`
-	Status           string    `db:"status"`
-	PostboxMessageID string    `db:"postbox_message_id"`
-	SentAt           time.Time `db:"sent_at"`
-	DeliveredAt      time.Time `db:"delivered_at"`
-	ErrorMessage     string    `db:"error_message"`
+	EmailID          string     `db:"email_id"`
+	UserID           string     `db:"user_id"`
+	EmailType        string     `db:"email_type"`
+	Recipient        string     `db:"recipient"`
+	Status           string     `db:"status"`
+	PostboxMessageID string     `db:"postbox_message_id"`
+	SentAt           time.Time  `db:"sent_at"`
+	DeliveredAt      *time.Time `db:"delivered_at"`
+	ErrorMessage     *string    `db:"error_message"`
 }
 
 // Invitation представляет приглашение пользователя в организацию

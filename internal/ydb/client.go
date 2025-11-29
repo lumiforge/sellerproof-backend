@@ -215,8 +215,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				status Text NOT NULL,
 				postbox_message_id Text NOT NULL,
 				sent_at Timestamp NOT NULL,
-				delivered_at Timestamp NOT NULL,
-				error_message Text NOT NULL,
+				delivered_at Optional<Timestamp>,
+				error_message Optional<Text>,
 				PRIMARY KEY (email_id),
 				INDEX user_idx GLOBAL ON (user_id)
 			)
@@ -321,7 +321,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				video_id Text NOT NULL,
 				org_id Text NOT NULL,
 				uploaded_by Text NOT NULL,
-				title Text,
+				title Text NOT NULL, 
 				file_name Text NOT NULL,
 				file_name_search Text NOT NULL,
 				file_size_bytes Int64 NOT NULL,
@@ -1351,7 +1351,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
-				named.Optional("title", &v.Title),
+				named.Required("title", &v.Title),
 				named.Required("file_name", &v.FileName),
 				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -1434,7 +1434,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
-				named.Optional("title", &v.Title),
+				named.Required("title", &v.Title),
 				named.Required("file_name", &v.FileName),
 				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -1733,7 +1733,7 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 				named.Required("video_id", &v.VideoID),
 				named.Required("org_id", &v.OrgID),
 				named.Required("uploaded_by", &v.UploadedBy),
-				named.Optional("title", &v.Title),
+				named.Required("title", &v.Title),
 				named.Required("file_name", &v.FileName),
 				named.Required("file_name_search", &v.FileNameSearch),
 				named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -1919,7 +1919,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					named.Required("video_id", &v.VideoID),
 					named.Required("org_id", &v.OrgID),
 					named.Required("uploaded_by", &v.UploadedBy),
-					named.Optional("title", &v.Title),
+					named.Required("title", &v.Title),
 					named.Required("file_name", &v.FileName),
 					named.Required("file_name_search", &v.FileNameSearch),
 					named.Required("file_size_bytes", &v.FileSizeBytes),
@@ -2590,8 +2590,8 @@ func (c *YDBClient) GetEmailLogsByUser(ctx context.Context, userID string) ([]*E
 					named.Required("status", &log.Status),
 					named.Required("postbox_message_id", &log.PostboxMessageID),
 					named.Required("sent_at", &log.SentAt),
-					named.Required("delivered_at", &log.DeliveredAt),
-					named.Required("error_message", &log.ErrorMessage),
+					named.Optional("delivered_at", &log.DeliveredAt),
+					named.Optional("error_message", &log.ErrorMessage),
 				); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
 				}
@@ -2635,8 +2635,18 @@ func (c *YDBClient) UpdateEmailLog(ctx context.Context, log *EmailLog) error {
 				table.ValueParam("$status", types.TextValue(log.Status)),
 				table.ValueParam("$postbox_message_id", types.TextValue(log.PostboxMessageID)),
 				table.ValueParam("$sent_at", types.TimestampValueFromTime(log.SentAt)),
-				table.ValueParam("$delivered_at", types.TimestampValueFromTime(log.DeliveredAt)),
-				table.ValueParam("$error_message", types.TextValue(log.ErrorMessage)),
+				func() table.ParameterOption {
+					if log.DeliveredAt == nil {
+						return table.ValueParam("$delivered_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$delivered_at", types.OptionalValue(types.TimestampValueFromTime(*log.DeliveredAt)))
+				}(),
+				func() table.ParameterOption {
+					if log.ErrorMessage == nil {
+						return table.ValueParam("$error_message", types.NullValue(types.TypeText))
+					}
+					return table.ValueParam("$error_message", types.OptionalValue(types.TextValue(*log.ErrorMessage)))
+				}(),
 			),
 		)
 		return err
