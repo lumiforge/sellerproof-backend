@@ -1483,6 +1483,7 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $uploaded_by AS Text;
+		DECLARE $title AS Text;
 		DECLARE $file_name AS Text;
 		DECLARE $file_name_search AS Text;
 		DECLARE $file_size_bytes AS Int64;
@@ -1503,11 +1504,11 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $upload_expires_at AS Optional<Timestamp>;
 
 		REPLACE INTO videos (
-			video_id, org_id, uploaded_by, file_name, file_name_search, file_size_bytes,
+			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
 			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
 			public_url, publish_status, published_at, upload_expires_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at, $upload_expires_at)
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1516,6 +1517,7 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$video_id", types.TextValue(video.VideoID)),
 				table.ValueParam("$org_id", types.TextValue(video.OrgID)),
 				table.ValueParam("$uploaded_by", types.TextValue(video.UploadedBy)),
+				table.ValueParam("$title", types.TextValue(video.Title)),
 				table.ValueParam("$file_name", types.TextValue(video.FileName)),
 				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
 				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),

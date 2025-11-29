@@ -166,6 +166,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		VideoID:         videoID,
 		OrgID:           orgID,
 		UploadedBy:      userID,
+		Title:           title,
 		FileName:        fileName,
 		FileNameSearch:  fileNameSearch,
 		FileSizeBytes:   fileSizeBytes,
@@ -466,6 +467,7 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 	uploadStatus := video.UploadStatus
 	return &VideoInfo{
 		VideoID:         video.VideoID,
+		Title:           video.Title,
 		FileName:        fileName,
 		FileSizeBytes:   fileSizeBytes,
 		DurationSeconds: durationSeconds,
@@ -633,6 +635,7 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 		uploadStatus := v.UploadStatus
 		videoInfos[i] = &VideoInfo{
 			VideoID:         v.VideoID,
+			Title:           v.Title,
 			FileName:        fileName,
 			FileSizeBytes:   fileSizeBytes,
 			DurationSeconds: durationSeconds,
