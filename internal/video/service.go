@@ -382,6 +382,12 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	// Сбрасываем TTL, чтобы видео не удалилось
 	video.UploadExpiresAt = nil
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		slog.Error("Failed to update video status in DB, rolling back S3 upload", "error", err, "video_id", videoID)
+		if delErr := s.storage.DeletePrivateObject(ctx, storagePath); delErr != nil {
+			// Если не удалось удалить файл, логируем это как критическую ошибку,
+			// так как теперь у нас есть файл, занимающий место.
+			slog.Error("CRITICAL: Failed to rollback S3 object after DB failure", "error", delErr, "path", storagePath)
+		}
 		return nil, fmt.Errorf("failed to update video status: %w", err)
 	}
 
