@@ -2055,9 +2055,10 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 		slog.Error("PublishVideo: Missing required field: video_id")
 		s.writeError(w, http.StatusBadRequest, "Missing required field: video_id")
 		return
-	} else if len(req.VideoID) > 255 {
-		slog.Error("PublishVideo: Invalid video_id: maximum 255 characters")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: maximum 255 characters")
+	}
+	if _, err := uuid.Parse(req.VideoID); err != nil {
+		slog.Error("PublishVideo: video_id is invalid", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
 		return
 	}
 
