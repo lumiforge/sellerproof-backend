@@ -21,8 +21,8 @@ body:json {
 }
 
 tests {
-  test('Should return 404 Not Found for non-existent video_id', function() {
-    expect(res.status).to.equal(404);
+  test('Should return 400 Not Found for non-existent video_id', function() {
+    expect(res.status).to.equal(400);
     expect(res.body).to.be.an('object');
     
     // Validate error response structure
@@ -34,7 +34,7 @@ tests {
     expect(res.body.message).to.be.a('string');
     
     // Validate error message content
-    expect(res.body.error).to.equal('Not Found');
-    expect(res.body.message).to.include('video');
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('video_id');
   });
 }

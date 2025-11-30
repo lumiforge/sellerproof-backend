@@ -2041,7 +2041,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
 		slog.Error("PublishVideo: Invalid Content-Type header", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, err.Error())
+		s.writeError(w, http.StatusUnsupportedMediaType, err.Error())
 		return
 	}
 
