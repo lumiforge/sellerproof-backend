@@ -140,16 +140,16 @@ Authorization: Bearer {{thirdUserAccessToken}}
 
 1. health
 2. Register
-3. Copy a verification_code from a user table and org_id from an organization table
+3. Копируем verification_code из user и org_id из organization на облаке
 4. Login
 5. Refresh
 6. Logout
 7. Profile
 8. Video -> Upload -> Initiate
 9. Video -> Upload -> URLs
-10. Get links for uploading parts from URLs -> Get upload URLs success with valid JWT
-11. Insert the part URLs into the run.sh file -> launch run.sh
-12. From terminal, run run.sh -> copy - paste Etags to the docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+10. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
+11. Оба раза вставляем URLs в run.sh file -> запускаем run.sh
+12. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
 13. Complete run
 14. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
 15. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
