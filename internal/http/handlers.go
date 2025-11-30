@@ -87,12 +87,14 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("Register: Invalid Content-Type header", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.RegisterRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("Register: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -106,6 +108,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.Register(r.Context(), authReq)
 	if err != nil {
+		slog.Error("Register: Failed to register user", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		// Log failed registration attempt
 		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditRegisterSuccess, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 			"email":  req.Email,
@@ -134,8 +137,10 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 			strings.Contains(errorMsg, "failed to create user") ||
 			strings.Contains(errorMsg, "failed to create organization") ||
 			strings.Contains(errorMsg, "failed to marshal settings") {
+			slog.Error("Register: Failed to register user", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
+			slog.Error("Register: Failed to register user", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
 		}
 		return
@@ -173,12 +178,14 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("VerifyEmail: Invalid Content-Type header", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.VerifyEmailRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("VerifyEmail: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -191,12 +198,14 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.authService.VerifyEmail(r.Context(), authReq)
 	if err != nil {
 		// Log failed verification attempt
+		slog.Error("VerifyEmail: Failed to verify email", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.auditService.LogAction(r.Context(), "unknown", "", models.AuditEmailVerified, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 			"email":  req.Email,
 			"reason": err.Error(),
 		})
 
 		errorMsg := err.Error()
+		slog.Error("VerifyEmail: Failed to verify email", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 		if errorMsg == "invalid email format" ||
 			strings.Contains(errorMsg, "invalid email format") ||
 			strings.Contains(errorMsg, "user not found") ||
@@ -243,12 +252,14 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("Login: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.LoginRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("Login: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -323,23 +334,27 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("RefreshToken: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.RefreshTokenRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("RefreshToken: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	// check if refresh token trailing spaces
 	if strings.TrimSpace(req.RefreshToken) != req.RefreshToken {
+		slog.Error("RefreshToken: Refresh token cannot contain trailing spaces")
 		s.writeError(w, http.StatusBadRequest, "Refresh token cannot contain trailing spaces")
 		return
 	}
 
 	if req.RefreshToken == "" {
+		slog.Error("RefreshToken: Refresh token is required")
 		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
 		return
 	}
@@ -349,6 +364,7 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.RefreshToken(r.Context(), authReq)
 	if err != nil {
+		slog.Error("RefreshToken: Failed to refresh token", "error", err.Error())
 		s.writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
@@ -386,18 +402,21 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("Logout: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.LogoutRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("Logout: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	// Check if refresh token is empty (could be due to wrong field name)
 	if req.RefreshToken == "" {
+		slog.Error("Logout: Refresh token is required")
 		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
 		return
 	}
@@ -409,6 +428,7 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.authService.Logout(r.Context(), authReq)
 	if err != nil {
 		errorMsg := err.Error()
+		slog.Error("Logout: Failed to logout", "error", errorMsg)
 		if strings.Contains(errorMsg, "refresh token not found") || strings.Contains(errorMsg, "refresh token expired") {
 			s.writeError(w, http.StatusUnauthorized, errorMsg)
 		} else {
@@ -447,6 +467,7 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.GetProfile(r.Context(), claims.UserID)
 	if err != nil {
+		slog.Error("GetProfile: Failed to get profile", "error", err.Error())
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -480,18 +501,21 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("UpdateProfile: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("UpdateProfile: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.UpdateProfileRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("UpdateProfile: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -500,6 +524,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
+		slog.Error("UpdateProfile: Failed to update profile", "error", errorMsg)
 		if strings.Contains(errorMsg, "is required") ||
 			strings.Contains(errorMsg, "must be at least") ||
 			strings.Contains(errorMsg, "must be less than") ||
@@ -539,12 +564,14 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request) {
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("InitiateMultipartUpload: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("InitiateMultipartUpload: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
@@ -560,6 +587,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	// dec.DisallowUnknownFields()
 
 	if err := dec.Decode(&req); err != nil {
+		slog.Error("InitiateMultipartUpload: Invalid request format", "error", err.Error())
 		// Обработка ошибок типов (например, строка вместо числа)
 		var typeErr *json.UnmarshalTypeError
 		if errors.As(err, &typeErr) {
@@ -586,10 +614,12 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	// Validate FileName using validation package
 	if req.FileName == "" {
+		slog.Error("InitiateMultipartUpload: file_name is required")
 		validationErrors = append(validationErrors, "file_name is required")
 	} else {
 		// Use Unicode-friendly filename validation that includes homograph attack detection
 		if err := validation.ValidateFilenameUnicode(req.FileName, "file_name"); err != nil {
+			slog.Error("InitiateMultipartUpload: file_name is invalid", "error", err.Error())
 			validationErrors = append(validationErrors, err.Error())
 		}
 
@@ -602,6 +632,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		result := validation.ValidateInput(req.FileName, options)
 		if !result.IsValid {
 			for _, errMsg := range result.Errors {
+				slog.Error("InitiateMultipartUpload: file_name is invalid", "error", errMsg)
 				validationErrors = append(validationErrors, fmt.Sprintf("file_name: %s", errMsg))
 			}
 		}
@@ -609,17 +640,20 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	// Validate FileSizeBytes
 	if req.FileSizeBytes <= 0 {
+		slog.Error("InitiateMultipartUpload: file_size_bytes must be greater than 0")
 		validationErrors = append(validationErrors, "file_size_bytes must be greater than 0")
 	}
 
 	// Validate DurationSeconds
 	if req.DurationSeconds <= 0 {
+		slog.Error("InitiateMultipartUpload: duration_seconds must be greater than 0")
 		validationErrors = append(validationErrors, "duration_seconds must be greater than 0")
 	}
 
 	// If there are validation errors, return them
 	if len(validationErrors) > 0 {
 		errorMessage := strings.Join(validationErrors, "; ")
+		slog.Error("InitiateMultipartUpload: Validation error", "error", errorMessage)
 		s.writeError(w, http.StatusBadRequest, "Validation error: "+errorMessage)
 		return
 	}
@@ -631,6 +665,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	resp, err := s.videoService.InitiateMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, title, req.FileName, req.FileSizeBytes, req.DurationSeconds)
 	if err != nil {
+		slog.Error("InitiateMultipartUpload: Failed to initiate multipart upload", "error", err.Error())
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -658,6 +693,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+
 		slog.Error("User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
@@ -720,14 +756,12 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Check if the error is related to video not found
 		errorMsg := err.Error()
+		slog.Error("GetPartUploadURLs: Failed to get part upload URLs", "error", errorMsg, "video_id", req.VideoID)
 		if strings.Contains(errorMsg, "video not found") {
-			slog.Error("Invalid video_id", "error", errorMsg, "video_id", req.VideoID)
 			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
 		} else if strings.Contains(errorMsg, "access denied") {
-			slog.Error("Access denied", "error", errorMsg, "video_id", req.VideoID)
 			s.writeError(w, http.StatusForbidden, "access denied")
 		} else {
-			slog.Error("Internal server error", "error", err.Error(), "video_id", req.VideoID)
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
 		return
@@ -762,29 +796,34 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("CompleteMultipartUpload: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("CompleteMultipartUpload: Invalid Content-Type header", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.CompleteMultipartUploadRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("CompleteMultipartUpload: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	if req.VideoID == "" {
+		slog.Error("CompleteMultipartUpload: video_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "video_id is required")
 		return
 	}
 
 	// Validate video_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		slog.Error("CompleteMultipartUpload: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -796,22 +835,26 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	)
 	result := validation.ValidateInput(req.VideoID, options)
 	if !result.IsValid {
+		slog.Error("CompleteMultipartUpload: video_id is invalid", "error", result.Errors, "user_agent", userAgent, "ip_address", ipAddress)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
 	}
 
 	if len(req.Parts) == 0 {
+		slog.Error("CompleteMultipartUpload: parts is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "parts is required")
 		return
 	}
 
 	for i, p := range req.Parts {
 		if p.PartNumber <= 0 {
+			slog.Error("CompleteMultipartUpload: part_number at index %d must be greater than 0", "user_agent", userAgent, "ip_address", ipAddress)
 			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("part_number at index %d must be greater than 0", i))
 			return
 		}
 		if p.ETag == "" {
+			slog.Error("CompleteMultipartUpload: etag at index %d is required", "user_agent", userAgent, "ip_address", ipAddress)
 			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("etag at index %d is required", i))
 			return
 		}
@@ -828,6 +871,7 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 
 	resp, err := s.videoService.CompleteMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, req.VideoID, parts)
 	if err != nil {
+		slog.Error("CompleteMultipartUpload: Failed to complete multipart upload", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		// Log failed completion attempt
 		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoUploadComplete, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 			"video_id": req.VideoID,
@@ -875,18 +919,21 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("GetVideo: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	videoID := r.URL.Query().Get("video_id")
 	if videoID == "" {
+		slog.Error("GetVideo: video_id is required")
 		s.writeError(w, http.StatusBadRequest, "video_id is required")
 		return
 	}
 
 	// Validate video_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
+		slog.Error("GetVideo: video_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -898,6 +945,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	)
 	result := validation.ValidateInput(videoID, options)
 	if !result.IsValid {
+		slog.Error("GetVideo: video_id is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
@@ -905,6 +953,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Validate UUID format
 	if _, err := uuid.Parse(videoID); err != nil {
+		slog.Error("GetVideo: video_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
 		return
 	}
@@ -913,6 +962,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Check error type and return appropriate HTTP status
 		errorMsg := err.Error()
+		slog.Error("GetVideo: Failed to get video", "error", errorMsg)
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "access denied") {
@@ -954,6 +1004,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("SearchVideos: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
@@ -1000,7 +1051,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.videoService.SearchVideosDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, query, page, pageSize)
 	if err != nil {
-
+		slog.Error("SearchVideos: Failed to search videos", "error", err.Error())
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1044,18 +1095,21 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	// Extract token from query parameter
 	token := r.URL.Query().Get("token")
 	if token == "" {
+		slog.Error("GetPublicVideo: Missing or invalid token parameter")
 		s.writeError(w, http.StatusBadRequest, "Missing or invalid token parameter")
 		return
 	}
 
 	// Validate token format (base64 URL-safe, 43-44 characters for 32 bytes)
 	if len(token) < 40 || len(token) > 50 {
+		slog.Error("GetPublicVideo: Invalid token format")
 		s.writeError(w, http.StatusBadRequest, "Invalid token format")
 		return
 	}
 
 	// Validate token using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(token, "token"); err != nil {
+		slog.Error("GetPublicVideo: token is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1067,6 +1121,7 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	)
 	result := validation.ValidateInput(token, options)
 	if !result.IsValid {
+		slog.Error("GetPublicVideo: token is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid token: "+errorMessage)
 		return
@@ -1076,6 +1131,7 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	publicVideo, err := s.videoService.GetPublicVideo(ctx, token)
 	if err != nil {
 		errorMsg := err.Error()
+		slog.Error("GetPublicVideo: Failed to get public video", "error", errorMsg, "token", token)
 		if strings.Contains(errorMsg, "video not found") || strings.Contains(errorMsg, "token is invalid") {
 			s.writeError(w, http.StatusNotFound, "Video not found or token is invalid")
 			return
@@ -1091,125 +1147,6 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusOK, publicVideo)
 }
-
-// CreatePublicShareLink handles creating public share link
-// @Summary		Create public share link
-// @Description	Create public share link for video
-// @Tags		video
-// @Accept		json
-// @Produce	json
-// @Param		request	body		CreateShareLinkRequest	true	"Share link creation request"
-// @Security		BearerAuth
-// @Success	200	{object}	CreateShareLinkResponse
-// @Failure	401	{object}	models.ErrorResponse
-// @Failure	400	{object}	models.ErrorResponse
-// @Failure	500	{object}	models.ErrorResponse
-// @Router		/video/share [post]
-// func (s *Server) CreatePublicShareLink(w http.ResponseWriter, r *http.Request) {
-// 	claims, ok := GetUserClaims(r)
-// 	if !ok {
-// 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
-// 		return
-// 	}
-
-// 	// Validate Content-Type header using validation package
-// 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-
-// 	var req models.CreateShareLinkRequest
-// 	if err := s.validateRequest(r, &req); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
-// 		return
-// 	}
-
-// 	// Validate video_id using Unicode-friendly validation
-// 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-
-// 	// Additional checks for SQL injection and XSS
-// 	options := validation.CombineOptions(
-// 		validation.WithSQLInjectionCheck(),
-// 		validation.WithXSSCheck(),
-// 	)
-// 	result := validation.ValidateInput(req.VideoID, options)
-// 	if !result.IsValid {
-// 		errorMessage := strings.Join(result.Errors, "; ")
-// 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
-// 		return
-// 	}
-
-// 	resp, err := s.videoService.CreatePublicShareLinkDirect(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID, req.ExpiresInHours)
-// 	if err != nil {
-// 		s.writeError(w, http.StatusInternalServerError, err.Error())
-// 		return
-// 	}
-
-// 	s.writeJSON(w, http.StatusOK, models.CreateShareLinkResponse{
-// 		ShareURL:  resp.ShareURL,
-// 		ExpiresAt: resp.ExpiresAt,
-// 	})
-// }
-
-// RevokeShareLink handles revoking share link
-// @Summary		Revoke share link
-// @Description	Revoke public share link for video
-// @Tags		video
-// @Accept		json
-// @Produce	json
-// @Param		request	body		RevokeShareLinkRequest	true	"Share link revocation request"
-// @Security		BearerAuth
-// @Success	200	{object}	RevokeShareLinkResponse
-// @Failure	401	{object}	models.ErrorResponse
-// @Failure	400	{object}	models.ErrorResponse
-// @Failure	500	{object}	models.ErrorResponse
-// @Router		/video/share/revoke [post]
-// func (s *Server) RevokeShareLink(w http.ResponseWriter, r *http.Request) {
-// 	_, ok := GetUserClaims(r)
-// 	if !ok {
-// 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
-// 		return
-// 	}
-
-// 	// Validate Content-Type header using validation package
-// 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-
-// 	var req models.RevokeShareLinkRequest
-// 	if err := s.validateRequest(r, &req); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
-// 		return
-// 	}
-
-// 	// Validate video_id using Unicode-friendly validation
-// 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
-// 		s.writeError(w, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-
-// 	// Additional checks for SQL injection and XSS
-// 	options := validation.CombineOptions(
-// 		validation.WithSQLInjectionCheck(),
-// 		validation.WithXSSCheck(),
-// 	)
-// 	result := validation.ValidateInput(req.VideoID, options)
-// 	if !result.IsValid {
-// 		errorMessage := strings.Join(result.Errors, "; ")
-// 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
-// 		return
-// 	}
-
-// 	// TODO: For now, return a placeholder response
-// 	// This will be implemented when we update the video service
-// 	s.writeJSON(w, http.StatusOK, models.RevokeShareLinkResponse{
-// 		Success: true,
-// 	})
-// }
 
 // Health handles health check
 // @Summary		Health check
@@ -1230,29 +1167,34 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("SwitchOrganization: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("SwitchOrganization: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.SwitchOrganizationRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("SwitchOrganization: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	// Validate org_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(req.OrgID, "org_id"); err != nil {
+		slog.Error("SwitchOrganization: org_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if req.RefreshToken == "" {
+		slog.Error("SwitchOrganization: refresh_token is required")
 		s.writeError(w, http.StatusBadRequest, "refresh_token is required")
 		return
 	}
@@ -1265,6 +1207,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	result := validation.ValidateInput(req.OrgID, options)
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
+		slog.Error("SwitchOrganization: org_id is invalid", "error", errorMessage)
 		s.writeError(w, http.StatusBadRequest, "Invalid org_id: "+errorMessage)
 		return
 	}
@@ -1273,6 +1216,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
+		slog.Error("SwitchOrganization: Failed to switch organization", "error", errorMsg)
 		if strings.Contains(errorMsg, "user is not a member") ||
 			strings.Contains(errorMsg, "membership is not active") ||
 			strings.Contains(errorMsg, "user not found") {
@@ -1304,28 +1248,33 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("CreateOrganization: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	if claims.Role != string(rbac.RoleAdmin) {
+		slog.Error("CreateOrganization: Only admins can create organizations")
 		s.writeError(w, http.StatusForbidden, "Only admins can create organizations")
 		return
 	}
 
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("CreateOrganization: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.CreateOrganizationRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("CreateOrganization: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	resp, err := s.authService.CreateOrganization(r.Context(), claims.UserID, &req)
 	if err != nil {
+		slog.Error("CreateOrganization: Failed to create organization", "error", err.Error())
 		var validationErr validation.ValidationError
 
 		switch {
@@ -1360,24 +1309,28 @@ func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
+
 		ipAddress = r.RemoteAddr
 	}
 	userAgent := r.Header.Get("User-Agent")
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("DownloadVideo: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	videoID := r.URL.Query().Get("video_id")
 	if videoID == "" {
+		slog.Error("DownloadVideo: video_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "video_id is required")
 		return
 	}
 
 	// Validate video_id using validation package
 	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
+		slog.Error("DownloadVideo: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1389,6 +1342,7 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 	)
 	result := validation.ValidateInput(videoID, options)
 	if !result.IsValid {
+		slog.Error("DownloadVideo: video_id is invalid", "error", result.Errors, "user_agent", userAgent, "ip_address", ipAddress)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
@@ -1402,6 +1356,8 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 		})
 
 		errorMsg := err.Error()
+		slog.Error("DownloadVideo: Failed to get private download URL", "error", errorMsg, "video_id", videoID)
+
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "access denied") {
@@ -1443,6 +1399,7 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("DeleteVideo: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
@@ -1450,6 +1407,7 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	videoID := r.PathValue("id")
 
 	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
+		slog.Error("DeleteVideo: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1461,6 +1419,7 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	result := validation.ValidateInput(videoID, options)
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
+		slog.Error("DeleteVideo: video_id is invalid", "error", errorMessage, "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
 	}
@@ -1473,6 +1432,7 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 		})
 
 		errorMsg := err.Error()
+		slog.Error("DeleteVideo: Failed to delete video", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 		switch {
 		case strings.Contains(errorMsg, "video not found"):
 			s.writeError(w, http.StatusNotFound, errorMsg)
@@ -1509,23 +1469,27 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("InviteUser: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("InviteUser: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.InviteUserRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("InviteUser: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	if req.OrgID == "" {
+		slog.Error("InviteUser: org_id is required")
 		s.writeError(w, http.StatusBadRequest, "org_id is required")
 		return
 	}
@@ -1545,6 +1509,7 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 		})
 
 		errorMsg := err.Error()
+		slog.Error("InviteUser: Failed to invite user", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 		if strings.Contains(errorMsg, "only admins and managers") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "required") {
@@ -1585,18 +1550,21 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("AcceptInvitation: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("AcceptInvitation: Invalid Content-Type header", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.AcceptInvitationRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("AcceptInvitation: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -1609,6 +1577,8 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 		})
 
 		errorMsg := err.Error()
+		slog.Error("AcceptInvitation: Failed to accept invitation", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
+
 		if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "expired") || strings.Contains(errorMsg, "not pending") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
@@ -1641,36 +1611,42 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("ListInvitations: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
+		slog.Error("ListInvitations: org_id is required")
 		s.writeError(w, http.StatusBadRequest, "org_id is required")
 		return
 	}
 
 	// Validate org_id
 	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
+		slog.Error("ListInvitations: org_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// IDOR check
 	if claims.OrgID != orgID {
+		slog.Error("ListInvitations: Access denied: you are not a member of this organization")
 		s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
 		return
 	}
 
 	// RBAC check
 	if claims.Role != string(rbac.RoleAdmin) && claims.Role != string(rbac.RoleManager) {
+		slog.Error("ListInvitations: Only admins and managers can list invitations")
 		s.writeError(w, http.StatusForbidden, "Only admins and managers can list invitations")
 		return
 	}
 
 	invitations, err := s.authService.ListInvitations(r.Context(), orgID)
 	if err != nil {
+		slog.Error("ListInvitations: Failed to list invitations", "error", err.Error())
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1697,18 +1673,21 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("CancelInvitation: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	invitationID := r.PathValue("id")
 	if invitationID == "" {
+		slog.Error("CancelInvitation: invitation_id is required")
 		s.writeError(w, http.StatusBadRequest, "invitation_id is required")
 		return
 	}
 
 	// Validate invitation_id format (UUID expected)
 	if err := validation.ValidateFilenameUnicode(invitationID, "invitation_id"); err != nil {
+		slog.Error("CancelInvitation: invitation_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1720,6 +1699,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 	)
 	result := validation.ValidateInput(invitationID, options)
 	if !result.IsValid {
+		slog.Error("CancelInvitation: invitation_id is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid invitation_id: "+errorMessage)
 		return
@@ -1727,6 +1707,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 
 	// Check admin/manager role
 	if claims.Role != "admin" && claims.Role != "manager" {
+		slog.Error("CancelInvitation: Only admins and managers can cancel invitations")
 		s.writeError(w, http.StatusForbidden, "Only admins and managers can cancel invitations")
 		return
 	}
@@ -1736,6 +1717,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 		// Log failed cancellation
 
 		errorMsg := err.Error()
+		slog.Error("CancelInvitation: Failed to cancel invitation", "error", errorMsg)
 		if strings.Contains(errorMsg, "not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "not pending") {
@@ -1764,29 +1746,34 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("ListMembers: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
+		slog.Error("ListMembers: org_id is required")
 		s.writeError(w, http.StatusBadRequest, "org_id is required")
 		return
 	}
 	// IDOR check
 	if claims.OrgID != orgID {
+		slog.Error("ListMembers: Access denied: you are not a member of this organization")
 		s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
 		return
 	}
 
 	// Check admin role
 	if claims.Role != "admin" {
+		slog.Error("ListMembers: Only admins can list members")
 		s.writeError(w, http.StatusForbidden, "Only admins can list members")
 		return
 	}
 
 	members, err := s.authService.ListOrgMembers(r.Context(), orgID)
 	if err != nil {
+		slog.Error("ListMembers: Failed to list members", "error", err.Error())
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1814,36 +1801,42 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
+
 		ipAddress = r.RemoteAddr
 	}
 	userAgent := r.Header.Get("User-Agent")
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("UpdateMemberRole: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Check admin role
 	if claims.Role != "admin" {
+		slog.Error("UpdateMemberRole: Only admins can update member roles", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusForbidden, "Only admins can update member roles")
 		return
 	}
 
 	userID := r.PathValue("user_id")
 	if userID == "" {
+		slog.Error("UpdateMemberRole: user_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "user_id is required")
 		return
 	}
 
 	// Validate Content-Type header
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("UpdateMemberRole: Invalid Content-Type header", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.UpdateMemberRoleRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("UpdateMemberRole: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
@@ -1857,6 +1850,7 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		})
 
 		errorMsg := err.Error()
+		slog.Error("UpdateMemberRole: Failed to update member role", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 		if strings.Contains(errorMsg, "only admins") || strings.Contains(errorMsg, "not a member") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid") {
@@ -1898,24 +1892,28 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("UpdateMemberStatus: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	userID := r.PathValue("user_id")
 	if userID == "" {
+		slog.Error("UpdateMemberStatus: user_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "user_id is required")
 		return
 	}
 
 	var req models.UpdateMemberStatusRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("UpdateMemberStatus: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	err := s.authService.UpdateMemberStatus(r.Context(), claims.UserID, claims.OrgID, userID, req.Status)
 	if err != nil {
+		slog.Error("UpdateMemberStatus: Failed to update member status", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		// Логируем ошибку и возвращаем ответ (аналогично UpdateMemberRole)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -1943,17 +1941,20 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("RemoveMember: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
+		slog.Error("RemoveMember: org_id is required")
 		s.writeError(w, http.StatusBadRequest, "org_id is required")
 		return
 	}
 
 	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
+		slog.Error("RemoveMember: org_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1961,6 +1962,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	// IDOR check
 	if claims.OrgID != orgID && claims.Role != "admin" {
 		if claims.OrgID != orgID {
+			slog.Error("RemoveMember: Access denied: you are not a member of this organization")
 			s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
 			return
 		}
@@ -1970,6 +1972,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		// Примечание: если claims.Role == "admin", он админ только в claims.OrgID.
 		// Поэтому строгая проверка:
 		if claims.OrgID != orgID {
+			slog.Error("RemoveMember: Access denied: you are not a member of this organization")
 			s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
 			return
 		}
@@ -1977,12 +1980,14 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 
 	// Check admin role
 	if claims.Role != "admin" {
+		slog.Error("RemoveMember: Only admins can remove members")
 		s.writeError(w, http.StatusForbidden, "Only admins can remove members")
 		return
 	}
 
 	userID := r.PathValue("user_id")
 	if userID == "" {
+		slog.Error("RemoveMember: user_id is required")
 		s.writeError(w, http.StatusBadRequest, "user_id is required")
 		return
 	}
@@ -1990,6 +1995,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	err := s.authService.RemoveMember(r.Context(), claims.UserID, claims.OrgID, userID)
 	if err != nil {
 		errorMsg := err.Error()
+		slog.Error("RemoveMember: Failed to remove member", "error", errorMsg)
 		if strings.Contains(errorMsg, "cannot remove") || strings.Contains(errorMsg, "only admins") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "not a member") {
@@ -2020,37 +2026,44 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("PublishVideo: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Проверка прав (только admin/manager)
 	if claims.Role != "admin" && claims.Role != "manager" {
+		slog.Error("PublishVideo: Only admins and managers can publish videos")
 		s.writeError(w, http.StatusForbidden, "Only admins and managers can publish videos")
 		return
 	}
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("PublishVideo: Invalid Content-Type header", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.PublishVideoRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("PublishVideo: Invalid request format", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 	if req.VideoID == "" {
+		slog.Error("PublishVideo: Missing required field: video_id")
 		s.writeError(w, http.StatusBadRequest, "Missing required field: video_id")
 		return
 	} else if len(req.VideoID) > 255 {
+		slog.Error("PublishVideo: Invalid video_id: maximum 255 characters")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: maximum 255 characters")
 		return
 	}
 
 	// Validate video_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		slog.Error("PublishVideo: video_id is invalid", "error", err.Error())
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -2062,6 +2075,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	)
 	result := validation.ValidateInput(req.VideoID, options)
 	if !result.IsValid {
+		slog.Error("PublishVideo: video_id is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
@@ -2069,7 +2083,9 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.videoService.PublishVideo(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
 	if err != nil {
+
 		errorMsg := err.Error()
+		slog.Error("PublishVideo: Failed to publish video", "error", errorMsg)
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "access denied") {
@@ -2108,29 +2124,34 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("RevokeVideo: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	// Validate Content-Type header using validation package
 	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("RevokeVideo: Invalid Content-Type header", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req models.RevokeVideoRequest
 	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("RevokeVideo: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
 		return
 	}
 
 	if req.VideoID == "" {
+		slog.Error("RevokeVideo: video_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "video_id is required")
 		return
 	}
 
 	// Validate video_id using Unicode-friendly validation
 	if err := validation.ValidateFilenameUnicode(req.VideoID, "video_id"); err != nil {
+		slog.Error("RevokeVideo: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -2142,6 +2163,7 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	)
 	result := validation.ValidateInput(req.VideoID, options)
 	if !result.IsValid {
+		slog.Error("RevokeVideo: video_id is invalid", "error", result.Errors, "user_agent", userAgent, "ip_address", ipAddress)
 		errorMessage := strings.Join(result.Errors, "; ")
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
 		return
@@ -2149,12 +2171,14 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Validate UUID format
 	if _, err := uuid.Parse(req.VideoID); err != nil {
+		slog.Error("RevokeVideo: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
 		return
 	}
 
 	// Check permissions (admin or manager only)
 	if claims.Role != "admin" && claims.Role != "manager" {
+		slog.Error("RevokeVideo: Only admins and managers can revoke video access", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusForbidden, "Only admins and managers can revoke video access")
 		return
 	}
@@ -2163,6 +2187,7 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	// We need to access the database layer to get the full video info including publish status
 	dbVideo, err := s.videoService.GetVideoForRevocation(r.Context(), claims.UserID, claims.OrgID, req.VideoID)
 	if err != nil {
+		slog.Error("RevokeVideo: Failed to get video for revocation", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		if strings.Contains(err.Error(), "video not found") {
 			s.writeError(w, http.StatusNotFound, "Video not found")
 			return
@@ -2175,6 +2200,7 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dbVideo.PublishStatus != "published" {
+		slog.Error("RevokeVideo: Video is not published", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "Video is not published")
 		return
 	}
@@ -2182,12 +2208,14 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	// Revoke public access
 	err = s.videoService.RevokePublicShare(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
 	if err != nil {
+
 		s.auditService.LogAction(r.Context(), claims.UserID, claims.OrgID, models.AuditVideoRevoked, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 			"video_id": req.VideoID,
 			"reason":   err.Error(),
 		})
 
 		errorMsg := err.Error()
+		slog.Error("RevokeVideo: Failed to revoke video", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "access denied") {
@@ -2233,6 +2261,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	// Extract JWT claims
 	claims, ok := GetUserClaims(r)
 	if !ok {
+		slog.Error("GetAuditLogs: Unauthorized")
 		s.writeError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -2241,6 +2270,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	rbacManager := rbac.NewRBAC()
 	hasPermission := rbacManager.CheckPermissionWithRole(rbac.Role(claims.Role), rbac.PermissionAdminViewLogs)
 	if !hasPermission {
+		slog.Error("GetAuditLogs: Insufficient permissions to access audit logs")
 		s.writeError(w, http.StatusForbidden, "Insufficient permissions to access audit logs")
 		return
 	} // Parse query parameters

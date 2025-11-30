@@ -16,15 +16,15 @@ auth:bearer {
 
 body:json {
   {
-    "video_id": "non-existent-video-id",
+    "video_id": "dd3fa81d-839e-43f4-a3df-04cfb8fd4f00",
     "total_parts": 5
   }
 }
 
 tests {
-  test("Should return 404 or 500 for non-existent video_id", function() {
-    expect(res.status).to.be.oneOf([404, 500]);
+  test("Should return 404 for non-existent video_id", function() {
+    expect(res.status).to.equal(404);
     expect(res.body).to.have.property("error");
-    expect(res.body).to.have.property("message");
+    expect(res.body.error).to.equal("Not Found");
   });
 }

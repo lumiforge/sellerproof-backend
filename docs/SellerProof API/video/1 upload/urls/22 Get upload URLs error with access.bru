@@ -1,0 +1,33 @@
+meta {
+  name: Get upload URLs success with second user JWT
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{secondUserAccessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "total_parts": 1
+  }
+}
+
+tests {
+  test('Should return 403 Forbidden and valid upload URLs for second user', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('access denied');
+    
+  });
+}

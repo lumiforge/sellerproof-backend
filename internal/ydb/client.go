@@ -321,7 +321,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				video_id Text NOT NULL,
 				org_id Text NOT NULL,
 				uploaded_by Text NOT NULL,
-				title Text NOT NULL, 
+				title Text NOT NULL,
 				file_name Text NOT NULL,
 				file_name_search Text NOT NULL,
 				file_size_bytes Int64 NOT NULL,
@@ -1320,7 +1320,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 		DECLARE $video_id AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
-		       public_url, publish_status, published_at
+		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos WHERE video_id = $video_id
 	`
 
@@ -1346,29 +1346,33 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 			var publicShareToken *string
 			var shareExpiresAt *time.Time
 			var uploadedAt *time.Time
+			var uploadExpiresAt *time.Time
+			var isDeleted *bool
+			var publishStatus *string
 
-			err := res.ScanNamed(
-				named.Required("video_id", &v.VideoID),
-				named.Required("org_id", &v.OrgID),
-				named.Required("uploaded_by", &v.UploadedBy),
-				named.Required("title", &v.Title),
-				named.Required("file_name", &v.FileName),
-				named.Required("file_name_search", &v.FileNameSearch),
-				named.Required("file_size_bytes", &v.FileSizeBytes),
-				named.Required("storage_path", &v.StoragePath),
-				named.Required("duration_seconds", &v.DurationSeconds),
-				named.Required("upload_id", &v.UploadID),
-				named.Required("upload_status", &v.UploadStatus),
-				named.Optional("parts_uploaded", &partsUploaded),
-				named.Optional("total_parts", &totalParts),
-				named.Optional("public_share_token", &publicShareToken),
-				named.Optional("share_expires_at", &shareExpiresAt),
-				named.Optional("uploaded_at", &uploadedAt),
-				named.Required("created_at", &v.CreatedAt),
-				named.Required("is_deleted", &v.IsDeleted),
-				named.Optional("public_url", &v.PublicURL),
-				named.Required("publish_status", &v.PublishStatus),
-				named.Optional("published_at", &v.PublishedAt),
+			err := res.Scan(
+				&v.VideoID,
+				&v.OrgID,
+				&v.UploadedBy,
+				&v.Title,
+				&v.FileName,
+				&v.FileNameSearch,
+				&v.FileSizeBytes,
+				&v.StoragePath,
+				&v.DurationSeconds,
+				&v.UploadID,
+				&v.UploadStatus,
+				&partsUploaded,
+				&totalParts,
+				&publicShareToken,
+				&shareExpiresAt,
+				&uploadedAt,
+				&v.CreatedAt,
+				&isDeleted,
+				&v.PublicURL,
+				&publishStatus,
+				&v.PublishedAt,
+				&uploadExpiresAt,
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1380,6 +1384,13 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 			v.PublicShareToken = publicShareToken
 			v.ShareExpiresAt = shareExpiresAt
 			v.UploadedAt = uploadedAt
+			v.UploadExpiresAt = uploadExpiresAt
+			if isDeleted != nil {
+				v.IsDeleted = *isDeleted
+			}
+			if publishStatus != nil {
+				v.PublishStatus = *publishStatus
+			}
 		}
 		return res.Err()
 	})
@@ -1401,7 +1412,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 		DECLARE $org_id AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
-		       public_url, publish_status, published_at
+		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos
 		WHERE video_id = $video_id AND org_id = $org_id
 	`
@@ -1429,29 +1440,33 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 			var publicShareToken *string
 			var shareExpiresAt *time.Time
 			var uploadedAt *time.Time
+			var uploadExpiresAt *time.Time
+			var isDeleted *bool
+			var publishStatus *string
 
-			err := res.ScanNamed(
-				named.Required("video_id", &v.VideoID),
-				named.Required("org_id", &v.OrgID),
-				named.Required("uploaded_by", &v.UploadedBy),
-				named.Required("title", &v.Title),
-				named.Required("file_name", &v.FileName),
-				named.Required("file_name_search", &v.FileNameSearch),
-				named.Required("file_size_bytes", &v.FileSizeBytes),
-				named.Required("storage_path", &v.StoragePath),
-				named.Required("duration_seconds", &v.DurationSeconds),
-				named.Required("upload_id", &v.UploadID),
-				named.Required("upload_status", &v.UploadStatus),
-				named.Optional("parts_uploaded", &partsUploaded),
-				named.Optional("total_parts", &totalParts),
-				named.Optional("public_share_token", &publicShareToken),
-				named.Optional("share_expires_at", &shareExpiresAt),
-				named.Optional("uploaded_at", &uploadedAt),
-				named.Required("created_at", &v.CreatedAt),
-				named.Required("is_deleted", &v.IsDeleted),
-				named.Optional("public_url", &v.PublicURL),
-				named.Required("publish_status", &v.PublishStatus),
-				named.Optional("published_at", &v.PublishedAt),
+			err := res.Scan(
+				&v.VideoID,
+				&v.OrgID,
+				&v.UploadedBy,
+				&v.Title,
+				&v.FileName,
+				&v.FileNameSearch,
+				&v.FileSizeBytes,
+				&v.StoragePath,
+				&v.DurationSeconds,
+				&v.UploadID,
+				&v.UploadStatus,
+				&partsUploaded,
+				&totalParts,
+				&publicShareToken,
+				&shareExpiresAt,
+				&uploadedAt,
+				&v.CreatedAt,
+				&isDeleted,
+				&v.PublicURL,
+				&publishStatus,
+				&v.PublishedAt,
+				&uploadExpiresAt,
 			)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
@@ -1463,6 +1478,13 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 			v.PublicShareToken = publicShareToken
 			v.ShareExpiresAt = shareExpiresAt
 			v.UploadedAt = uploadedAt
+			v.UploadExpiresAt = uploadExpiresAt
+			if isDeleted != nil {
+				v.IsDeleted = *isDeleted
+			}
+			if publishStatus != nil {
+				v.PublishStatus = *publishStatus
+			}
 		}
 		return res.Err()
 	})
@@ -1586,9 +1608,9 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, error) {
 	query := `
 		DECLARE $org_id AS Text;
-		
+
 		SELECT COALESCE(SUM(
-			file_size_bytes + 
+			file_size_bytes +
 			CASE WHEN publish_status = 'published' THEN file_size_bytes ELSE 0 END
 		), 0)
 		FROM videos
@@ -1640,7 +1662,7 @@ func (c *YDBClient) PublishVideoTx(ctx context.Context, share *PublicVideoShare,
 			DECLARE $revoked AS Bool;
 			DECLARE $access_count AS Uint64;
 			DECLARE $last_accessed_at AS Optional<Timestamp>;
-			
+
 			DECLARE $vid_id AS Text;
 			DECLARE $vid_status AS Text;
 			DECLARE $vid_public_url AS Text;
@@ -1657,8 +1679,8 @@ func (c *YDBClient) PublishVideoTx(ctx context.Context, share *PublicVideoShare,
 
 			-- 2. Обновляем видео
 			UPDATE videos
-			SET publish_status = $vid_status, 
-				public_url = $vid_public_url, 
+			SET publish_status = $vid_status,
+				public_url = $vid_public_url,
 				published_at = $vid_published_at,
 				updated_at = $vid_updated_at
 			WHERE video_id = $vid_id;
@@ -1703,7 +1725,7 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 		DECLARE $token AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
-		       public_url, publish_status, published_at
+		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos
 		WHERE public_share_token = $token AND is_deleted = false
 	`
@@ -1730,29 +1752,33 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			var publicShareToken *string
 			var shareExpiresAt *time.Time
 			var uploadedAt *time.Time
+			var uploadExpiresAt *time.Time
+			var isDeleted *bool
+			var publishStatus *string
 
-			err := res.ScanNamed(
-				named.Required("video_id", &v.VideoID),
-				named.Required("org_id", &v.OrgID),
-				named.Required("uploaded_by", &v.UploadedBy),
-				named.Required("title", &v.Title),
-				named.Required("file_name", &v.FileName),
-				named.Required("file_name_search", &v.FileNameSearch),
-				named.Required("file_size_bytes", &v.FileSizeBytes),
-				named.Required("storage_path", &v.StoragePath),
-				named.Required("duration_seconds", &v.DurationSeconds),
-				named.Required("upload_id", &v.UploadID),
-				named.Required("upload_status", &v.UploadStatus),
-				named.Optional("parts_uploaded", &partsUploaded),
-				named.Optional("total_parts", &totalParts),
-				named.Optional("public_share_token", &publicShareToken),
-				named.Optional("share_expires_at", &shareExpiresAt),
-				named.Optional("uploaded_at", &uploadedAt),
-				named.Required("created_at", &v.CreatedAt),
-				named.Required("is_deleted", &v.IsDeleted),
-				named.Optional("public_url", &v.PublicURL),
-				named.Required("publish_status", &v.PublishStatus),
-				named.Optional("published_at", &v.PublishedAt),
+			err := res.Scan(
+				&v.VideoID,
+				&v.OrgID,
+				&v.UploadedBy,
+				&v.Title,
+				&v.FileName,
+				&v.FileNameSearch,
+				&v.FileSizeBytes,
+				&v.StoragePath,
+				&v.DurationSeconds,
+				&v.UploadID,
+				&v.UploadStatus,
+				&partsUploaded,
+				&totalParts,
+				&publicShareToken,
+				&shareExpiresAt,
+				&uploadedAt,
+				&v.CreatedAt,
+				&isDeleted,
+				&v.PublicURL,
+				&publishStatus,
+				&v.PublishedAt,
+				&uploadExpiresAt,
 			)
 
 			if err != nil {
@@ -1765,6 +1791,13 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			v.PublicShareToken = publicShareToken
 			v.ShareExpiresAt = shareExpiresAt
 			v.UploadedAt = uploadedAt
+			v.UploadExpiresAt = uploadExpiresAt
+			if isDeleted != nil {
+				v.IsDeleted = *isDeleted
+			}
+			if publishStatus != nil {
+				v.PublishStatus = *publishStatus
+			}
 		}
 		return res.Err()
 	})
@@ -1873,7 +1906,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
 	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
-	       public_url, publish_status, published_at
+	       public_url, publish_status, published_at, upload_expires_at
 	FROM videos ` + whereClause + `
 	ORDER BY uploaded_at DESC
 	LIMIT $limit OFFSET $offset`
@@ -1916,30 +1949,33 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				var publicShareToken *string
 				var shareExpiresAt *time.Time
 				var uploadedAt *time.Time
+				var uploadExpiresAt *time.Time
+				var isDeleted *bool
+				var publishStatus *string
 
-				if err := res.ScanNamed(
-					named.Required("video_id", &v.VideoID),
-					named.Required("org_id", &v.OrgID),
-					named.Required("uploaded_by", &v.UploadedBy),
-					named.Required("title", &v.Title),
-					named.Required("file_name", &v.FileName),
-					named.Required("file_name_search", &v.FileNameSearch),
-					named.Required("file_size_bytes", &v.FileSizeBytes),
-					named.Required("storage_path", &v.StoragePath),
-					named.Required("duration_seconds", &v.DurationSeconds),
-					named.Required("upload_id", &v.UploadID),
-					named.Required("upload_status", &v.UploadStatus),
-					named.Optional("parts_uploaded", &partsUploaded),
-					named.Optional("total_parts", &totalParts),
-					named.Optional("public_share_token", &publicShareToken),
-					named.Optional("share_expires_at", &shareExpiresAt),
-					named.Optional("uploaded_at", &uploadedAt),
-					named.Required("created_at", &v.CreatedAt),
-					named.Required("is_deleted", &v.IsDeleted),
-					named.Optional("public_url", &v.PublicURL),
-					named.Required("publish_status", &v.PublishStatus),
-					named.Optional("published_at", &v.PublishedAt),
-				); err != nil {
+				if err := res.Scan(
+					&v.VideoID,
+					&v.OrgID,
+					&v.UploadedBy,
+					&v.Title,
+					&v.FileName,
+					&v.FileNameSearch,
+					&v.FileSizeBytes,
+					&v.StoragePath,
+					&v.DurationSeconds,
+					&v.UploadID,
+					&v.UploadStatus,
+					&partsUploaded,
+					&totalParts,
+					&publicShareToken,
+					&shareExpiresAt,
+					&uploadedAt,
+					&v.CreatedAt,
+					&isDeleted,
+					&v.PublicURL,
+					&publishStatus,
+					&v.PublishedAt,
+					&uploadExpiresAt); err != nil {
 					return fmt.Errorf("scan failed: %w", err)
 				}
 
@@ -1948,6 +1984,13 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				v.PublicShareToken = publicShareToken
 				v.ShareExpiresAt = shareExpiresAt
 				v.UploadedAt = uploadedAt
+				v.UploadExpiresAt = uploadExpiresAt
+				if isDeleted != nil {
+					v.IsDeleted = *isDeleted
+				}
+				if publishStatus != nil {
+					v.PublishStatus = *publishStatus
+				}
 
 				videos = append(videos, &v)
 			}

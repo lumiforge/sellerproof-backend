@@ -1,13 +1,13 @@
 FILE_PATHS=(
-  "docs/SellerProof API/video/upload/complete/test-video.mp4"
-  "docs/SellerProof API/video/upload/complete/test-video-1.mp4"
-  "docs/SellerProof API/video/upload/complete/test-video-2.mp4"
+  "docs/SellerProof API/video/1 upload/complete/test-video.mp4"
+  "docs/SellerProof API/video/1 upload/complete/test-video-1.mp4"
+  "docs/SellerProof API/video/1 upload/complete/test-video-2.mp4"
 )
 # Задай сразу здесь ссылки
 PART_URLS=(
-  "https://sellerproof-yc.storage.yandexcloud.net/videos/cbfa1dd6-8a71-48ac-94b6-545cf1ee1687/a5f7600d-eb61-42c9-8059-70407dafcc15/test-video-second-user.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251126%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251126T094400Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=1&uploadId=0006447BE910BDED&x-id=UploadPart&X-Amz-Signature=8df2b71049c22dea091004799ac4282b3377d49386753ff3f66caaa5fa990d2d"
-  "https://sellerproof-yc.storage.yandexcloud.net/videos/262455f2-bb41-4b4f-8ba6-4d0e1248b748/53b6cd52-772e-4953-88d9-7565a6a67f8c/%D1%82%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%BE%D0%B5-%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE-%D0%BA%D0%B8%D1%80%D0%B8%D0%BB%D0%BB%D0%B8%D1%86%D0%B0.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251126%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251126T092143Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=2&uploadId=0006447BE8EE585D&x-id=UploadPart&X-Amz-Signature=9c1bc6fabfe4d021b41507b5b910f6e656177aca13714402fa0c6fdbbb7bccb1"
-  "https://sellerproof-yc.storage.yandexcloud.net/videos/262455f2-bb41-4b4f-8ba6-4d0e1248b748/53b6cd52-772e-4953-88d9-7565a6a67f8c/%D1%82%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%BE%D0%B5-%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE-%D0%BA%D0%B8%D1%80%D0%B8%D0%BB%D0%BB%D0%B8%D1%86%D0%B0.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251126%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251126T092143Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=3&uploadId=0006447BE8EE585D&x-id=UploadPart&X-Amz-Signature=f92c502a2314c50f973fec85de2f764f635b64a189aeed3cda587cbca33eac59"
+    "https://sellerproof-yc.storage.yandexcloud.net/videos/bba849d9-41d2-4c52-a059-f5b42ee16707/b01fac88-f763-4fb7-97e3-54c81a50ffe9/%D1%82%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%BE%D0%B5-%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE-%D0%BA%D0%B8%D1%80%D0%B8%D0%BB%D0%BB%D0%B8%D1%86%D0%B0.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251130%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251130T163359Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=1&uploadId=000644D2547BA582&x-id=UploadPart&X-Amz-Signature=9b15f6ddbfec0765d54ec62a65c629fe57f0fe527c681f5f6476716b9f8923df"
+    "https://sellerproof-yc.storage.yandexcloud.net/videos/bba849d9-41d2-4c52-a059-f5b42ee16707/b01fac88-f763-4fb7-97e3-54c81a50ffe9/%D1%82%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%BE%D0%B5-%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE-%D0%BA%D0%B8%D1%80%D0%B8%D0%BB%D0%BB%D0%B8%D1%86%D0%B0.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251130%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251130T163359Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=2&uploadId=000644D2547BA582&x-id=UploadPart&X-Amz-Signature=fc90c9e20bc9969a3744eb6c88f45d9a8b5a81dd0c8e81efc0c26b1b2e2fb98c"
+    "https://sellerproof-yc.storage.yandexcloud.net/videos/bba849d9-41d2-4c52-a059-f5b42ee16707/b01fac88-f763-4fb7-97e3-54c81a50ffe9/%D1%82%D0%B5%D1%81%D1%82%D0%BE%D0%B2%D0%BE%D0%B5-%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE-%D0%BA%D0%B8%D1%80%D0%B8%D0%BB%D0%BB%D0%B8%D1%86%D0%B0.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251130%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251130T163359Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=3&uploadId=000644D2547BA582&x-id=UploadPart&X-Amz-Signature=64f8c81ec6cfacf1cd460c2bd17b8b2271f0a9786903b5294e3cd784e0261344"
 )
 
 
