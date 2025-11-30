@@ -150,3 +150,8 @@ Authorization: Bearer {{thirdUserAccessToken}}
 10. Get links for uploading parts from URLs -> Get upload URLs success with valid JWT
 11. Insert the part URLs into the run.sh file -> launch run.sh
 12. From terminal, run run.sh -> copy - paste Etags to the docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+13. Complete run
+14. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
+15. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
+16. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
+17. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.

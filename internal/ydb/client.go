@@ -1667,7 +1667,6 @@ func (c *YDBClient) PublishVideoTx(ctx context.Context, share *PublicVideoShare,
 			DECLARE $vid_status AS Text;
 			DECLARE $vid_public_url AS Text;
 			DECLARE $vid_published_at AS Timestamp;
-			DECLARE $vid_updated_at AS Timestamp;
 		`
 
 		// Запросы
@@ -1681,8 +1680,7 @@ func (c *YDBClient) PublishVideoTx(ctx context.Context, share *PublicVideoShare,
 			UPDATE videos
 			SET publish_status = $vid_status,
 				public_url = $vid_public_url,
-				published_at = $vid_published_at,
-				updated_at = $vid_updated_at
+				published_at = $vid_published_at
 			WHERE video_id = $vid_id;
 		`
 
@@ -1706,7 +1704,6 @@ func (c *YDBClient) PublishVideoTx(ctx context.Context, share *PublicVideoShare,
 			table.ValueParam("$vid_status", types.TextValue(status)),
 			table.ValueParam("$vid_public_url", types.TextValue(publicURL)),
 			table.ValueParam("$vid_published_at", types.TimestampValueFromTime(now)),
-			table.ValueParam("$vid_updated_at", types.TimestampValueFromTime(now)),
 		)
 
 		_, _, err := session.Execute(
@@ -3162,14 +3159,11 @@ func (c *YDBClient) UpdateVideoStatus(ctx context.Context, videoID, status, publ
 		DECLARE $video_id AS Text;
 		DECLARE $status AS Text;
 		DECLARE $public_url AS Optional<Text>;
-		DECLARE $updated_at AS Timestamp;
 
 		UPDATE videos
-		SET publish_status = $status, public_url = $public_url, updated_at = $updated_at
+		SET publish_status = $status, public_url = $public_url
 		WHERE video_id = $video_id
 	`
-
-	now := time.Now()
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
@@ -3182,7 +3176,6 @@ func (c *YDBClient) UpdateVideoStatus(ctx context.Context, videoID, status, publ
 					}
 					return table.ValueParam("$public_url", types.OptionalValue(types.TextValue(publicURL)))
 				}(),
-				table.ValueParam("$updated_at", types.TimestampValueFromTime(now)),
 			),
 		)
 		return err

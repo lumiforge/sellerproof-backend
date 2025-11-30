@@ -18,6 +18,6 @@ tests {
     expect(res.status).to.equal(400);
     expect(res.body).to.be.an('object');
     expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Invalid video_id');
+    expect(res.body.message).to.include('validation error');
   });
 }
