@@ -1,0 +1,30 @@
+meta {
+  name: Register third user
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "{{simpleUserEmail}}",
+    "password": "{{simpleUserPassword}}",
+    "full_name": "Simple User",
+    "organization_name": "Simple User Organization"
+  }
+}
+
+tests {
+  test('Should return 201 for successful registration of simple user', function() {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('Registration successful');
+    
+    console.log('Simple user registered successfully');
+  });
+}
