@@ -6,15 +6,19 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/video/publish
-  body: json
+  body: text
   auth: bearer
+}
+
+headers {
+  Content-Type: text/plain
 }
 
 auth:bearer {
   token: {{accessToken}}
 }
 
-body:json {
+body:text {
   {
     "video_id": "{{testVideoId}}"
   }
