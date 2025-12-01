@@ -1,0 +1,32 @@
+meta {
+  name: Get URLs for out of order test
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/urls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testOutOfOrderVideoId}}",
+    "total_parts": 2
+  }
+}
+
+tests {
+  test('Should return URLs for 2 parts', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.part_urls).to.have.length(2);
+    
+    bru.setEnvVar("outOfOrderPartUrl1", res.body.part_urls[0]);
+    bru.setEnvVar("outOfOrderPartUrl2", res.body.part_urls[1]);
+  });
+}

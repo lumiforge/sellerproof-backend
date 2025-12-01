@@ -1,0 +1,34 @@
+meta {
+  name: Initiate upload for out of order test
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "file_name": "test-out-of-order.mp4",
+    "file_size_bytes": 2097152,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should create video for out-of-order parts test', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('upload_id');
+    
+    bru.setEnvVar("testOutOfOrderVideoId", res.body.video_id);
+    bru.setEnvVar("testOutOfOrderUploadId", res.body.upload_id);
+  });
+}
