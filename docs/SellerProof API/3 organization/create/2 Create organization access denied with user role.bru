@@ -11,13 +11,13 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{simpleUserAccessToken}}
 }
 
 body:json {
   {
-    "name": "Test Organization",
-    "description": "A test organization for testing purposes"
+    "name": "Another One Test Organization",
+    "description": "Another organization for testing purposes"
   }
 }
 

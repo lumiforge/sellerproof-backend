@@ -49,7 +49,7 @@ tests {
     expect(res.body.name).to.equal('New Created Organization');
 
     // Validate description matches request or is empty string if not provided
-    expect(res.body.description).to.equal('A test organization for testing purposes');
+    expect(res.body.description).to.equal('A new organization for testing purposes');
 
     // Validate created_at is a reasonable timestamp (not in the future)
     const currentTime = Math.floor(Date.now() / 1000);
