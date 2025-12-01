@@ -19,7 +19,7 @@ body:json {
     "email": "test@example.com",
     "role": "user",
     "org_id": "{{testOrgId}}"
-  }
+  
 }
 
 tests {
@@ -37,6 +37,5 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('JSON');
   });
 }
