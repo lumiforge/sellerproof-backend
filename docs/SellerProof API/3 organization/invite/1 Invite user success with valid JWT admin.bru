@@ -16,7 +16,7 @@ auth:bearer {
 
 body:json {
   {
-    "email": "test@example.com",
+    "email": "{{secondUserEmail}}",
     "role": "user",
     "org_id": "{{testOrgId}}"
   }
@@ -26,33 +26,33 @@ tests {
   test('Should return 200 OK and valid invite response for valid admin JWT token', function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.be.an('object');
-    
+
     // Validate all required fields exist
     expect(res.body).to.have.property('invitation_id');
     expect(res.body).to.have.property('invite_code');
     expect(res.body).to.have.property('expires_at');
     expect(res.body).to.have.property('email');
     expect(res.body).to.have.property('role');
-    
+
     // Validate field types
     expect(res.body.invitation_id).to.be.a('string');
     expect(res.body.invite_code).to.be.a('string');
     expect(res.body.expires_at).to.be.a('number');
     expect(res.body.email).to.be.a('string');
     expect(res.body.role).to.be.a('string');
-    
+
     // Validate field values are not empty
     expect(res.body.invitation_id).to.not.equal('');
     expect(res.body.invite_code).to.not.equal('');
     expect(res.body.email).to.not.equal('');
     expect(res.body.role).to.not.equal('');
-    
+
     // Validate email format
     expect(res.body.email).to.include('@');
-    
+
     // Validate role is valid
     expect(res.body.role).to.be.oneOf(['user', 'manager', 'admin']);
-    
+
     // Validate expires_at is in the future
     const currentTime = Math.floor(Date.now() / 1000);
     expect(res.body.expires_at).to.be.greaterThan(currentTime);
