@@ -140,7 +140,7 @@ Authorization: Bearer {{thirdUserAccessToken}}
 
 1. health
 2. Register
-3. Копируем verification_code из user и org_id из organization на облаке (для 3х пользователей)
+3. Копируем verification_code из user на облаке (для 3х пользователей)
 4. Login
 5. Organization -> Invite
 6. Refresh
