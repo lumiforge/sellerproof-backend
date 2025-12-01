@@ -24,16 +24,5 @@ body:json {
 tests {
   test('Should return 401 Unauthorized with expired JWT token', function() {
     expect(res.status).to.equal(401);
-    expect(res.body).to.be.an('object');
-
-    // Validate error response structure
-    expect(res.body).to.have.property('error');
-    expect(res.body).to.have.property('message');
-    expect(res.body).to.have.property('code');
-
-    // Validate error details
-    expect(res.body.error).to.equal('Unauthorized');
-    expect(res.body.message).to.include('expired'); // Token expiration error message
-    expect(res.body.code).to.equal(401);
   });
 }

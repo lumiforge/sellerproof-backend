@@ -33,7 +33,7 @@ tests {
 
     // Validate error details
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('must be less than');
+    expect(res.body.message).to.include('must be at most 100 characters');
     expect(res.body.code).to.equal(400);
   });
 }

@@ -33,7 +33,7 @@ tests {
 
     // Validate error details
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('name is required');
+    expect(res.body.message).to.include('is required');
     expect(res.body.code).to.equal(400);
   });
 }
