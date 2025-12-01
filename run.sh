@@ -5,7 +5,7 @@ FILE_PATHS=(
 )
 # Задай сразу здесь ссылки
 PART_URLS=(
-    "https://sellerproof-yc.storage.yandexcloud.net/videos/4c4b925a-f320-459c-9e8b-f861b9a81be7/310d0667-16a0-4c51-856c-f77e70d344b7/test-video-second-user.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251130%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251130T203714Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=1&uploadId=000644D5B86DEFD8&x-id=UploadPart&X-Amz-Signature=b5d908c62e6e77ae21028d0936362bec2c26a801b115a94159df7914ce1b31ca"
+    "https://sellerproof-yc.storage.yandexcloud.net/videos/2fdc5fb0-4a70-42f2-b58d-74abf9f497a4/11c843b3-1036-4417-a54a-8778c4a6a167/test-video-second-user.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251201%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251201T110538Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=1&uploadId=000644E1F012EEC8&x-id=UploadPart&X-Amz-Signature=4685d8b92f25a1f5d1fa87850331b6a6d7d1127541511b80abc7dcfb0fc687bd"
 )
 
 
