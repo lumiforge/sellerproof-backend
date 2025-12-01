@@ -37,6 +37,6 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('XSS');
+    expect(res.body.message).to.include('is not a valid email address');
   });
 }
