@@ -140,19 +140,20 @@ Authorization: Bearer {{thirdUserAccessToken}}
 
 1. health
 2. Register
-3. Копируем verification_code из user и org_id из organization на облаке
+3. Копируем verification_code из user и org_id из organization на облаке (для 3х пользователей)
 4. Login
-5. Refresh
-6. Logout
-7. Profile
-8. Video -> Upload -> Initiate
-9. Video -> Upload -> URLs
-10. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
-11. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
-12. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
-13. Complete run
-14. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
-15. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
-16. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
-17. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
-18. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.
+5. Organization -> Invite
+6. Refresh
+7. Logout
+8. Profile
+9. Video -> Upload -> Initiate
+10. Video -> Upload -> URLs
+11. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
+12. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
+13. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+14. Complete run
+15. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
+16. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
+17. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
+18. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
+19. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.
