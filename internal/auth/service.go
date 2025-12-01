@@ -341,6 +341,15 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
+
+	// Check if email is already verified
+	if user.EmailVerified {
+		return &models.VerifyEmailResponse{
+			Message: "Email already verified",
+			Success: true,
+		}, nil
+	}
+
 	if user.VerificationCode == "" {
 		return &models.VerifyEmailResponse{
 			Message: "Email already verified",
@@ -429,6 +438,12 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		return nil, fmt.Errorf("password must be less than 73 characters long")
 	}
 
+	// Проверка, что email подтвержден (ДО проверки пароля для правильной семантики)
+	if !user.EmailVerified {
+		slog.Error("Email not verified", "email", req.Email, "emailVerified", user.EmailVerified)
+		return nil, fmt.Errorf("email not verified")
+	}
+
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		// TODO delete me
@@ -439,12 +454,6 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	// Проверка, что пользователь активен
 	if !user.IsActive {
 		return nil, fmt.Errorf("user account is deactivated")
-	}
-
-	// Проверка, что email подтвержден
-	if !user.EmailVerified {
-		slog.Error("Email not verified", "email", req.Email, "emailVerified", user.EmailVerified)
-		return nil, fmt.Errorf("email not verified")
 	}
 
 	// Получение всех членств пользователя

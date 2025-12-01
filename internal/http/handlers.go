@@ -205,6 +205,14 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		})
 
 		errorMsg := err.Error()
+		// Check if email is already verified
+		if strings.Contains(errorMsg, "Email already verified") {
+			s.writeJSON(w, http.StatusOK, models.VerifyEmailResponse{
+				Message: resp.Message,
+				Success: resp.Success,
+			})
+			return
+		}
 		slog.Error("VerifyEmail: Failed to verify email", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 		if errorMsg == "invalid email format" ||
 			strings.Contains(errorMsg, "invalid email format") ||
@@ -281,14 +289,14 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
 		slog.Error("Login error", "error", errorMsg) // Добавляем логирование для отладки
-		if strings.Contains(errorMsg, "is required") ||
+		if strings.Contains(strings.ToLower(errorMsg), "email not verified") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else if strings.Contains(errorMsg, "is required") ||
 			strings.Contains(errorMsg, "invalid email format") ||
 			strings.Contains(errorMsg, "must be less than") ||
 			strings.Contains(errorMsg, "validation error in") ||
 			strings.Contains(errorMsg, "invalid credentials") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
-		} else if strings.Contains(strings.ToLower(errorMsg), "email not verified") {
-			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else {
 			s.writeError(w, http.StatusUnauthorized, errorMsg)
 		}
