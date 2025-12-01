@@ -26,9 +26,9 @@ tests {
     expect(res.body.user.email_verified).to.equal(true);
     
     // Update environment variables with new tokens
-    bru.setEnvVar("accessToken", res.body.access_token);
-    bru.setEnvVar("refreshToken", res.body.refresh_token);     // ✅ Исправлено
-    bru.setEnvVar("testOrgId", res.body.user.org_id);          // ✅ Исправлено
-    bru.setEnvVar("userId", res.body.user.user_id);
+    bru.setEnvVar("simpleUserAccessToken", res.body.access_token);
+    bru.setEnvVar("simpleUserRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("simpleUserOrgId", res.body.user.org_id);
+    bru.setEnvVar("simpleUserId", res.body.user.user_id);
   });
 }
