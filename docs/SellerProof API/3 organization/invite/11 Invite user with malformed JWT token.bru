@@ -1,17 +1,17 @@
 meta {
-  name: Invite user wrong HTTP method PUT
+  name: Invite user with malformed JWT token
   type: http
-  seq: 18
+  seq: 11
 }
 
-put {
+post {
   url: {{baseUrl}}/api/v1/organization/invite
   body: json
   auth: bearer
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.token
 }
 
 body:json {
@@ -23,8 +23,8 @@ body:json {
 }
 
 tests {
-  test('Should return 405 Method Not Allowed for PUT method', function() {
-    expect(res.status).to.equal(405);
+  test('Should return 401 Unauthorized for request with malformed JWT token', function() {
+    expect(res.status).to.equal(401);
     expect(res.body).to.be.an('object');
     
     // Validate error response structure
@@ -36,6 +36,7 @@ tests {
     expect(res.body.message).to.be.a('string');
     
     // Validate error message content
-    expect(res.body.error).to.equal('Method Not Allowed');
+    expect(res.body.error).to.equal('Unauthorized');
+    expect(res.body.message).to.include('token');
   });
 }

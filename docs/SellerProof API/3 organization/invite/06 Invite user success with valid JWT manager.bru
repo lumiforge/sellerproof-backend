@@ -1,7 +1,7 @@
 meta {
   name: Invite user success with valid JWT manager
   type: http
-  seq: 2
+  seq: 6
 }
 
 post {
@@ -16,7 +16,7 @@ auth:bearer {
 
 body:json {
   {
-    "email": "{{simpleUserEmail}}",
+    "email": "newuser2@example.com",
     "role": "user",
     "org_id": "{{testOrgId}}"
   }
@@ -56,10 +56,10 @@ tests {
     // Validate expires_at is in the future
     const currentTime = Math.floor(Date.now() / 1000);
     expect(res.body.expires_at).to.be.greaterThan(currentTime);
-
+    
     // Validate email matches request
-    expect(res.body.email).to.equal(bru.getEnvVar('simpleUserEmail'));
-
+    expect(res.body.email).to.equal('newuser2@example.com');
+    
     // Validate role matches request
     expect(res.body.role).to.equal('user');
   });

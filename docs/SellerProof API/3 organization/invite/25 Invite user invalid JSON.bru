@@ -1,10 +1,10 @@
 meta {
-  name: Invite user wrong HTTP method PATCH
+  name: Invite user invalid JSON
   type: http
-  seq: 20
+  seq: 25
 }
 
-patch {
+post {
   url: {{baseUrl}}/api/v1/organization/invite
   body: json
   auth: bearer
@@ -23,8 +23,8 @@ body:json {
 }
 
 tests {
-  test('Should return 405 Method Not Allowed for PATCH method', function() {
-    expect(res.status).to.equal(405);
+  test('Should return 400 Bad Request for invalid JSON', function() {
+    expect(res.status).to.equal(400);
     expect(res.body).to.be.an('object');
     
     // Validate error response structure
@@ -36,6 +36,7 @@ tests {
     expect(res.body.message).to.be.a('string');
     
     // Validate error message content
-    expect(res.body.error).to.equal('Method Not Allowed');
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('JSON');
   });
 }

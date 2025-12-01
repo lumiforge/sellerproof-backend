@@ -1,10 +1,10 @@
 meta {
-  name: Invite user missing required org_id field
+  name: Invite user wrong HTTP method DELETE
   type: http
-  seq: 10
+  seq: 23
 }
 
-post {
+delete {
   url: {{baseUrl}}/api/v1/organization/invite
   body: json
   auth: bearer
@@ -17,13 +17,14 @@ auth:bearer {
 body:json {
   {
     "email": "test@example.com",
-    "role": "user"
+    "role": "user",
+    "org_id": "{{testOrgId}}"
   }
 }
 
 tests {
-  test('Should return 400 Bad Request for missing required org_id field', function() {
-    expect(res.status).to.equal(400);
+  test('Should return 405 Method Not Allowed for DELETE method', function() {
+    expect(res.status).to.equal(405);
     expect(res.body).to.be.an('object');
     
     // Validate error response structure
@@ -35,7 +36,6 @@ tests {
     expect(res.body.message).to.be.a('string');
     
     // Validate error message content
-    expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('org_id');
+    expect(res.body.error).to.equal('Method Not Allowed');
   });
 }

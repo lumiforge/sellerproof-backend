@@ -1,0 +1,49 @@
+meta {
+  name: Invite user success with valid JWT admin
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "email": "newuser1@example.com",
+    "role": "user",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should invite user successfully with admin role', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('invite_code');
+    expect(res.body).to.have.property('email');
+    expect(res.body).to.have.property('role');
+    expect(res.body).to.have.property('org_id');
+    expect(res.body).to.have.property('created_at');
+    expect(res.body).to.have.property('expires_at');
+    
+    // Validate email matches request
+    expect(res.body.email).to.equal('newuser1@example.com');
+    
+    // Validate role matches request
+    expect(res.body.role).to.equal('user');
+    
+    // Validate org_id matches request
+    expect(res.body.org_id).to.equal('{{testOrgId}}');
+    
+    // Validate timestamps
+    const currentTime = Math.floor(Date.now() / 1000);
+    expect(res.body.created_at).to.be.lessThan(currentTime + 1);
+    expect(res.body.expires_at).to.be.greaterThan(currentTime);
+  });
+}

@@ -1,10 +1,10 @@
 meta {
-  name: Invite user XSS email
+  name: Invite user wrong HTTP method PATCH
   type: http
-  seq: 14
+  seq: 24
 }
 
-post {
+patch {
   url: {{baseUrl}}/api/v1/organization/invite
   body: json
   auth: bearer
@@ -16,15 +16,15 @@ auth:bearer {
 
 body:json {
   {
-    "email": "<script>alert('xss')</script>@example.com",
+    "email": "test@example.com",
     "role": "user",
     "org_id": "{{testOrgId}}"
   }
 }
 
 tests {
-  test('Should return 400 Bad Request for XSS in email', function() {
-    expect(res.status).to.equal(400);
+  test('Should return 405 Method Not Allowed for PATCH method', function() {
+    expect(res.status).to.equal(405);
     expect(res.body).to.be.an('object');
     
     // Validate error response structure
@@ -36,7 +36,6 @@ tests {
     expect(res.body.message).to.be.a('string');
     
     // Validate error message content
-    expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('XSS');
+    expect(res.body.error).to.equal('Method Not Allowed');
   });
 }

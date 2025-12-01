@@ -1,7 +1,7 @@
 meta {
-  name: Invite user with expired JWT token
+  name: Invite user access denied with user role
   type: http
-  seq: 6
+  seq: 7
 }
 
 post {
@@ -11,32 +11,32 @@ post {
 }
 
 auth:bearer {
-  token: {{expiredAccessToken}}
+  token: {{simpleUserAccessToken}}
 }
 
 body:json {
   {
-    "email": "test@example.com",
+    "email": "user@example.com",
     "role": "user",
     "org_id": "{{testOrgId}}"
   }
 }
 
 tests {
-  test('Should return 401 Unauthorized for request with expired JWT token', function() {
-    expect(res.status).to.equal(401);
+  test('Should return 403 Forbidden for user role attempting to invite user', function() {
+    expect(res.status).to.equal(403);
     expect(res.body).to.be.an('object');
-    
+
     // Validate error response structure
     expect(res.body).to.have.property('error');
     expect(res.body).to.have.property('message');
-    
+
     // Validate field types
     expect(res.body.error).to.be.a('string');
     expect(res.body.message).to.be.a('string');
-    
+
     // Validate error message content
-    expect(res.body.error).to.equal('Unauthorized');
-    expect(res.body.message).to.include('token');
+    expect(res.body.error).to.equal('Forbidden');
+    expect(res.body.message).to.include('only admins and managers');
   });
 }

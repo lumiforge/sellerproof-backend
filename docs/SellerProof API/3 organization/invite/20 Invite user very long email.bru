@@ -1,7 +1,7 @@
 meta {
-  name: Invite user with malformed JWT token
+  name: Invite user very long email
   type: http
-  seq: 7
+  seq: 20
 }
 
 post {
@@ -11,20 +11,20 @@ post {
 }
 
 auth:bearer {
-  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.token
+  token: {{accessToken}}
 }
 
 body:json {
   {
-    "email": "test@example.com",
+    "email": "verylongemailaddressthatexceedsthemaximumallowedlengthforanemailaddressinthissystemandshouldberejectedbythevalidation@example.com",
     "role": "user",
     "org_id": "{{testOrgId}}"
   }
 }
 
 tests {
-  test('Should return 401 Unauthorized for request with malformed JWT token', function() {
-    expect(res.status).to.equal(401);
+  test('Should return 400 Bad Request for very long email', function() {
+    expect(res.status).to.equal(400);
     expect(res.body).to.be.an('object');
     
     // Validate error response structure
@@ -36,7 +36,7 @@ tests {
     expect(res.body.message).to.be.a('string');
     
     // Validate error message content
-    expect(res.body.error).to.equal('Unauthorized');
-    expect(res.body.message).to.include('token');
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('email');
   });
 }

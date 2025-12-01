@@ -1,0 +1,31 @@
+meta {
+  name: Setup - Invite second user as manager
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "email": "{{secondUserEmail}}",
+    "role": "manager",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should invite second user as manager', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('invite_code');
+    bru.setEnvVar("managerInviteCode", res.body.invite_code);
+  });
+}

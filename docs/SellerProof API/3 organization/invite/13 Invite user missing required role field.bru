@@ -1,5 +1,5 @@
 meta {
-  name: Invite user SQL injection email
+  name: Invite user missing required role field
   type: http
   seq: 13
 }
@@ -16,14 +16,13 @@ auth:bearer {
 
 body:json {
   {
-    "email": "'; DROP TABLE users; --",
-    "role": "user",
+    "email": "test@example.com",
     "org_id": "{{testOrgId}}"
   }
 }
 
 tests {
-  test('Should return 400 Bad Request for SQL injection in email', function() {
+  test('Should return 400 Bad Request for missing required role field', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.be.an('object');
     
@@ -37,6 +36,6 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('SQL injection');
+    expect(res.body.message).to.include('role');
   });
 }

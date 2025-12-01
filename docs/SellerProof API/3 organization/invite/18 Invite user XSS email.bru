@@ -1,7 +1,7 @@
 meta {
-  name: Invite user invalid JSON
+  name: Invite user XSS email
   type: http
-  seq: 21
+  seq: 18
 }
 
 post {
@@ -16,14 +16,14 @@ auth:bearer {
 
 body:json {
   {
-    "email": "test@example.com",
+    "email": "<script>alert('xss')</script>@example.com",
     "role": "user",
     "org_id": "{{testOrgId}}"
   }
 }
 
 tests {
-  test('Should return 400 Bad Request for invalid JSON', function() {
+  test('Should return 400 Bad Request for XSS in email', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.be.an('object');
     
@@ -37,6 +37,6 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('JSON');
+    expect(res.body.message).to.include('XSS');
   });
 }

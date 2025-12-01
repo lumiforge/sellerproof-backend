@@ -1,7 +1,7 @@
 meta {
   name: Invite user extra fields
   type: http
-  seq: 22
+  seq: 26
 }
 
 post {
@@ -55,7 +55,7 @@ tests {
     // Validate role is valid
     expect(res.body.role).to.be.oneOf(['user', 'manager', 'admin']);
     
-    // Validate expires_at is in the future
+    // Validate expires_at is in future
     const currentTime = Math.floor(Date.now() / 1000);
     expect(res.body.expires_at).to.be.greaterThan(currentTime);
     

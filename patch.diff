@@ -1,0 +1,265 @@
+Ок, делаю нормально с правильной нумерацией с 1 до конца.
+
+## ПОЛНЫЙ DIFF для `docs/SellerProof API/3 organization/invite/`
+
+### Новый файл: `invite/01 Setup - Invite second user as manager.bru`
+
+```bru
+meta {
+  name: Setup - Invite second user as manager
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "email": "{{secondUserEmail}}",
+    "role": "manager",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should invite second user as manager', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('invite_code');
+    bru.setEnvVar("managerInviteCode", res.body.invite_code);
+  });
+}
+```
+
+### Новый файл: `invite/02 Setup - Second user accepts invitation.bru`
+
+```bru
+meta {
+  name: Setup - Second user accepts invitation
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{secondUserAccessToken}}
+}
+
+body:json {
+  {
+    "invite_code": "{{managerInviteCode}}"
+  }
+}
+
+tests {
+  test('Should accept manager invitation', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.role).to.equal('manager');
+  });
+}
+```
+
+### Новый файл: `invite/03 Setup - Invite simple user.bru`
+
+```bru
+meta {
+  name: Setup - Invite simple user
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "email": "{{simpleUserEmail}}",
+    "role": "user",
+    "org_id": "{{testOrgId}}"
+  }
+}
+
+tests {
+  test('Should invite simple user', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('invite_code');
+    bru.setEnvVar("userInviteCode", res.body.invite_code);
+  });
+}
+```
+
+### Новый файл: `invite/04 Setup - Simple user accepts invitation.bru`
+
+```bru
+meta {
+  name: Setup - Simple user accepts invitation
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{simpleUserAccessToken}}
+}
+
+body:json {
+  {
+    "invite_code": "{{userInviteCode}}"
+  }
+}
+
+tests {
+  test('Should accept user invitation', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.role).to.equal('user');
+  });
+}
+```
+
+### Переименовать: `1 Invite user success with valid JWT admin.bru` → `05 Invite user success with valid JWT admin.bru`
+
+```diff
+--- a/docs/SellerProof API/3 organization/invite/1 Invite user success with valid JWT admin.bru
++++ b/docs/SellerProof API/3 organization/invite/05 Invite user success with valid JWT admin.bru
+@@ -1,6 +1,6 @@
+ meta {
+   name: Invite user success with valid JWT admin
+   type: http
+-  seq: 1
++  seq: 5
+ }
+ 
+ post {
+@@ -14,7 +14,7 @@ auth:bearer {
+ 
+ body:json {
+   {
+-    "email": "test@example.com",
++    "email": "newuser1@example.com",
+     "role": "user",
+     "org_id": "{{testOrgId}}"
+   }
+```
+
+### Переименовать: `2 Invite user success with valid JWT manager.bru` → `06 Invite user success with valid JWT manager.bru`
+
+```diff
+--- a/docs/SellerProof API/3 organization/invite/2 Invite user success with valid JWT manager.bru
++++ b/docs/SellerProof API/3 organization/invite/06 Invite user success with valid JWT manager.bru
+@@ -1,6 +1,6 @@
+ meta {
+   name: Invite user success with valid JWT manager
+   type: http
+-  seq: 2
++  seq: 6
+ }
+ 
+ post {
+@@ -9,12 +9,12 @@ post {
+ }
+ 
+ auth:bearer {
+-  token: {{managerAccessToken}}
++  token: {{secondUserAccessToken}}
+ }
+ 
+ body:json {
+   {
+-    "email": "manager@example.com",
++    "email": "newuser2@example.com",
+     "role": "user",
+     "org_id": "{{testOrgId}}"
+   }
+@@ -51,7 +51,7 @@ tests {
+     expect(res.body.expires_at).to.be.greaterThan(currentTime);
+     
+     // Validate email matches request
+-    expect(res.body.email).to.equal('manager@example.com');
++    expect(res.body.email).to.equal('newuser2@example.com');
+     
+     // Validate role matches request
+     expect(res.body.role).to.equal('user');
+```
+
+### Переименовать: `3 Invite user access denied with user role.bru` → `07 Invite user access denied with user role.bru`
+
+```diff
+--- a/docs/SellerProof API/3 organization/invite/3 Invite user access denied with user role.bru
++++ b/docs/SellerProof API/3 organization/invite/07 Invite user access denied with user role.bru
+@@ -1,6 +1,6 @@
+ meta {
+   name: Invite user access denied with user role
+   type: http
+-  seq: 3
++  seq: 7
+ }
+ 
+ post {
+@@ -9,7 +9,7 @@ post {
+ }
+ 
+ auth:bearer {
+-  token: {{userAccessToken}}
++  token: {{simpleUserAccessToken}}
+ }
+ 
+ body:json {
+```
+
+### Переименовать все остальные файлы (4→08, 5→09, 6→10, и т.д. до 25→29)
+
+Просто добавляем +4 к номеру каждого файла и меняем seq внутри:
+
+- `4 Invite user without JWT token.bru` → `08 Invite user without JWT token.bru` (seq: 4 → 8)
+- `5 Invite user with invalid JWT token.bru` → `09 Invite user with invalid JWT token.bru` (seq: 5 → 9)
+- `6 Invite user with expired JWT token.bru` → `10 Invite user with expired JWT token.bru` (seq: 6 → 10)
+- `7 Invite user with malformed JWT token.bru` → `11 Invite user with malformed JWT token.bru` (seq: 7 → 11)
+- `8 Invite user missing required email field.bru` → `12 Invite user missing required email field.bru` (seq: 8 → 12)
+- `9 Invite user missing required role field.bru` → `13 Invite user missing required role field.bru` (seq: 9 → 13)
+- `10 Invite user missing required org_id field.bru` → `14 Invite user missing required org_id field.bru` (seq: 10 → 14)
+- `11 Invite user invalid email format.bru` → `15 Invite user invalid email format.bru` (seq: 11 → 15)
+- `12 Invite user invalid role value.bru` → `16 Invite user invalid role value.bru` (seq: 12 → 16)
+- `13 Invite user SQL injection email.bru` → `17 Invite user SQL injection email.bru` (seq: 13 → 17)
+- `14 Invite user XSS email.bru` → `18 Invite user XSS email.bru` (seq: 14 → 18)
+- `15 Invite user Unicode email.bru` → `19 Invite user Unicode email.bru` (seq: 15 → 19)
+- `16 Invite user very long email.bru` → `20 Invite user very long email.bru` (seq: 16 → 20)
+- `17 Invite user wrong HTTP method GET.bru` → `21 Invite user wrong HTTP method GET.bru` (seq: 17 → 21)
+- `18 Invite user wrong HTTP method PUT.bru` → `22 Invite user wrong HTTP method PUT.bru` (seq: 18 → 22)
+- `19 Invite user wrong HTTP method DELETE.bru` → `23 Invite user wrong HTTP method DELETE.bru` (seq: 19 → 23)
+- `20 Invite user wrong HTTP method PATCH.bru` → `24 Invite user wrong HTTP method PATCH.bru` (seq: 20 → 24)
+- `21 Invite user invalid JSON.bru` → `25 Invite user invalid JSON.bru` (seq: 21 → 25)
+- `22 Invite user extra fields.bru` → `26 Invite user extra fields.bru` (seq: 22 → 26)
+- `23 Invite user invalid data types.bru` → `27 Invite user invalid data types.bru` (seq: 23 → 27)
+- `24 Invite user wrong Content-Type.bru` → `28 Invite user wrong Content-Type.bru` (seq: 24 → 28)
+- `25 Invite user empty request body.bru` → `29 Invite user empty request body.bru` (seq: 25 → 29)
+
+Для каждого файла меняем только одну строку:
+
+```diff
+-  seq: X
++  seq: X+4
+```
