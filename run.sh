@@ -5,7 +5,9 @@ FILE_PATHS=(
 )
 # Задай сразу здесь ссылки
 PART_URLS=(
-    "https://sellerproof-yc.storage.yandexcloud.net/videos/2fdc5fb0-4a70-42f2-b58d-74abf9f497a4/11c843b3-1036-4417-a54a-8778c4a6a167/test-video-second-user.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251201%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251201T110538Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=1&uploadId=000644E1F012EEC8&x-id=UploadPart&X-Amz-Signature=4685d8b92f25a1f5d1fa87850331b6a6d7d1127541511b80abc7dcfb0fc687bd"
+  "https://sellerproof-yc.storage.yandexcloud.net/videos/b59d1580-2c23-493d-8602-9f5becdb75b4/807c79fd-69ef-4ffe-8d4f-a1e3e3967d53/%E6%B5%8B%E8%AF%95-%E8%A7%86%E9%A2%91-%F0%9F%8E%A5.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251201%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251201T121658Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=1&uploadId=000644E1EFC0499A&x-id=UploadPart&X-Amz-Signature=6059e03819429c4eb2d305e12cbbc14b6f5d170fa0c6c1373b42af281d63a3d1"
+  "https://sellerproof-yc.storage.yandexcloud.net/videos/b59d1580-2c23-493d-8602-9f5becdb75b4/807c79fd-69ef-4ffe-8d4f-a1e3e3967d53/%E6%B5%8B%E8%AF%95-%E8%A7%86%E9%A2%91-%F0%9F%8E%A5.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEPrdkYwXKPSKcsURt9hSC%2F20251201%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20251201T121658Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&partNumber=2&uploadId=000644E1EFC0499A&x-id=UploadPart&X-Amz-Signature=0e18c6fa524d54f31b534f88e5838faa074d132edff6ee450022d7416053f122"
+
 )
 
 

@@ -148,7 +148,7 @@ Authorization: Bearer {{thirdUserAccessToken}}
 8. Video -> Upload -> Initiate
 9. Video -> Upload -> URLs
 10. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
-11. Оба раза вставляем URLs в run.sh file -> запускаем run.sh
+11. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**3 РАЗА**)
 12. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
 13. Complete run
 14. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
