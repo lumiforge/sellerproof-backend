@@ -138,6 +138,7 @@ redeploy: check-env build-zip
 	yc serverless function version create \
 	  --function-name $(SP_FUNC) \
 	  --runtime $(SP_FUNC_RUNTIME) \
+	  --memory 256MB \
 	  --service-account-id $(SP_SA) \
 	  --entrypoint $(SP_ENTRY) \
 	  --source-path ./$(ZIP) \

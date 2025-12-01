@@ -35,6 +35,6 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('JSON');
+    expect(res.body.message).to.include('invalid invite code');
   });
 }

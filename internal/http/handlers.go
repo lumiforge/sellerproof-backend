@@ -1288,10 +1288,10 @@ func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(err.Error(), "only admins"):
 			s.writeError(w, http.StatusForbidden, err.Error())
-		case errors.As(err, &validationErr):
-			s.writeError(w, http.StatusBadRequest, validationErr.Error())
 		case strings.Contains(err.Error(), "already exists"):
 			s.writeError(w, http.StatusConflict, err.Error())
+		case errors.As(err, &validationErr):
+			s.writeError(w, http.StatusBadRequest, validationErr.Error())
 		default:
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
@@ -1595,7 +1595,7 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 		errorMsg := err.Error()
 		slog.Error("AcceptInvitation: Failed to accept invitation", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
 
-		if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "expired") || strings.Contains(errorMsg, "not pending") {
+		if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "expired") || strings.Contains(errorMsg, "not pending") || strings.Contains(errorMsg, "is required") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
