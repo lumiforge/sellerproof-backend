@@ -1510,6 +1510,14 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.authService.InviteUser(r.Context(), claims.UserID, req.OrgID, &req)
 	if err != nil {
+
+		// Check if it's a validation error and return 400 instead of 500
+		var valErr validation.ValidationError
+		if errors.As(err, &valErr) {
+			slog.Error("InviteUser: Validation error", "error", valErr.Error(), "user_agent", userAgent, "ip_address", ipAddress)
+			s.writeError(w, http.StatusBadRequest, valErr.Message)
+			return
+		}
 		s.auditService.LogAction(r.Context(), claims.UserID, req.OrgID, models.AuditOrgUserInvite, models.AuditResultFailure, ipAddress, userAgent, map[string]interface{}{
 			"email": req.Email,
 			"role":  req.Role,

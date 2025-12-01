@@ -6,7 +6,7 @@ meta {
 
 post {
   url: {{baseUrl}}/api/v1/organization/invite
-  body: json
+  body: none
   auth: bearer
 }
 
@@ -14,7 +14,7 @@ auth:bearer {
   token: {{accessToken}}
 }
 
-body:json {
+body:text {
   {
     "email": "test-extra-fields-111@example.com",
     "role": "user",
