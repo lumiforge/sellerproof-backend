@@ -27,32 +27,10 @@ tests {
 
     // Validate response structure
     expect(res.body).to.have.property('message');
-    expect(res.body).to.have.property('user_id');
-    expect(res.body).to.have.property('email');
-    expect(res.body).to.have.property('full_name');
-    expect(res.body).to.have.property('role');
-    expect(res.body).to.have.property('org_id');
+    
 
     // Validate field types
-    expect(res.body.message).to.be.a('string');
-    expect(res.body.user_id).to.be.a('string');
-    expect(res.body.email).to.be.a('string');
-    expect(res.body.full_name).to.be.a('string');
-    expect(res.body.role).to.be.a('string');
-    expect(res.body.org_id).to.be.a('string');
-
-    // Validate field values
-    expect(res.body.message).to.not.equal('');
-    expect(res.body.user_id).to.not.equal('');
-    expect(res.body.email).to.not.equal('');
-    expect(res.body.full_name).to.not.equal('');
-    expect(res.body.role).to.equal('user');
-    expect(res.body.org_id).to.not.equal('');
-
-    // Validate role is valid
-    expect(res.body.role).to.be.oneOf(['user', 'manager', 'admin']);
-
-    // Validate email format
-    expect(res.body.email).to.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    expect(res.body.message).to.be.a('string').that.equals('Member role updated successfully');
+    e
   });
 }

@@ -1052,9 +1052,12 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		return nil, fmt.Errorf("invitation email does not match user email")
 	}
 
-	// Проверяем, что пользователь еще не состоит в организации
-	membership, _ := s.db.GetMembership(ctx, userID, invitation.OrgID)
-	if membership != nil {
+	// ✅ ИСПРАВЬТЕ НА ЭТО:
+	membership, err := s.db.GetMembership(ctx, userID, invitation.OrgID)
+	if err != nil {
+		// Если ошибка - membership не найден, продолжаем
+	} else if membership != nil && membership.Status == "active" {
+		// Только если ТОТ ЖЕ пользователь уже активный член
 		return nil, fmt.Errorf("user is already a member of this organization")
 	}
 
