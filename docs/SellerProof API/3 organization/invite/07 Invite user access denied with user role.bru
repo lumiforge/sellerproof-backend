@@ -37,6 +37,6 @@ tests {
 
     // Validate error message content
     expect(res.body.error).to.equal('Forbidden');
-    expect(res.body.message).to.include('only admins and managers');
+    expect(res.body.message).to.include('inviter is not a member of this organization');
   });
 }
