@@ -20,7 +20,6 @@ tests {
     expect(res.body).to.be.an('object');
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.be.a('string');
-    expect(res.body.error).to.include('user_id');
-    expect(res.body.error).to.include('invalid');
+    expect(res.body.message).to.include('target user is not a member of this organization');
   });
 }
