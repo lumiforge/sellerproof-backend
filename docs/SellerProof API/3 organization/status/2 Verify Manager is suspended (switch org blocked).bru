@@ -12,11 +12,13 @@ post {
 
 auth:bearer {
   token: {{managerAccessToken}}
+
 }
 
 body:json {
   {
-    "organization_id": "{{adminOrgId}}"
+    "organization_id": "{{adminOrgId}}",
+    "refresh_token": "{{managerRefreshToken}}"
   }
 }
 
