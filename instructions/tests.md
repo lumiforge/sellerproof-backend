@@ -139,21 +139,23 @@ Authorization: Bearer {{thirdUserAccessToken}}
 
 
 1. health
-2. Register
-3. Копируем verification_code из user на облаке (для 3х пользователей)
-4. Login
-5. Organization -> Invite
-6. Refresh
-7. Logout
-8. Profile
-9. Video -> Upload -> Initiate
-10. Video -> Upload -> URLs
-11. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
-12. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
-13. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
-14. Complete run
-15. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
-16. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
-17. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
-18. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
-19. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.
+2. Auth -> Register
+3. Auth -> Копируем verification_code из user на облаке (для 3х пользователей)
+4. Auth -> Login
+5. Organization -> Create
+6. Organization -> Invite
+7. Organization -> Accept 
+8. Refresh
+9. Logout
+10. Profile
+11. Video -> Upload -> Initiate
+12. Video -> Upload -> URLs
+13. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
+14. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
+15. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+16. Complete run
+17. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
+18. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
+19. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
+20. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
+21. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.

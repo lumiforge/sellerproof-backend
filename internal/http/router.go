@@ -94,28 +94,29 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/organization/invitations", chainMiddleware(server.ListInvitations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
-	mux.HandleFunc("DELETE /api/v1/organization/invitations", chainMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		server.writeError(w, http.StatusBadRequest, "invitation_id is required")
-	}, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
+	// mux.HandleFunc("DELETE /api/v1/organization/invitations", chainMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	// 	server.writeError(w, http.StatusBadRequest, "invitation_id is required")
+	// }, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+	// 	return AuthMiddleware(jwtManager, server.authService, next)
+	// }))
 	// DELETE /api/v1/organization/invitations/{id}
-	mux.HandleFunc("DELETE /api/v1/organization/invitations/{id}", chainMiddleware(server.CancelInvitation, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/organization/invitations/{id}", chainMiddleware(server.CancelInvitation, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
+
 	mux.HandleFunc("/api/v1/organization/members", chainMiddleware(server.ListMembers, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	// PUT /api/v1/organization/members/{user_id}/role
-	mux.HandleFunc("PUT /api/v1/organization/members/{user_id}/role", chainMiddleware(server.UpdateMemberRole, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/organization/members/{user_id}/role", chainMiddleware(server.UpdateMemberRole, methodMiddleware("PUT"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	// PUT /api/v1/organization/members/{user_id}/status
-	mux.HandleFunc("PUT /api/v1/organization/members/{user_id}/status", chainMiddleware(server.UpdateMemberStatus, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/organization/members/{user_id}/status", chainMiddleware(server.UpdateMemberStatus, methodMiddleware("PUT"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	// DELETE /api/v1/organization/members/{user_id}
-	mux.HandleFunc("DELETE /api/v1/organization/members/{user_id}", chainMiddleware(server.RemoveMember, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/organization/members/{user_id}", chainMiddleware(server.RemoveMember, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 
@@ -133,7 +134,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	// DELETE /api/v1/video/{id}
-	mux.HandleFunc("DELETE /api/v1/video/{id}", chainMiddleware(server.DeleteVideo, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/video/{id}", chainMiddleware(server.DeleteVideo, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	mux.HandleFunc("/api/v1/video/search", chainMiddleware(server.SearchVideos, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -288,7 +289,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
-		slog.Error("Login error", "error", errorMsg) // Добавляем логирование для отладки
+		slog.Error("Login error", "error", errorMsg)
 		if strings.Contains(strings.ToLower(errorMsg), "email not verified") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "is required") ||
@@ -1167,6 +1168,7 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, models.HealthResponse{
 		Status:    "ok",
+		Version:   runtime.Version(),
 		Timestamp: time.Now(),
 	})
 }
@@ -1526,7 +1528,7 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 		errorMsg := err.Error()
 		slog.Error("InviteUser: Failed to invite user", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
-		if strings.Contains(errorMsg, "only admins and managers") {
+		if strings.Contains(errorMsg, "only admins and managers") || strings.Contains(errorMsg, "inviter is not a member of this organization") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "required") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
