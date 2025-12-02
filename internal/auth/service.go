@@ -824,7 +824,6 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.
 }
 
 // SwitchOrganization переключает организацию пользователя
-// SwitchOrganization переключает организацию пользователя
 func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *models.SwitchOrganizationRequest) (*models.SwitchOrganizationResponse, error) {
 	// 1. Валидация и отзыв старого Refresh токена (Ротация)
 	// Валидация формата токена

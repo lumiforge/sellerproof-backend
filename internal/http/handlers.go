@@ -1230,6 +1230,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 		slog.Error("SwitchOrganization: Failed to switch organization", "error", errorMsg)
 		if strings.Contains(errorMsg, "user is not a member") ||
 			strings.Contains(errorMsg, "membership is not active") ||
+			strings.Contains(errorMsg, "refresh token not found or revoked") ||
 			strings.Contains(errorMsg, "user not found") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {

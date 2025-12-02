@@ -1,0 +1,34 @@
+meta {
+  name: Manager switches to Admin org (prepare for status tests)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+  {
+    "organization_id": "{{adminOrgId}}",
+    "refresh_token": "{{managerRefreshToken}}"
+  }
+}
+
+tests {
+  test('Should return 200 OK and save new tokens', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('access_token');
+    expect(res.body).to.have.property('refresh_token');
+    
+    bru.setEnvVar('managerAccessToken', res.body.access_token);
+    bru.setEnvVar('managerRefreshToken', res.body.refresh_token);
+  });
+}
