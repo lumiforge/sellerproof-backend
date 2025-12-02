@@ -1414,7 +1414,11 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	videoID := r.PathValue("id")
+	// Get ID from context (set by router)
+	videoID, ok := r.Context().Value("path_id").(string)
+	if !ok {
+		videoID = r.PathValue("id") // fallback for compatibility
+	}
 
 	if err := validation.ValidateFilenameUnicode(videoID, "video_id"); err != nil {
 		slog.Error("DeleteVideo: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
@@ -1696,7 +1700,12 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	invitationID := r.PathValue("id")
+	// Get ID from context (set by router)
+	invitationID, ok := r.Context().Value("path_id").(string)
+	if !ok {
+		invitationID = r.PathValue("id") // fallback for compatibility
+	}
+
 	if invitationID == "" {
 		slog.Error("CancelInvitation: invitation_id is required")
 		s.writeError(w, http.StatusBadRequest, "invitation_id is required")
@@ -1838,7 +1847,12 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.PathValue("user_id")
+	// Get user_id from context (set by router)
+	userID, ok := r.Context().Value("path_user_id").(string)
+	if !ok {
+		userID = r.PathValue("user_id") // fallback for compatibility
+	}
+
 	if userID == "" {
 		slog.Error("UpdateMemberRole: user_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "user_id is required")
@@ -1915,7 +1929,12 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.PathValue("user_id")
+	// Get user_id from context (set by router)
+	userID, ok := r.Context().Value("path_user_id").(string)
+	if !ok {
+		userID = r.PathValue("user_id") // fallback for compatibility
+	}
+
 	if userID == "" {
 		slog.Error("UpdateMemberStatus: user_id is required", "user_agent", userAgent, "ip_address", ipAddress)
 		s.writeError(w, http.StatusBadRequest, "user_id is required")
@@ -2003,7 +2022,11 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.PathValue("user_id")
+	// Get user_id from context (set by router)
+	userID, ok := r.Context().Value("path_user_id").(string)
+	if !ok {
+		userID = r.PathValue("user_id") // fallback for compatibility
+	}
 	if userID == "" {
 		slog.Error("RemoveMember: user_id is required")
 		s.writeError(w, http.StatusBadRequest, "user_id is required")

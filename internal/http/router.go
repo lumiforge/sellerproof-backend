@@ -1,9 +1,11 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 )
@@ -94,19 +96,76 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/organization/invitations", chainMiddleware(server.ListInvitations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
-	// mux.HandleFunc("DELETE /api/v1/organization/invitations", chainMiddleware(func(w http.ResponseWriter, r *http.Request) {
-	// 	server.writeError(w, http.StatusBadRequest, "invitation_id is required")
-	// }, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-	// 	return AuthMiddleware(jwtManager, server.authService, next)
-	// }))
-	// DELETE /api/v1/organization/invitations/{id}
-	mux.HandleFunc("/api/v1/organization/invitations/{id}", chainMiddleware(server.CancelInvitation, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
+
+	// DELETE /api/v1/organization/invitations/{id} - manual path parsing
+	mux.HandleFunc("/api/v1/organization/invitations/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "DELETE" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/organization/invitations/")
+		if path == "" || strings.Contains(path, "/") {
+			http.Error(w, "Invalid path", http.StatusNotFound)
+			return
+		}
+
+		// Store ID in context
+		ctx := context.WithValue(r.Context(), "path_id", path)
+		r = r.WithContext(ctx)
+
+		// Apply middlewares and handler
+		handler := chainMiddleware(server.CancelInvitation, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+			return AuthMiddleware(jwtManager, server.authService, next)
+		})
+		handler(w, r)
+	})
 
 	mux.HandleFunc("/api/v1/organization/members", chainMiddleware(server.ListMembers, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
+
+	// PUT /api/v1/organization/members/{user_id}/role - manual path parsing
+	mux.HandleFunc("/api/v1/organization/members/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/organization/members/")
+		parts := strings.Split(path, "/")
+
+		if len(parts) >= 2 && parts[1] == "role" && r.Method == "PUT" {
+			// Store user_id in context
+			ctx := context.WithValue(r.Context(), "path_user_id", parts[0])
+			r = r.WithContext(ctx)
+
+			handler := chainMiddleware(server.UpdateMemberRole, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+				return AuthMiddleware(jwtManager, server.authService, next)
+			})
+			handler(w, r)
+			return
+		} else if len(parts) >= 2 && parts[1] == "status" && r.Method == "PUT" {
+			// Store user_id in context
+			ctx := context.WithValue(r.Context(), "path_user_id", parts[0])
+			r = r.WithContext(ctx)
+
+			handler := chainMiddleware(server.UpdateMemberStatus, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+				return AuthMiddleware(jwtManager, server.authService, next)
+			})
+			handler(w, r)
+			return
+		} else if len(parts) == 1 && r.Method == "DELETE" {
+			// Store user_id in context
+			ctx := context.WithValue(r.Context(), "path_user_id", parts[0])
+			r = r.WithContext(ctx)
+
+			handler := chainMiddleware(server.RemoveMember, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+				return AuthMiddleware(jwtManager, server.authService, next)
+			})
+			handler(w, r)
+			return
+		}
+
+		http.Error(w, "Not found", http.StatusNotFound)
+	})
+
+	/* REMOVED - replaced by manual routing above
 	// PUT /api/v1/organization/members/{user_id}/role
 	mux.HandleFunc("/api/v1/organization/members/{user_id}/role", chainMiddleware(server.UpdateMemberRole, methodMiddleware("PUT"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
@@ -119,6 +178,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/organization/members/{user_id}", chainMiddleware(server.RemoveMember, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
+	*/
 
 	// Protected video routes
 	mux.HandleFunc("/api/v1/video/upload/initiate", chainMiddleware(server.InitiateMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
@@ -133,10 +193,28 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/video", chainMiddleware(server.GetVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
-	// DELETE /api/v1/video/{id}
-	mux.HandleFunc("/api/v1/video/{id}", chainMiddleware(server.DeleteVideo, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
+
+	// DELETE /api/v1/video/{id} - manual path parsing
+	mux.HandleFunc("/api/v1/video/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "DELETE" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/video/")
+		if path == "" || strings.Contains(path, "/") {
+			http.Error(w, "Invalid path", http.StatusNotFound)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "path_id", path)
+		r = r.WithContext(ctx)
+
+		handler := chainMiddleware(server.DeleteVideo, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+			return AuthMiddleware(jwtManager, server.authService, next)
+		})
+		handler(w, r)
+	})
 	mux.HandleFunc("/api/v1/video/search", chainMiddleware(server.SearchVideos, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
