@@ -1,0 +1,26 @@
+meta {
+  name: Update status without authentication
+  type: http
+  seq: 14
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{simpleUserId}}/status
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "status": "suspended"
+  }
+}
+
+tests {
+  test('Should return 401 Unauthorized without authentication', function() {
+    expect(res.status).to.equal(401);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+  });
+}

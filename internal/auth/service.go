@@ -921,6 +921,9 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	if req.Role == "" {
 		return nil, fmt.Errorf("role is required")
 	}
+	if req.Role == string(rbac.RoleAdmin) {
+		return nil, fmt.Errorf("organization can have only one admin")
+	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	// Валидация email
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {

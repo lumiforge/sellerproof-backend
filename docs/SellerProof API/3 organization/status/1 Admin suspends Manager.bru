@@ -1,7 +1,7 @@
 meta {
-  name: Update member status success with valid JWT manager
+  name: Admin suspends Manager
   type: http
-  seq: 2
+  seq: 1
 }
 
 put {
@@ -16,12 +16,12 @@ auth:bearer {
 
 body:json {
   {
-    "status": "active"
+    "status": "suspended"
   }
 }
 
 tests {
-  test('Should return 200 OK and confirmation message for valid JWT with manager role', function() {
+  test('Should return 200 OK when admin suspends manager', function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.be.an('object');
     expect(res.body).to.have.property('message');

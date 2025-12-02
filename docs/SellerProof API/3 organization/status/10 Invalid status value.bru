@@ -1,0 +1,30 @@
+meta {
+  name: Invalid status value
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{simpleUserId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "status": "deleted"
+  }
+}
+
+tests {
+  test('Should return 400 Bad Request for invalid status', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.be.a('string');
+  });
+}

@@ -1,0 +1,48 @@
+meta {
+  name: Manager try to invite into admin organization
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+  {
+    "email": "newuser2@example.com",
+    "role": "user",
+    "org_id": "{{adminOrgId}}"
+  }
+}
+
+tests {
+  test('Should return 403', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body).to.be.an('object');
+
+    // Validate error response structure
+    expect(res.body).to.have.property('error');
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('code');
+
+    // Validate field types
+    expect(res.body.error).to.be.a('string');
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.code).to.be.a('number');
+
+    // Validate error message content
+    expect(res.body.error).to.equal('Forbidden');
+    expect(res.body.message).to.include('inviter is not a member of this organization');
+    expect(res.body.code).to.equal(403);
+       
+
+    
+  });
+}

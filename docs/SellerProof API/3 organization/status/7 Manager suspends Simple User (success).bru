@@ -1,0 +1,30 @@
+meta {
+  name: Manager suspends Simple User (success)
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{simpleUserId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+  {
+    "status": "suspended"
+  }
+}
+
+tests {
+  test('Should return 200 OK when manager suspends simple user', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.be.a('string').that.equals('Member status updated successfully');
+  });
+}
