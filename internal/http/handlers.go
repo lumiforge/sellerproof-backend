@@ -1951,6 +1951,8 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: remove this after testing
+	log.Println("UpdateMemberStatus: org_id", claims.OrgID, "admin_user_id", claims.UserID, "target_user_id", userID)
 	err := s.authService.UpdateMemberStatus(r.Context(), claims.UserID, claims.OrgID, userID, req.Status)
 	if err != nil {
 		slog.Error("UpdateMemberStatus: Failed to update member status", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)

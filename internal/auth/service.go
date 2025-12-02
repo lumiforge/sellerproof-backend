@@ -1075,7 +1075,14 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 
 	err = s.db.CreateMembership(ctx, newMembership)
 	if err != nil {
+
+		slog.Error("Failed to create membership in AcceptInvitation",
+			"error", err,
+			"user_id", userID,
+			"org_id", invitation.OrgID,
+			"membership_id", newMembership.MembershipID)
 		return nil, fmt.Errorf("failed to create membership: %w", err)
+
 	}
 
 	// Обновляем статус приглашения
