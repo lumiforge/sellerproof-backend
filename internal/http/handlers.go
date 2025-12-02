@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"runtime"
@@ -1847,6 +1848,8 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole: org_id", claims.OrgID, "user_id", claims.UserID)
 	// Get user_id from context (set by router)
 	userID, ok := r.Context().Value("path_user_id").(string)
 	if !ok {
