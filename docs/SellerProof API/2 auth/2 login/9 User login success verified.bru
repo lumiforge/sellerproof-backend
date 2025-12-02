@@ -12,8 +12,8 @@ post {
 
 body:json {
   {
-    "email": "{{testEmail}}",
-    "password": "{{testEmailPassword}}"
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
   }
 }
 
@@ -26,9 +26,9 @@ tests {
     expect(res.body.user.email_verified).to.equal(true);
     
     // Update environment variables with new tokens
-    bru.setEnvVar("accessToken", res.body.access_token);
-    bru.setEnvVar("refreshToken", res.body.refresh_token);
-    bru.setEnvVar("testOrgId", res.body.user.org_id);
-    bru.setEnvVar("userId", res.body.user.user_id);
+    bru.setEnvVar("adminAccessToken", res.body.access_token);
+    bru.setEnvVar("adminRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("adminOrgId", res.body.user.org_id);
+    bru.setEnvVar("adminId", res.body.user.user_id);
   });
 }

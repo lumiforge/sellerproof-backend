@@ -11,14 +11,14 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
     "email": "'; DROP TABLE users; --",
     "role": "user",
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 

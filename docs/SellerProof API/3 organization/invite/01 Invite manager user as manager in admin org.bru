@@ -1,5 +1,5 @@
 meta {
-  name: Setup - Invite second user as manager
+  name: Invite manager user as manager in admin org
   type: http
   seq: 1
 }
@@ -11,14 +11,14 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
-    "email": "{{secondUserEmail}}",
+    "email": "{{managerEmail}}",
     "role": "manager",
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 

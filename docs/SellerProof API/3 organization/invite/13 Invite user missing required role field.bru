@@ -11,13 +11,13 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
     "email": "test@example.com",
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 

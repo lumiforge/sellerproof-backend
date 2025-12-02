@@ -1,0 +1,29 @@
+meta {
+  name: Invite admin user as an admin in new org of simple user
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{simpleUserAccessToken}}
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "role": "admin",
+    "org_id": "{{newCreatedSimpleUserOrgId}}"
+  }
+}
+
+tests {
+  test('Should not invite admin user', function() {
+    expect(res.status).to.equal(401);
+  });
+}

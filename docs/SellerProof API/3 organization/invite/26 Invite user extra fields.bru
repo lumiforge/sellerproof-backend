@@ -11,14 +11,14 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
     "email": "tesasdfsddsft@example.com",
     "role": "user",
-    "org_id": "{{testOrgId}}",
+    "org_id": "{{adminOrgId}}",
     "extra_field": "should_be_ignored",
     "another_extra": 123
   }

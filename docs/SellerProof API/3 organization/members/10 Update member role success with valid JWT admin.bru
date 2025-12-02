@@ -5,13 +5,13 @@ meta {
 }
 
 put {
-  url: {{baseUrl}}/api/v1/organization/members/{{secondUserId}}/role
+  url: {{baseUrl}}/api/v1/organization/members/{{managerUserId}}/role
   body: json
   auth: bearer
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {

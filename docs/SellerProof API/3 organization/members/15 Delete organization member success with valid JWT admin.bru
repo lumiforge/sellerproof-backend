@@ -5,13 +5,13 @@ meta {
 }
 
 delete {
-  url: {{baseUrl}}/api/v1/organization/members/{{secondUserId}}?org_id={{testOrgId}}
+  url: {{baseUrl}}/api/v1/organization/members/{{managerUserId}}?org_id={{adminOrgId}}
   body: none
   auth: bearer
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 tests {

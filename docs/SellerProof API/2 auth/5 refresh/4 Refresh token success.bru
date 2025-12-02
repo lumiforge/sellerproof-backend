@@ -12,7 +12,7 @@ post {
 
 body:json {
   {
-    "refresh_token": "{{refreshToken}}"
+    "refresh_token": "{{adminRefreshToken}}"
   }
 }
 
@@ -30,7 +30,7 @@ tests {
     expect(res.body.expires_at).to.not.equal('');
     
     // Update environment variables with new tokens
-    bru.setEnvVar('accessToken', res.body.access_token);
-    bru.setEnvVar('refreshToken', res.body.refresh_token);
+    bru.setEnvVar('adminAccessToken', res.body.access_token);
+    bru.setEnvVar('adminRefreshToken', res.body.refresh_token);
   });
 }

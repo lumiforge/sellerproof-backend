@@ -11,14 +11,14 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
     "email": "newuser1@example.com",
     "role": "user",
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 
@@ -39,7 +39,7 @@ tests {
     expect(res.body.role).to.equal('user');
     
     // Validate org_id matches request
-    // expect(res.body.org_id).to.equal('{{testOrgId}}');
+    // expect(res.body.org_id).to.equal('{{adminOrgId}}');
     
     // Validate timestamps
     const currentTime = Math.floor(Date.now() / 1000);

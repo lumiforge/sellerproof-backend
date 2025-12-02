@@ -10,12 +10,12 @@ post {
 }
 
 headers {
-  Authorization: Bearer {{accessToken}}
+  Authorization: Bearer {{adminAccessToken}}
 }
 
 body:json {
   {
-    "refresh_token": "{{refreshToken}}"
+    "refresh_token": "{{adminRefreshToken}}"
   }
 }
 

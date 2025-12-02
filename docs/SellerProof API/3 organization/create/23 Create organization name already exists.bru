@@ -11,12 +11,12 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
-    "name": "New Created Organization",
+    "name": "New Created Admin Organization",
     "description": "A test organization for testing purposes"
   }
 }

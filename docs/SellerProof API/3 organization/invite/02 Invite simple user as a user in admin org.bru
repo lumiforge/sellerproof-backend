@@ -1,7 +1,7 @@
 meta {
-  name: Setup - Invite simple user
+  name: Invite simple user as a user in admin org
   type: http
-  seq: 3
+  seq: 2
 }
 
 post {
@@ -11,14 +11,14 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
     "email": "{{simpleUserEmail}}",
     "role": "user",
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 

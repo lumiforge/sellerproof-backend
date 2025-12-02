@@ -12,8 +12,8 @@ post {
 
 body:json {
   {
-    "email": "{{secondUserEmail}}",
-    "password": "{{secondUserPassword}}"
+    "email": "{{managerEmail}}",
+    "password": "{{managerPassword}}"
   }
 }
 
@@ -26,9 +26,9 @@ tests {
     expect(res.body.user.email_verified).to.equal(true);
     
     // Update environment variables with second user tokens
-    bru.setEnvVar("secondUserAccessToken", res.body.access_token);
-    bru.setEnvVar("secondUserRefreshToken", res.body.refresh_token);
-    bru.setEnvVar("secondUserOrgId", res.body.user.org_id);
-    bru.setEnvVar("secondUserId", res.body.user.user_id);
+    bru.setEnvVar("managerAccessToken", res.body.access_token);
+    bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("managerOrgId", res.body.user.org_id);
+    bru.setEnvVar("managerUserId", res.body.user.user_id);
   });
 }

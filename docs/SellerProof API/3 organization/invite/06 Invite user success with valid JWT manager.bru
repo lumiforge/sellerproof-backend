@@ -11,14 +11,14 @@ post {
 }
 
 auth:bearer {
-  token: {{secondUserAccessToken}}
+  token: {{managerAccessToken}}
 }
 
 body:json {
   {
     "email": "newuser2@example.com",
     "role": "user",
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 

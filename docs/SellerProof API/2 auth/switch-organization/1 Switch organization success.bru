@@ -11,12 +11,12 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
-    "org_id": "{{testOrgId}}"
+    "org_id": "{{adminOrgId}}"
   }
 }
 
@@ -33,6 +33,6 @@ tests {
     expect(res.body.org_id).to.not.equal('');
 
     // Update environment variables with new tokens
-    bru.setEnvVar('accessToken', res.body.access_token);
+    bru.setEnvVar('adminAccessToken', res.body.access_token);
   });
 }

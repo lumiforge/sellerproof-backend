@@ -11,13 +11,13 @@ post {
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
-    "name": "New Created Organization",
-    "description": "A new organization for testing purposes"
+    "name": "New Created Admin Organization",
+    "description": "A new admin organization for testing purposes"
   }
 }
 
@@ -46,10 +46,10 @@ tests {
     expect(res.body.message).to.not.equal('');
 
     // Validate name matches request
-    expect(res.body.name).to.equal('New Created Organization');
+    expect(res.body.name).to.equal('New Created Admin Organization');
 
     // Validate description matches request or is empty string if not provided
-    expect(res.body.description).to.equal('A new organization for testing purposes');
+    expect(res.body.description).to.equal('A new admin organization for testing purposes');
 
     // Validate created_at is a reasonable timestamp (not in the future)
     const currentTime = Math.floor(Date.now() / 1000);
@@ -57,5 +57,7 @@ tests {
 
     // Validate success message
     expect(res.body.message).to.include('Organization created successfully');
+
+    bru.setEnvVar("newCreatedAdminOrgId", res.body.org_id);
   });
 }

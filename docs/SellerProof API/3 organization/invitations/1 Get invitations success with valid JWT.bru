@@ -5,12 +5,12 @@ meta {
 }
 
 get {
-  url: url: {{baseUrl}}/api/v1/organization/invitations?org_id={{testOrgId}}
+  url: url: {{baseUrl}}/api/v1/organization/invitations?org_id={{adminOrgId}}
   auth: bearer
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{adminAccessToken}}
 }
 
 tests {
