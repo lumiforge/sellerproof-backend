@@ -1,0 +1,33 @@
+meta {
+    name: Get upload URLs for Admin Org video (Manager)
+    type: http
+    seq: 28
+}
+
+post {
+    url: {{baseUrl}}/api/v1/video/upload/urls
+    body: json
+    auth: bearer
+}
+
+auth:bearer {
+    token: {{managerAccessToken}}
+}
+
+body:json {
+    {
+        "video_id": "{{adminOrgVideoId}}",
+        "total_parts": 2
+    }
+}
+
+tests {
+        test('Should return upload URLs for Manager in Admin Org', function() {
+        expect(res.status).to.equal(200);
+        expect(res.body).to.have.property('part_urls');
+        expect(res.body.part_urls).to.be.an('array');
+        expect(res.body.part_urls).to.have.length(2);
+
+        console.log("Manager successfully got URLs for video:", bru.getEnvVar("adminOrgVideoId"));
+    });
+}

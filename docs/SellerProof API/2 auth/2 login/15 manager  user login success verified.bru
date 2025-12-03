@@ -1,5 +1,5 @@
 meta {
-  name: Second user login success (verified email)
+  name: Manager user login success (verified email)
   type: http
   seq: 15
 }
@@ -30,5 +30,6 @@ tests {
     bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
     bru.setEnvVar("managerOrgId", res.body.user.org_id);
     bru.setEnvVar("managerUserId", res.body.user.user_id);
+    bru.setEnvVar("managerDefaultOrgId", res.body.user.org_id);
   });
 }

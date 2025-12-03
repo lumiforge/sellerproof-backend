@@ -166,14 +166,14 @@ Authorization: Bearer {{thirdUserAccessToken}}
 13. Organization -> Invitations
 14. Organization -> Role
 15. Organization -> Delete Invitation
-16. Refresh
-17. Logout
-18. Profile
-19. Video -> Upload -> Initiate
-20. Video -> Upload -> URLs
-21. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
-22. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
-23. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+16. Video -> Upload -> Initiate
+17. Video -> Upload -> URLs
+18. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
+19. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
+20. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+21. Refresh
+22. Logout
+23. Profile
 24. Complete run
 25. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
 26. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).

@@ -1,0 +1,36 @@
+meta {
+  name: Initiate upload to Admin Org by Manager
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "video_by_manager_in_admin_org.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should initiate upload successfully in Admin Org', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('upload_id');
+    
+    // Сохраняем ID видео, если нужно для дальнейших тестов (например, complete upload)
+    bru.setEnvVar("adminOrgVideoId", res.body.video_id);
+    
+    console.log("Video initiated in Admin Org by Manager. Video ID:", res.body.video_id);
+  });
+}

@@ -1,0 +1,36 @@
+meta {
+  name: Initiate upload to Admin Org by Simple User
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{simpleUserAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "video_by_simple_user_in_admin_org.mp4",
+    "file_size_bytes": 2048576,
+    "duration_seconds": 120
+  }
+}
+
+tests {
+  test('Should initiate upload successfully by Simple User in Admin Org', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('upload_id');
+    
+    // Сохраняем ID видео
+    bru.setEnvVar("simpleUserAdminOrgVideoId", res.body.video_id);
+    
+    console.log("Video initiated in Admin Org by Simple User. Video ID:", res.body.video_id);
+  });
+}

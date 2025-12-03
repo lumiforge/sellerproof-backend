@@ -1,0 +1,30 @@
+meta {
+  name: Switch organization success
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+    {
+    "org_id": "{{managerDefaultOrgId}}",
+    "refresh_token": "{{managerRefreshToken}}"
+    }
+}
+
+tests {
+  test('Should return 200 OK and new tokens for valid switch organization request', function() {
+    expect(res.status).to.equal(200);
+    bru.setEnvVar("managerAccessToken", res.body.access_token);
+    bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
+  });
+}

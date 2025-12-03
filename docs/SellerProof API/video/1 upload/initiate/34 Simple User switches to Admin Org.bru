@@ -1,0 +1,42 @@
+meta {
+  name: Simple User switches to Admin Org
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{simpleUserAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{adminOrgId}}",
+    "refresh_token": "{{simpleUserRefreshToken}}"
+  }
+}
+
+tests {
+  test('Should switch Simple User to Admin Org successfully', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('access_token');
+    expect(res.body).to.have.property('org_id');
+    
+    // Проверяем, что переключились именно в организацию админа
+    expect(res.body.org_id).to.equal(bru.getEnvVar("adminOrgId"));
+
+    // Обновляем токены Simple User
+    bru.setEnvVar("simpleUserAccessToken", res.body.access_token);
+    bru.setEnvVar("simpleUserRefreshToken", res.body.refresh_token);
+    
+    // Обновляем текущий org_id в переменных для наглядности
+    bru.setEnvVar("simpleUserOrgId", res.body.org_id);
+    
+    console.log("Simple User switched to Admin Org ID:", res.body.org_id);
+  });
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Switch Manager to Admin Org (Fix state)
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{adminOrgId}}",
+    "refresh_token": "{{managerRefreshToken}}"
+  }
+}
+
+tests {
+  test('Should switch Manager to Admin Org', function() {
+    expect(res.status).to.equal(200);
+    
+    // Обновляем токены, чтобы они указывали на организацию Админа
+    bru.setEnvVar("managerAccessToken", res.body.access_token);
+    bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("managerOrgId", res.body.org_id);
+    
+    console.log("Manager switched to Admin Org:", res.body.org_id);
+  });
+}
