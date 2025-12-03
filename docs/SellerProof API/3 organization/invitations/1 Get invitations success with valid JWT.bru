@@ -23,6 +23,8 @@ tests {
     // If there are invitations, validate their structure
     if (res.body.invitations.length > 0) {
       const invitation = res.body.invitations[0];
+      // Save invitation ID for delete tests
+      bru.setEnvVar("validInvitationId", invitation.invitation_id);
       
       // Validate all required fields exist
       expect(invitation).to.have.property('invitation_id');

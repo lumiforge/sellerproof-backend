@@ -1,7 +1,7 @@
 meta {
   name: Delete invitation access denied with user role
   type: http
-  seq: 11
+  seq: 1
 }
 
 delete {
@@ -31,6 +31,6 @@ tests {
     expect(res.body.message).to.not.equal('');
     
     // Validate error message content
-    expect(res.body.error.toLowerCase()).to.include('forbidden').or.include('access').or.include('denied');
+    expect(res.body.message).to.include('Only admins and managers can cancel invitations');
   });
 }

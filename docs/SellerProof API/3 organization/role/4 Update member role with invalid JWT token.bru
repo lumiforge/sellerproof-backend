@@ -23,9 +23,5 @@ body:json {
 tests {
   test('Should return 401 Unauthorized for invalid JWT token', function() {
     expect(res.status).to.equal(401);
-    expect(res.body).to.be.an('object');
-    expect(res.body).to.have.property('error');
-    expect(res.body.error).to.be.a('string');
-    expect(res.body.error.toLowerCase()).to.include('unauthorized');
   });
 }

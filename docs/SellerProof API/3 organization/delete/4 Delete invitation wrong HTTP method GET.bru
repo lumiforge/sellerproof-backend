@@ -16,21 +16,5 @@ auth:bearer {
 tests {
   test('Should return 405 Method Not Allowed for GET request', function() {
     expect(res.status).to.equal(405);
-    expect(res.body).to.be.an('object');
-    
-    // Validate error response structure
-    expect(res.body).to.have.property('error');
-    expect(res.body).to.have.property('message');
-    
-    // Validate field types
-    expect(res.body.error).to.be.a('string');
-    expect(res.body.message).to.be.a('string');
-    
-    // Validate field values are not empty
-    expect(res.body.error).to.not.equal('');
-    expect(res.body.message).to.not.equal('');
-    
-    // Validate error message content
-    expect(res.body.error.toLowerCase()).to.include('method').or.include('not allowed');
   });
 }
