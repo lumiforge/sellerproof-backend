@@ -860,7 +860,7 @@ func (c *YDBClient) GetMembership(ctx context.Context, userID, orgID string) (*M
 				named.Required("updated_at", &membership.UpdatedAt),
 			)
 
-			log.Println("ScanNamed error:", err) // ✅ Проверим что возвращает ScanNamed
+			log.Println("ScanNamed error:", err)
 
 			if err != nil {
 				log.Println("Scan failed with error:", err)

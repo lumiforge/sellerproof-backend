@@ -845,14 +845,11 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 		return nil, fmt.Errorf("refresh token not found or revoked")
 	}
 
-	// Отзыв старого токена
-	if err := s.db.RevokeRefreshToken(ctx, oldTokenHash); err != nil {
-		return nil, fmt.Errorf("failed to revoke old token: %w", err)
-	}
-
 	// 2. Проверка прав доступа к новой организации
 	// Проверяем, что пользователь состоит в этой организации
 	membership, err := s.db.GetMembership(ctx, userID, req.OrgID)
+	// TODO DELETE ME
+	log.Printf("Error in switch-organization: %v, userID: %v, orgID: %v", err, userID, req.OrgID)
 	if err != nil {
 		return nil, fmt.Errorf("user is not a member of this organization")
 	}
@@ -865,6 +862,11 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
+	}
+
+	// все проверки пройдены, можно сжигать старый токен
+	if err := s.db.RevokeRefreshToken(ctx, oldTokenHash); err != nil {
+		return nil, fmt.Errorf("failed to revoke old token: %w", err)
 	}
 
 	// 3. Генерация новой сессии
@@ -914,6 +916,8 @@ func (s *Service) hashToken(token string) string {
 
 // InviteUser приглашает пользователя в организацию
 func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *models.InviteUserRequest) (*models.InviteUserResponse, error) {
+	// TODO: remove this after testing
+	log.Println("InviteUser input", "inviter_id", inviterID, "org_id", orgID, "email", req.Email, "role", req.Role)
 	// Валидация входных данных
 	if req.Email == "" {
 		return nil, fmt.Errorf("email is required")
@@ -945,6 +949,8 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 
 	// Проверяем, что приглашающий является admin или manager в организации
 	inviterMembership, err := s.db.GetMembership(ctx, inviterID, orgID)
+	// TODO: remove this after testing
+	log.Println("InviteUser GetMembership(inviter) result", "membership", inviterMembership, "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("inviter is not a member of this organization")
 	}
@@ -960,6 +966,8 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 
 	// Проверяем, что пользователь еще не приглашен в эту организацию
 	existingInvitation, err := s.db.GetInvitationByEmail(ctx, orgID, req.Email)
+	// TODO: remove this after testing
+	log.Println("InviteUser GetInvitationByEmail result", "invitation", existingInvitation, "error", err)
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		slog.Error("Failed to check existing invitations", "error", err)
 		return nil, fmt.Errorf("failed to check existing invitations: %w", err)
@@ -970,8 +978,12 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	}
 
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
+	// TODO: remove this after testing
+	log.Println("InviteUser GetUserByEmail result", "user", existingUser, "error", err)
 	if err == nil && existingUser != nil {
 		membership, _ := s.db.GetMembership(ctx, existingUser.UserID, orgID)
+		// TODO: remove this after testing
+		log.Println("InviteUser GetMembership(existingUser) result", "membership", membership)
 		if membership != nil {
 			return nil, fmt.Errorf("user is already a member of this organization")
 		}
@@ -993,7 +1005,11 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 		CreatedAt:    time.Now(),
 	}
 
+	// TODO: remove this after testing
+	log.Println("InviteUser before CreateInvitation", "invitation", invitation)
 	err = s.db.CreateInvitation(ctx, invitation)
+	// TODO: remove this after testing
+	log.Println("InviteUser CreateInvitation result", "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create invitation: %w", err)
 	}
@@ -1012,6 +1028,8 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	// 	}
 	// }
 
+	// TODO: remove this after testing
+	log.Println("InviteUser response", "invitation_id", invitation.InvitationID, "invite_code", inviteCode, "expires_at", invitation.ExpiresAt.Unix(), "email", req.Email, "role", req.Role)
 	return &models.InviteUserResponse{
 		InvitationID: invitation.InvitationID,
 		InviteCode:   inviteCode,
@@ -1023,12 +1041,16 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 
 // AcceptInvitation принимает приглашение в организацию
 func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *models.AcceptInvitationRequest) (*models.AcceptInvitationResponse, error) {
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation input", "user_id", userID, "invite_code", req.InviteCode)
 	if req.InviteCode == "" {
 		return nil, fmt.Errorf("invite_code is required")
 	}
 
 	// Получаем приглашение по коду
 	invitation, err := s.db.GetInvitationByCode(ctx, req.InviteCode)
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation GetInvitationByCode result", "invitation", invitation, "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("invalid invite code")
 	}
@@ -1040,12 +1062,16 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 
 	// Проверяем срок действия приглашения
 	if time.Now().After(invitation.ExpiresAt) {
-		s.db.UpdateInvitationStatus(ctx, invitation.InvitationID, "expired")
+		err = s.db.UpdateInvitationStatus(ctx, invitation.InvitationID, "expired")
+		// TODO: remove this after testing
+		log.Println("AcceptInvitation UpdateInvitationStatus(expired) result", "error", err)
 		return nil, fmt.Errorf("invitation has expired")
 	}
 
 	// Получаем пользователя
 	user, err := s.db.GetUserByID(ctx, userID)
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation GetUserByID result", "user", user, "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
@@ -1060,6 +1086,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	}
 
 	membership, err := s.db.GetMembership(ctx, userID, invitation.OrgID)
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation GetMembership result", "membership", membership, "error", err)
 	if err != nil {
 		// Если ошибка - membership не найден, продолжаем
 	} else if membership != nil && membership.Status == "active" {
@@ -1080,6 +1108,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	}
 
 	err = s.db.CreateMembership(ctx, newMembership)
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation CreateMembership result", "membership_id", newMembership.MembershipID, "error", err)
 	if err != nil {
 
 		slog.Error("Failed to create membership in AcceptInvitation",
@@ -1093,6 +1123,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 
 	// Обновляем статус приглашения
 	err = s.db.UpdateInvitationStatusWithAcceptTime(ctx, invitation.InvitationID, "accepted", time.Now())
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation UpdateInvitationStatusWithAcceptTime result", "error", err)
 	if err != nil {
 		slog.Error("Failed to update invitation status", "error", err)
 	}
@@ -1105,6 +1137,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		role,
 		invitation.OrgID,
 	)
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation GenerateTokenPair result", "access_token", accessToken, "refresh_token", refreshToken, "role", role, "org_id", invitation.OrgID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
@@ -1121,11 +1155,15 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		CreatedAt: createdAt,
 		IsRevoked: false,
 	}
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation before CreateRefreshToken", "refresh_token_record", refreshTokenRecord)
 	if err := s.db.CreateRefreshToken(ctx, refreshTokenRecord); err != nil {
 		slog.Error("Failed to save refresh token during invitation accept", "error", err, "user_id", user.UserID)
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
+	// TODO: remove this after testing
+	log.Println("AcceptInvitation response", "membership_id", newMembership.MembershipID, "org_id", invitation.OrgID, "role", invitation.Role)
 	return &models.AcceptInvitationResponse{
 		MembershipID: newMembership.MembershipID,
 		OrgID:        invitation.OrgID,
@@ -1139,7 +1177,11 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 
 // ListInvitations возвращает список приглашений организации
 func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.InvitationInfo, error) {
+	// TODO: remove this after testing
+	log.Println("ListInvitations input", "org_id", orgID)
 	invitations, err := s.db.GetInvitationsByOrg(ctx, orgID)
+	// TODO: remove this after testing
+	log.Println("ListInvitations GetInvitationsByOrg result", "count", len(invitations), "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get invitations: %w", err)
 	}
@@ -1162,12 +1204,18 @@ func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.
 		result = append(result, invInfo)
 	}
 
+	// TODO: remove this after testing
+	log.Println("ListInvitations response", "count", len(result))
 	return result, nil
 }
 
 // CancelInvitation отменяет приглашение
 func (s *Service) CancelInvitation(ctx context.Context, invitationID string) error {
+	// TODO: remove this after testing
+	log.Println("CancelInvitation input", "invitation_id", invitationID)
 	invitation, err := s.db.GetInvitationByCode(ctx, "") // Получить по ID
+	// TODO: remove this after testing
+	log.Println("CancelInvitation GetInvitationByCode result", "invitation", invitation, "error", err)
 	if err != nil {
 		// Нам нужен другой метод для получения приглашения по ID
 		// На время используем эту логику
@@ -1179,17 +1227,25 @@ func (s *Service) CancelInvitation(ctx context.Context, invitationID string) err
 	}
 
 	err = s.db.UpdateInvitationStatus(ctx, invitationID, "cancelled")
+	// TODO: remove this after testing
+	log.Println("CancelInvitation UpdateInvitationStatus result", "error", err)
 	if err != nil {
 		return fmt.Errorf("failed to cancel invitation: %w", err)
 	}
 
+	// TODO: remove this after testing
+	log.Println("CancelInvitation response", "status", "cancelled", "invitation_id", invitationID)
 	return nil
 }
 
 // UpdateMemberRole обновляет роль члена организации
 func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUserID, newRole string) error {
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID, "new_role", newRole)
 	// Проверяем, что админ является admin в организации
 	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole GetMembership(admin) result", "membership", adminMembership, "error", err)
 	if err != nil {
 		return fmt.Errorf("admin is not a member of this organization")
 	}
@@ -1213,11 +1269,15 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 
 	// Получаем текущее членство
 	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole GetMembership(target) result", "membership", targetMembership, "error", err)
 	if err != nil {
 		return fmt.Errorf("target user is not a member of this organization")
 	}
 	// Получаем организацию для проверки владельца
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole GetOrganizationByID result", "org", org, "error", err)
 	if err != nil {
 		return fmt.Errorf("failed to get organization info: %w", err)
 	}
@@ -1231,17 +1291,25 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 	targetMembership.UpdatedAt = time.Now()
 
 	err = s.db.UpdateMembership(ctx, targetMembership)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole UpdateMembership result", "membership_id", targetMembership.MembershipID, "error", err)
 	if err != nil {
 		return fmt.Errorf("failed to update member role: %w", err)
 	}
 
+	// TODO: remove this after testing
+	log.Println("UpdateMemberRole response", "target_user_id", targetUserID, "new_role", newRole)
 	return nil
 }
 
 // RemoveMember удаляет члена из организации
 func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID string) error {
+	// TODO: remove this after testing
+	log.Println("RemoveMember input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID)
 	// Проверяем, что админ является admin в организации
 	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
+	// TODO: remove this after testing
+	log.Println("RemoveMember GetMembership(admin) result", "membership", adminMembership, "error", err)
 	if err != nil {
 		return fmt.Errorf("admin is not a member of this organization")
 	}
@@ -1252,27 +1320,37 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 
 	// Проверяем, что целевой пользователь состоит в организации
 	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
+	// TODO: remove this after testing
+	log.Println("RemoveMember GetMembership(target) result", "membership", targetMembership, "error", err)
 	if err != nil {
 		return fmt.Errorf("target user is not a member of this organization")
 	}
 
 	// Нельзя удалить владельца организации
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	// TODO: remove this after testing
+	log.Println("RemoveMember GetOrganizationByID result", "org", org, "error", err)
 	if err == nil && org.OwnerID == targetUserID {
 		return fmt.Errorf("cannot remove organization owner")
 	}
 
 	// Удаляем членство
 	err = s.db.DeleteMembership(ctx, targetMembership.MembershipID)
+	// TODO: remove this after testing
+	log.Println("RemoveMember DeleteMembership result", "membership_id", targetMembership.MembershipID, "error", err)
 	if err != nil {
 		return fmt.Errorf("failed to remove member: %w", err)
 	}
 
+	// TODO: remove this after testing
+	log.Println("RemoveMember response", "removed_user_id", targetUserID)
 	return nil
 }
 
 // UpdateMemberStatus обновляет статус члена организации (active/suspended)
 func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, targetUserID, newStatus string) error {
+	// TODO: remove this after testing
+	log.Println("UpdateMemberStatus input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID, "new_status", newStatus)
 	// Валидация статуса
 	if newStatus != "active" && newStatus != "suspended" {
 		return fmt.Errorf("invalid status: %s", newStatus)
@@ -1280,6 +1358,8 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 
 	// Получаем членство администратора
 	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberStatus GetMembership(admin) result", "membership", adminMembership, "error", err)
 	if err != nil {
 		return fmt.Errorf("admin is not a member of this organization")
 	}
@@ -1291,6 +1371,8 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 
 	// Получаем целевое членство
 	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberStatus GetMembership(target) result", "membership", targetMembership, "error", err)
 	if err != nil {
 		return fmt.Errorf("target user is not a member of this organization")
 	}
@@ -1304,6 +1386,8 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 
 	// Нельзя заблокировать владельца организации
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	// TODO: remove this after testing
+	log.Println("UpdateMemberStatus GetOrganizationByID result", "org", org, "error", err)
 	if err == nil && org.OwnerID == targetUserID {
 		return fmt.Errorf("cannot change status of organization owner")
 	}
@@ -1312,12 +1396,18 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 	targetMembership.UpdatedAt = time.Now()
 
 	// Обновляем запись в БД
+	// TODO: remove this after testing
+	log.Println("UpdateMemberStatus before UpdateMembership", "membership_id", targetMembership.MembershipID, "new_status", newStatus)
 	return s.db.UpdateMembership(ctx, targetMembership)
 }
 
 // ListOrgMembers возвращает список членов организации
 func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.MemberInfo, error) {
+	// TODO: remove this after testing
+	log.Println("ListOrgMembers input", "org_id", orgID)
 	memberships, err := s.db.GetMembershipsByOrg(ctx, orgID)
+	// TODO: remove this after testing
+	log.Println("ListOrgMembers GetMembershipsByOrg result", "count", len(memberships), "error", err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get members: %w", err)
 	}
@@ -1326,6 +1416,8 @@ func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.M
 	for _, m := range memberships {
 		// Получаем информацию о пользователе
 		user, err := s.db.GetUserByID(ctx, m.UserID)
+		// TODO: remove this after testing
+		log.Println("ListOrgMembers GetUserByID result", "user", user, "error", err)
 		if err != nil {
 			slog.Error("Failed to get user", "error", err, "user_id", m.UserID)
 			continue
@@ -1343,6 +1435,8 @@ func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.M
 		result = append(result, memberInfo)
 	}
 
+	// TODO: remove this after testing
+	log.Println("ListOrgMembers response", "count", len(result))
 	return result, nil
 }
 

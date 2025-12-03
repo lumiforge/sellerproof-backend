@@ -1534,7 +1534,10 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 		errorMsg := err.Error()
 		slog.Error("InviteUser: Failed to invite user", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
-		if strings.Contains(errorMsg, "only admins and managers") || strings.Contains(errorMsg, "inviter is not a member of this organization") {
+		if strings.Contains(errorMsg, "organization can have only one admin") {
+			s.writeError(w, http.StatusUnauthorized, errorMsg)
+			return
+		} else if strings.Contains(errorMsg, "only admins and managers") || strings.Contains(errorMsg, "inviter is not a member of this organization") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "required") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)

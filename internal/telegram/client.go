@@ -24,6 +24,8 @@ func NewClient(cfg *config.Config) *Client {
 }
 
 func (c *Client) SendAlert(msg string) error {
+	// TODO: remove this after testing
+	return nil
 	if c.token == "" || c.chatID == "" {
 		return nil
 	}
