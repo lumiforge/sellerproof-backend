@@ -1237,7 +1237,8 @@ func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.
 func (s *Service) CancelInvitation(ctx context.Context, invitationID string) error {
 	// TODO: remove this after testing
 	log.Println("CancelInvitation input", "invitation_id", invitationID)
-	invitation, err := s.db.GetInvitationByCode(ctx, "") // Получить по ID
+	invitation, err := s.db.GetInvitationByID(ctx, invitationID)
+
 	// TODO: remove this after testing
 	log.Println("CancelInvitation GetInvitationByCode result", "invitation", invitation, "error", err)
 	if err != nil {

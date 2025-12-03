@@ -106,7 +106,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/organization/invitations/")
 		if path == "" || strings.Contains(path, "/") {
-			http.Error(w, "Invalid path", http.StatusNotFound)
+			server.writeError(w, http.StatusBadRequest, "Invalid path: invitation_id is required")
 			return
 		}
 

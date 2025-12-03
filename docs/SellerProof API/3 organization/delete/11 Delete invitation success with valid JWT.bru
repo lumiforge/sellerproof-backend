@@ -28,6 +28,6 @@ tests {
     expect(res.body.message).to.not.equal('');
 
     // Validate message content
-    expect(res.body.message.toLowerCase()).to.include('deleted').or.include('removed');
+    expect(res.body.message).to.include('Invitation cancelled successfully');
   });
 }

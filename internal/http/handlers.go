@@ -1716,6 +1716,11 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "invitation_id is required")
 		return
 	}
+	if err := uuid.Validate(invitationID); err != nil {
+		slog.Error("CancelInvitation: invitation_id is invalid", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, "Invalid invitation_id: must be a valid UUID")
+		return
+	}
 
 	// Validate invitation_id format (UUID expected)
 	if err := validation.ValidateFilenameUnicode(invitationID, "invitation_id"); err != nil {

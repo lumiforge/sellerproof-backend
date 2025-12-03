@@ -63,6 +63,7 @@ type Database interface {
 
 	// Приглашения
 	CreateInvitation(ctx context.Context, invitation *Invitation) error
+	GetInvitationByID(ctx context.Context, invitationID string) (*Invitation, error)
 	GetInvitationByCode(ctx context.Context, code string) (*Invitation, error)
 	GetInvitationByEmail(ctx context.Context, orgID, email string) (*Invitation, error)
 	GetInvitationsByOrg(ctx context.Context, orgID string) ([]*Invitation, error)

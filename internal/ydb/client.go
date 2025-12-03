@@ -3748,3 +3748,58 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		return err
 	})
 }
+
+func (c *YDBClient) GetInvitationByID(ctx context.Context, invitationID string) (*Invitation, error) {
+	query := `
+		DECLARE $invitation_id AS Text;
+		SELECT invitation_id, org_id, email, role, invite_code, invited_by, status, expires_at, created_at, accepted_at
+		FROM invitations
+		WHERE invitation_id = $invitation_id
+	`
+
+	var invitation *Invitation
+	var found bool
+
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(
+				table.ValueParam("$invitation_id", types.TextValue(invitationID)),
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			invitation = &Invitation{}
+			err := res.ScanNamed(
+				named.Required("invitation_id", &invitation.InvitationID),
+				named.Required("org_id", &invitation.OrgID),
+				named.Required("email", &invitation.Email),
+				named.Required("role", &invitation.Role),
+				named.Required("invite_code", &invitation.InviteCode),
+				named.Required("invited_by", &invitation.InvitedBy),
+				named.Required("status", &invitation.Status),
+				named.Required("expires_at", &invitation.ExpiresAt),
+				named.Required("created_at", &invitation.CreatedAt),
+				named.Optional("accepted_at", &invitation.AcceptedAt),
+			)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+		}
+		return res.Err()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !found {
+		return nil, fmt.Errorf("invitation not found")
+	}
+
+	return invitation, nil
+}

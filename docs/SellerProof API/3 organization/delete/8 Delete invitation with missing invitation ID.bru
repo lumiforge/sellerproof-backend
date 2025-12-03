@@ -29,8 +29,8 @@ tests {
     // Validate field values are not empty
     expect(res.body.error).to.not.equal('');
     expect(res.body.message).to.not.equal('');
-    
-    // Validate error message content
-    expect(res.body.error.toLowerCase()).to.include('bad request').or.include('invalid').or.include('id');
+    expect(res.body.error).to.include('Bad Request');
+    expect(res.body.message).to.include('Invalid invitation_id: must be a valid UUID');
+
   });
 }
