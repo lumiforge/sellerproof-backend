@@ -111,6 +111,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		}
 
 		// Store ID in context
+		// TODO should not use built-in type string as key for value; define your own type to avoid collisions (SA1029)go-staticcheck
 		ctx := context.WithValue(r.Context(), "path_id", path)
 		r = r.WithContext(ctx)
 

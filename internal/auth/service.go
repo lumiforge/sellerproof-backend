@@ -242,6 +242,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
+		user.LastOrgID = &invitation.OrgID
 	} else {
 		// СЦЕНАРИЙ 2: Создание новой организации
 		orgName := req.OrganizationName
@@ -258,7 +259,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
-
+		user.LastOrgID = &org.OrgID
 		// Membership (Admin)
 		membership = &ydb.Membership{
 			MembershipID: uuid.New().String(),
@@ -484,46 +485,58 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		orgMap[o.OrgID] = o
 	}
 
-	// Выбираем организацию по приоритету:
-	// 1. Где пользователь - владелец организации
-	// 2. Первая активная организация
-	// 3. Любая существующая организация (если нет активных)
+	// Выбираем организацию
 	var selectedMembership *ydb.Membership
 
-	for _, m := range memberships {
-		// Проверяем, существует ли организация физически
-		org, exists := orgMap[m.OrgID]
-		if !exists {
-			continue
-		}
+	// ЛОГИКА ВЫБОРА ОРГАНИЗАЦИИ:
 
-		if m.Status == "active" {
-			// Приоритет 1: Активный владелец
-			if org.OwnerID == user.UserID {
-				selectedMembership = m
-				break
-			}
-			// Приоритет 2: Первая активная
-			if selectedMembership == nil {
-				selectedMembership = m
+	// 1. Проверяем LastOrgID
+	if user.LastOrgID != nil {
+		for _, m := range memberships {
+			if m.OrgID == *user.LastOrgID && m.Status == "active" {
+				// Проверяем, существует ли организация физически
+				if _, exists := orgMap[m.OrgID]; exists {
+					selectedMembership = m
+					break
+				}
 			}
 		}
-
 	}
 
-	// // Приоритет 3: Если активных не найдено, берем первую валидную
-	// if selectedMembership == nil {
-	// 	for _, m := range memberships {
-	// 		if _, exists := orgMap[m.OrgID]; exists {
-	// 			selectedMembership = m
-	// 			break
-	// 		}
-	// 	}
-	// }
+	// 2. Если LastOrgID не сработал (пуст, или юзер удален из той орг), используем Fallback
+	if selectedMembership == nil {
+		for _, m := range memberships {
+			// Проверяем, существует ли организация физически
+			org, exists := orgMap[m.OrgID]
+			if !exists {
+				continue
+			}
+
+			if m.Status == "active" {
+				// Приоритет 1: Активный владелец
+				if org.OwnerID == user.UserID {
+					selectedMembership = m
+					break
+				}
+				// Приоритет 2: Первая активная (благодаря ORDER BY в SQL это будет самая старая)
+				if selectedMembership == nil {
+					selectedMembership = m
+				}
+			}
+		}
+	}
 
 	// Если после всех проверок организация не выбрана (все удалены или рассинхрон), возвращаем ошибку
 	if selectedMembership == nil {
 		return nil, fmt.Errorf("no valid organizations found for user")
+	}
+
+	// Если LastOrgID был пуст или отличался от выбранного (fallback), обновляем его
+	if user.LastOrgID == nil || *user.LastOrgID != selectedMembership.OrgID {
+		user.LastOrgID = &selectedMembership.OrgID
+		// Обновляем в фоне, чтобы не тормозить логин, или синхронно
+		// Для надежности лучше синхронно, но можно игнорировать ошибку
+		_ = s.db.UpdateUser(ctx, user)
 	}
 
 	// Собираем информацию об организациях для ответа
@@ -883,6 +896,15 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
+	// ОБНОВЛЕНИЕ LastOrgID
+	if user.LastOrgID == nil || *user.LastOrgID != req.OrgID {
+		user.LastOrgID = &req.OrgID
+		if err := s.db.UpdateUser(ctx, user); err != nil {
+			slog.Error("Failed to update user last_org_id", "error", err, "user_id", userID)
+			// Не возвращаем ошибку, так как переключение фактически произошло
+		}
+	}
+
 	// Сохранение нового refresh токена в базу
 	tokenHash := s.hashToken(refreshToken)
 	expiresAt := time.Now().Add(s.jwtManager.GetTokenExpiry("refresh"))
@@ -1190,6 +1212,8 @@ func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.
 	for _, inv := range invitations {
 		invInfo := &models.InvitationInfo{
 			InvitationID: inv.InvitationID,
+			InviteCode:   inv.InviteCode,
+			OrgID:        inv.OrgID,
 			Email:        inv.Email,
 			Role:         inv.Role,
 			Status:       inv.Status,

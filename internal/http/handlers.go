@@ -1959,9 +1959,13 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 	log.Println("UpdateMemberStatus: org_id", claims.OrgID, "admin_user_id", claims.UserID, "target_user_id", userID)
 	err := s.authService.UpdateMemberStatus(r.Context(), claims.UserID, claims.OrgID, userID, req.Status)
 	if err != nil {
-		slog.Error("UpdateMemberStatus: Failed to update member status", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		// Логируем ошибку и возвращаем ответ (аналогично UpdateMemberRole)
-		s.writeError(w, http.StatusBadRequest, err.Error())
+		errorMsg := err.Error()
+		slog.Error("UpdateMemberStatus: Failed to update member status", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
+		if strings.Contains(errorMsg, "managers cannot manage admins or other managers") || strings.Contains(errorMsg, "insufficient permissions") {
+			s.writeError(w, http.StatusForbidden, err.Error())
+		} else {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 

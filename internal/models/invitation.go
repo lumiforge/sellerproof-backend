@@ -47,6 +47,8 @@ type ListInvitationsResponse struct {
 // @Description	Invitation details
 type InvitationInfo struct {
 	InvitationID string `json:"invitation_id"`
+	InviteCode   string `json:"invite_code"`
+	OrgID        string `json:"org_id"`
 	Email        string `json:"email"`
 	Role         string `json:"role"`
 	Status       string `json:"status"` // "pending", "accepted", "expired", "cancelled"

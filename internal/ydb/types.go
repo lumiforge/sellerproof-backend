@@ -17,6 +17,7 @@ type User struct {
 	CreatedAt             time.Time `db:"created_at"`
 	UpdatedAt             time.Time `db:"updated_at"`
 	IsActive              bool      `db:"is_active"`
+	LastOrgID             *string   `db:"last_org_id"`
 }
 
 // Organization представляет организацию

@@ -1,0 +1,27 @@
+meta {
+  name: Admin activates Simple User (prepare for RBAC)
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/members/{{simpleUserId}}/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "status": "active"
+  }
+}
+
+tests {
+  test('Should return 200 OK when admin activates simple user', function() {
+    expect(res.status).to.equal(200);
+  });
+}

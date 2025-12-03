@@ -1,0 +1,34 @@
+meta {
+  name: Manager switches to default org
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{managerAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{managerOrgId}}",
+    "refresh_token": "{{managerRefreshToken}}"
+  }
+}
+
+tests {
+  test('Should switch to default org', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('access_token');
+    expect(res.body).to.have.property('refresh_token');
+    
+    // Update environment variables with new tokens valid for the manager's own org
+    bru.setEnvVar("managerAccessToken", res.body.access_token);
+    bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
+  });
+}

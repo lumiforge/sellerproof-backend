@@ -53,10 +53,12 @@ func AuthMiddleware(jwtManager *jwt.JWTManager, authService *auth.Service, next 
 			return
 		}
 
-		// Check if user session is still valid in DB (handles revocation/ban instantly)
-		if err := authService.ValidateActiveSession(r.Context(), claims.UserID, claims.OrgID); err != nil {
-			http.Error(w, "Session invalidated: "+err.Error(), http.StatusUnauthorized)
-			return
+		if r.URL.Path != "/api/v1/auth/switch-organization" {
+			// Check if user session is still valid in DB (handles revocation/ban instantly)
+			if err := authService.ValidateActiveSession(r.Context(), claims.UserID, claims.OrgID); err != nil {
+				http.Error(w, "Session invalidated: "+err.Error(), http.StatusUnauthorized)
+				return
+			}
 		}
 
 		// Add claims to context

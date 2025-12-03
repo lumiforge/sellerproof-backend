@@ -1,0 +1,37 @@
+meta {
+  name: Admin switches to Admin org (prepare for status tests)
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{adminOrgId}}",
+    "refresh_token": "{{adminRefreshToken}}"
+
+  }
+}
+
+tests {
+  test('Should return 200 OK and save new tokens', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body.access_token).to.be.a('string');
+    expect(res.body.refresh_token).to.be.a('string');
+    expect(res.body.access_token).to.not.equal('');
+    expect(res.body.refresh_token).to.not.equal('');
+    
+    bru.setEnvVar('adminAccessToken', res.body.access_token);
+    bru.setEnvVar('adminRefreshToken', res.body.refresh_token);
+  });
+}
