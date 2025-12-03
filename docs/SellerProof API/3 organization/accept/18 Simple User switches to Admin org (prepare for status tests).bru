@@ -24,8 +24,10 @@ tests {
   test('Should return 200 OK and save new tokens', function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.be.an('object');
-    expect(res.body).to.have.property('access_token');
-    expect(res.body).to.have.property('refresh_token');
+    expect(res.body.access_token).to.be.a('string');
+    expect(res.body.refresh_token).to.be.a('string');
+    expect(res.body.access_token).to.not.equal('');
+    expect(res.body.refresh_token).to.not.equal('');
     
     bru.setEnvVar('simpleUserAccessToken', res.body.access_token);
     bru.setEnvVar('simpleUserRefreshToken', res.body.refresh_token);

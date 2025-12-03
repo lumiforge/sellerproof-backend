@@ -48,5 +48,8 @@ tests {
 
     // Validate message content
     expect(res.body.message.toLowerCase()).to.include('accepted');
+
+    bru.setEnvVar("simpleUserAccessToken", res.body.access_token);
+    bru.setEnvVar("simpleUserRefreshToken", res.body.refresh_token);
   });
 }

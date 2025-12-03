@@ -25,12 +25,15 @@ type AcceptInvitationRequest struct {
 }
 
 // AcceptInvitationResponse represents a response for accepting invitation
-// @Description	Accept invitation response with membership details
+// @Description	Accept invitation response with membership details and new tokens
 type AcceptInvitationResponse struct {
 	MembershipID string `json:"membership_id"`
 	OrgID        string `json:"org_id"`
 	Role         string `json:"role"`
 	Message      string `json:"message"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresAt    int64  `json:"expires_at"`
 }
 
 // ListInvitationsResponse represents a list of invitations

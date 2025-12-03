@@ -824,6 +824,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.
 }
 
 // SwitchOrganization переключает организацию пользователя
+
 func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *models.SwitchOrganizationRequest) (*models.SwitchOrganizationResponse, error) {
 	// 1. Валидация и отзыв старого Refresh токена (Ротация)
 	// Валидация формата токена
@@ -1048,13 +1049,16 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
+	// Проверяем, что пользователь активен
+	if !user.IsActive {
+		return nil, fmt.Errorf("user account is deactivated")
+	}
 
 	// Проверяем, что email пользователя совпадает с email приглашения
 	if user.Email != invitation.Email {
 		return nil, fmt.Errorf("invitation email does not match user email")
 	}
 
-	// ✅ ИСПРАВЬТЕ НА ЭТО:
 	membership, err := s.db.GetMembership(ctx, userID, invitation.OrgID)
 	if err != nil {
 		// Если ошибка - membership не найден, продолжаем
@@ -1093,11 +1097,43 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		slog.Error("Failed to update invitation status", "error", err)
 	}
 
+	// Генерация новой сессии для принятой организации
+	role := invitation.Role
+	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
+		user.UserID,
+		user.Email,
+		role,
+		invitation.OrgID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	// Сохранение refresh токена
+	tokenHash := s.hashToken(refreshToken)
+	expiresAt := time.Now().Add(s.jwtManager.GetTokenExpiry("refresh"))
+	createdAt := time.Now()
+	refreshTokenRecord := &ydb.RefreshToken{
+		TokenID:   uuid.New().String(),
+		UserID:    user.UserID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+		CreatedAt: createdAt,
+		IsRevoked: false,
+	}
+	if err := s.db.CreateRefreshToken(ctx, refreshTokenRecord); err != nil {
+		slog.Error("Failed to save refresh token during invitation accept", "error", err, "user_id", user.UserID)
+		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
 	return &models.AcceptInvitationResponse{
 		MembershipID: newMembership.MembershipID,
 		OrgID:        invitation.OrgID,
 		Role:         invitation.Role,
 		Message:      "Invitation accepted successfully",
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(s.jwtManager.GetTokenExpiry("access")).Unix(),
 	}, nil
 }
 

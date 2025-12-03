@@ -24,5 +24,12 @@ tests {
   test('Should accept manager invitation', function() {
     expect(res.status).to.equal(200);
     expect(res.body.role).to.equal('manager');
+    expect(res.body.access_token).to.be.a('string');
+    expect(res.body.refresh_token).to.be.a('string');
+    expect(res.body.access_token).to.not.equal('');
+    expect(res.body.refresh_token).to.not.equal('');
+
+    bru.setEnvVar("managerAccessToken", res.body.access_token);
+    bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
   });
 }

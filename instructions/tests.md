@@ -148,31 +148,34 @@ Authorization: Bearer {{thirdUserAccessToken}}
    - RefreshToken
    - OrgId
    - Id
-5. Organization -> Create
+5. Auth -> Logout - После него перелогиниваем admin
+6. Auth -> Profile
+7. Auth -> Refresh
+8. Organization -> Create
  - Создается организация новая организация для админа менеджера и простого пользователя и сохраняется их ID
-6. Organization -> Invite
+9. Organization -> Invite
  - Приглашаем менеджера и простого пользователя в основную организацию админа
  - Приглашаем менеджера в новую организацию простого пользователя
  - Пытаемся с ошибкой пригласить админа в новую организацию простого пользователя админом
-7. Organization -> Accept 
+10. Organization -> Accept 
  - Принимаем приглашение в организацию админа простого пользователя
  - Принимаем приглашение в организацию админа менеджера
  - Принимаем приглашение в организацию простого пользователя менеджера
-8. Organization -> Status
+11. Organization -> Status
 - Admin блокирует Manager → Проверка блокировки через `switch-organization` → Разблокировка → Проверка разблокировки
 - Admin блокирует Simple User → Проверка блокировки → Manager блокирует Simple User → Разблокировка → Проверка разблокировки
-9.  Organization -> Members 
-10. Refresh
-11. Logout
-12. Profile
-13. Video -> Upload -> Initiate
-14. Video -> Upload -> URLs
-15. Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
-16. Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
-17. Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
-18. Complete run
-19. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
-20. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
-21. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
-22. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
-23. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.
+1.  Organization -> Members 
+2.  Refresh
+3.  Logout
+4.  Profile
+5.  Video -> Upload -> Initiate
+6.  Video -> Upload -> URLs
+7.  Сслыки копируем URLs -> Get upload URLs success with valid JWT и для второго пользователя тоже
+8.  Оба раза вставляем URLs в run.sh file -> запускаем run.sh (**5 РАЗ**)
+9.  Из терминала, запускаем run.sh -> копируем etag в docs/SellerProof API/video/upload/complete/2 Complete upload success with valid JWT.bru
+10. Complete run
+11. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
+12. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
+13. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
+14. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
+15. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.
