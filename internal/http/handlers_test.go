@@ -213,3 +213,85 @@ func TestHandler_Register_InternalError_Mapping(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "db connection failed")
 }
+
+func TestHandler_Login_ValidationError(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	// Empty email and password
+	reqBody := &models.LoginRequest{
+		Email:    "",
+		Password: "",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "email is required")
+}
+
+func TestMiddleware_MissingAuthHeader(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	// Access protected route without header
+	req := httptest.NewRequest("GET", "/api/v1/auth/profile", nil)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "Authorization header is required")
+}
+
+func TestMiddleware_InvalidToken(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	// Access protected route with invalid token
+	req := httptest.NewRequest("GET", "/api/v1/auth/profile", nil)
+	req.Header.Set("Authorization", "Bearer invalid.token.signature")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestHandler_InitiateMultipartUpload_Validation(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	// 1. Generate a valid token to bypass middleware
+	// Note: setupTestRouter uses "secret" as the key for the real JWT manager used in middleware
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "user", "org-1")
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{
+		UserID:   "user-1",
+		IsActive: true,
+	}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{
+		Status: "active",
+	}, nil)
+	// 2. Create request with invalid data (empty filename, negative size)
+	reqBody := &models.InitiateMultipartUploadRequest{
+		FileName:        "",
+		FileSizeBytes:   -100,
+		DurationSeconds: 0,
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/api/v1/video/upload/initiate", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	// 3. Assert validation error
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	respBody := w.Body.String()
+	assert.Contains(t, respBody, "file_name is required")
+	assert.Contains(t, respBody, "file_size_bytes must be greater than 0")
+}
