@@ -26,19 +26,18 @@ import (
 // Service реализует бизнес-логику аутентификации
 type Service struct {
 	db         ydb.Database
-	jwtManager *jwtmanager.JWTManager
+	jwtManager jwtmanager.TokenManager
 	rbac       *rbac.RBAC
 	email      *email.Client
 	config     *config.Config
 }
 
 // NewService создает новый auth сервис
-func NewService(db ydb.Database, jwtManager *jwtmanager.JWTManager, rbacManager *rbac.RBAC, emailClient *email.Client, cfg *config.Config) *Service {
-
+func NewService(db ydb.Database, jwtManager jwtmanager.TokenManager, rbac *rbac.RBAC, emailClient *email.Client, cfg *config.Config) *Service {
 	return &Service{
 		db:         db,
 		jwtManager: jwtManager,
-		rbac:       rbacManager,
+		rbac:       rbac,
 		email:      emailClient,
 		config:     cfg,
 	}

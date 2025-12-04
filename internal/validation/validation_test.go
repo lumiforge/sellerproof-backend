@@ -457,8 +457,8 @@ func TestValidateFilenameUnicode(t *testing.T) {
 		wantErr   bool
 	}{
 		{"Valid filename", "document.pdf", "filename", false},
-		{"Valid Unicode filename", "документ.pdf", "filename", true}, // Contains Cyrillic which triggers Unicode attack detection
-		{"Valid Greek filename", "έγγραφο.pdf", "filename", true},    // Contains Greek which triggers Unicode attack detection
+		{"Valid Unicode filename", "документ.pdf", "filename", false}, // Contains Cyrillic but doesn't trigger Unicode attack detection
+		{"Valid Greek filename", "έγγραφο.pdf", "filename", false},    // Contains Greek but doesn't trigger Unicode attack detection
 		{"Too long filename", strings.Repeat("a", 256), "filename", true},
 		{"Unicode attack", "test\u202Etest.pdf", "filename", true},
 		{"Invalid filename chars", "file<name>.txt", "filename", true},

@@ -62,6 +62,8 @@ build-zip:
 	rm $(ZIP)
 	zip -r $(ZIP) internal go.mod main.go
 	
+test:
+	go test -v ./...
 
 # Development commands
 run:

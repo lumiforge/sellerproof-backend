@@ -25,12 +25,12 @@ import (
 
 type Service struct {
 	db      ydb.Database
-	storage *storage.Client
+	storage storage.StorageProvider
 	rbac    *rbac.RBAC
 	baseURL string
 }
 
-func NewService(db ydb.Database, storage *storage.Client, rbac *rbac.RBAC, baseURL string) *Service {
+func NewService(db ydb.Database, storage storage.StorageProvider, rbac *rbac.RBAC, baseURL string) *Service {
 	return &Service{
 		db:      db,
 		storage: storage,

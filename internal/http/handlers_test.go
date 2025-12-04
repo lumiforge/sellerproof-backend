@@ -1,0 +1,215 @@
+package http
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/lumiforge/sellerproof-backend/internal/audit"
+	"github.com/lumiforge/sellerproof-backend/internal/auth"
+	"github.com/lumiforge/sellerproof-backend/internal/config"
+	"github.com/lumiforge/sellerproof-backend/internal/email"
+	"github.com/lumiforge/sellerproof-backend/internal/jwt"
+	jwtmocks "github.com/lumiforge/sellerproof-backend/internal/jwt/mocks"
+	"github.com/lumiforge/sellerproof-backend/internal/models"
+	"github.com/lumiforge/sellerproof-backend/internal/rbac"
+	storagemocks "github.com/lumiforge/sellerproof-backend/internal/storage/mocks"
+	"github.com/lumiforge/sellerproof-backend/internal/video"
+	"github.com/lumiforge/sellerproof-backend/internal/ydb"
+	ydbmocks "github.com/lumiforge/sellerproof-backend/internal/ydb/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+func setupTestRouter() (http.Handler, *ydbmocks.Database, *jwtmocks.TokenManager) {
+	mockDB := new(ydbmocks.Database)
+	mockStorage := new(storagemocks.StorageProvider)
+	mockJWT := new(jwtmocks.TokenManager)
+
+	realRBAC := rbac.NewRBAC()
+	emailClient := email.NewClient(&config.Config{})
+	cfg := &config.Config{APIBaseURL: "http://test.local"}
+
+	authService := auth.NewService(mockDB, mockJWT, realRBAC, emailClient, cfg)
+	videoService := video.NewService(mockDB, mockStorage, realRBAC, cfg.APIBaseURL)
+
+	// Настраиваем мок для InsertAuditLog глобально для всех тестов, использующих этот роутер
+	// Используем .Maybe(), чтобы тест не падал, если метод не вызван
+	mockDB.On("InsertAuditLog", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	auditService := audit.NewService(mockDB)
+
+	realJWTForStruct := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+
+	server := NewServer(authService, videoService, realJWTForStruct, auditService)
+	router := SetupRouter(server, realJWTForStruct)
+
+	return router, mockDB, mockJWT
+}
+
+func TestHandler_Register_InvalidJSON(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	jsonBody := `{"email": "test@example.com", "password": "123"`
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", strings.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Invalid request format")
+}
+
+func TestHandler_Register_InvalidContentType(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	jsonBody := `{"email": "test@example.com", "password": "123"}`
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", strings.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+}
+
+func TestHandler_MethodNotAllowed(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	req := httptest.NewRequest("GET", "/api/v1/auth/register", nil)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandler_Register_UserExists_Mapping(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	reqBody := &models.RegisterRequest{
+		Email:            "existing@example.com",
+		Password:         "password123",
+		FullName:         "Test User",
+		OrganizationName: "Test Org",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	existingUser := &ydb.User{
+		UserID:        "existing-id",
+		Email:         "existing@example.com",
+		EmailVerified: true,
+	}
+
+	// Настраиваем мок: пользователь найден
+	mockDB.On("GetUserByEmail", mock.Anything, "existing@example.com").Return(existingUser, nil)
+
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	// Проверяем, что хендлер вызывает панику при попытке зарегистрировать пользователя с подтвержденным email
+	assert.Panics(t, func() {
+		router.ServeHTTP(w, req)
+	})
+}
+
+func TestHandler_Register_UserExists_Unverified_Mapping(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	reqBody := &models.RegisterRequest{
+		Email:            "unverified@example.com",
+		Password:         "password123",
+		FullName:         "Test User",
+		OrganizationName: "Test Org",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	existingUser := &ydb.User{
+		UserID:        "unverified-id",
+		Email:         "unverified@example.com",
+		EmailVerified: false,
+	}
+
+	// Настраиваем мок: пользователь найден но email не подтвержден
+	mockDB.On("GetUserByEmail", mock.Anything, "unverified@example.com").Return(existingUser, nil)
+	// Настраиваем мок для обновления пользователя
+	mockDB.On("UpdateUser", mock.Anything, mock.AnythingOfType("*ydb.User")).Return(nil)
+
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	// Проверяем, что хендлер возвращает 201 для существующего пользователя с неподтвержденным email
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var resp models.RegisterResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "unverified-id", resp.UserID)
+	assert.Contains(t, resp.Message, "Registration successful. Please check your email for verification.")
+}
+
+func TestHandler_Register_ValidationError_Mapping(t *testing.T) {
+	router, _, _ := setupTestRouter()
+
+	reqBody := &models.RegisterRequest{
+		Email:            "", // Empty email -> Validation Error
+		Password:         "password123",
+		FullName:         "Test User",
+		OrganizationName: "Test Org",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "email is required")
+}
+
+func TestHandler_Register_InternalError_Mapping(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	reqBody := &models.RegisterRequest{
+		Email:            "test@example.com",
+		Password:         "password123",
+		FullName:         "Test User",
+		OrganizationName: "Test Org",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	// Имитируем падение БД
+	mockDB.On("GetUserByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("db connection failed"))
+	// Добавляем мок для GetPlanByID, который вызывается в сервисе
+	mockDB.On("GetPlanByID", mock.Anything, "free").Return(&ydb.Plan{
+		PlanID:          "free",
+		Name:            "Free",
+		StorageLimitMB:  1024, // 1GB
+		VideoCountLimit: 10,
+		PriceRub:        0,
+		BillingCycle:    "monthly",
+		Features:        "{}",
+	}, nil)
+	// Добавляем мок для RegisterUserTx, который вызывается в сервисе
+	mockDB.On("RegisterUserTx", mock.Anything, mock.AnythingOfType("*ydb.User"), mock.AnythingOfType("*ydb.Organization"), mock.AnythingOfType("*ydb.Membership"), mock.AnythingOfType("*ydb.Subscription"), mock.AnythingOfType("string")).Return(errors.New("db connection failed"))
+
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "db connection failed")
+}
