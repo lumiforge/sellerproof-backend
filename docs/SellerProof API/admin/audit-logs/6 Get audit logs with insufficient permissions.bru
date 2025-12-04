@@ -18,6 +18,6 @@ tests {
     expect(res.status).to.equal(403);
     expect(res.body).to.be.an('object');
     expect(res.body).to.have.property('error');
-    expect(res.body.error.toLowerCase()).to.include('insufficient');
+    expect(res.body.message.toLowerCase()).to.include('insufficient permissions');
   });
 }

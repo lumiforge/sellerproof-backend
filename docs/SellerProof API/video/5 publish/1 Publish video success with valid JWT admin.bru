@@ -26,8 +26,7 @@ tests {
   });
 
   test("Should return success message", function() {
-    // Сообщение может быть "Video published successfully" или "Video already published"
-    expect(res.body.message).to.be.a('string');
+    expect(res.body.message).to.equal("Video published successfully");
   });
 
   test("Should return public URL", function() {
@@ -37,8 +36,7 @@ tests {
 
   test("Should return public token", function() {
     expect(res.body.public_token).to.be.a('string');
-    // Длина токена может варьироваться в зависимости от кодировки, но обычно около 43 символов
-    expect(res.body.public_token.length).to.be.at.least(40);
+    expect(res.body.public_token).to.have.length(43);
   });
 
   bru.setEnvVar("publicVideoUrl", res.body.public_url);

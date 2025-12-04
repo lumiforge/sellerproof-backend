@@ -1,0 +1,63 @@
+
+diff --git a/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru b/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru
+index 1234567..abcdef8 100644
+--- a/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru	
++++ b/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru	
+@@ -12,5 +12,6 @@ auth:bearer {
+ body:json {
+   {
+-    "org_id": "{{adminOrgId}}"
++    "org_id": "{{adminOrgId}}",
++    "refresh_token": "{{adminRefreshToken}}"
+   }
+ }
+
+diff --git a/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru b/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru
+index 1234567..abcdef8 100644
+--- a/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru	
++++ b/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru	
+@@ -12,4 +12,5 @@ auth:bearer {
+ body:json {
+   {
++    "refresh_token": "{{adminRefreshToken}}"
+   }
+ }
+
+diff --git a/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru b/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru
+index 1234567..abcdef8 100644
+--- a/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru	
++++ b/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru	
+@@ -12,5 +12,6 @@ auth:bearer {
+ body:json {
+   {
+-    "org_id": "../../../etc/passwd"
++    "org_id": "../../../etc/passwd",
++    "refresh_token": "{{adminRefreshToken}}"
+   }
+ }
+
+diff --git a/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru b/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru
+index 1234567..abcdef8 100644
+--- a/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru	
++++ b/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru	
+@@ -12,5 +12,6 @@ auth:bearer {
+ body:json {
+   {
+-    "org_id": "nonexistent_org_id"
++    "org_id": "nonexistent_org_id",
++    "refresh_token": "{{adminRefreshToken}}"
+   }
+ }
+
+diff --git a/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru b/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru
+index 1234567..abcdef8 100644
+--- a/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru	
++++ b/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru	
+@@ -12,5 +12,6 @@ auth:bearer {
+ body:json {
+   {
+-    "org_id": "{{inactiveOrgId}}"
++    "org_id": "{{inactiveOrgId}}",
++    "refresh_token": "{{adminRefreshToken}}"
+   }
+ }

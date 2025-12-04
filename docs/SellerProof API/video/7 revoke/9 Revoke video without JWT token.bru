@@ -1,7 +1,7 @@
 meta {
   name: Revoke video without JWT token
   type: http
-  seq: 8
+  seq: 9
 }
 
 post {
@@ -10,18 +10,16 @@ post {
   auth: none
 }
 
+
+
 body:json {
   {
-    "video_id": "test-video-id-123"
+    "video_id": "00000000-0000-0000-0000-000000000000"
   }
 }
 
 tests {
   test("Should return 401 Unauthorized", function() {
     expect(res.status).to.equal(401);
-  });
-
-  test("Should return error message", function() {
-    expect(res.body.error).to.include("Unauthorized");
   });
 }

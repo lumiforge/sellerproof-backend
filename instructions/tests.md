@@ -1,5 +1,3 @@
-
-
 1. health
 2. Auth -> Register
  - Регистрируются три пользователя: admin, manager, simple user
@@ -33,9 +31,12 @@
 18. Сслыки копируем URLs из всех --> тестов
 19. Вставляем URLs в run.sh file -> запускаем run.sh
 20. Запускаем run.sh
-21. Video -> Complete
-23. Video get: Проверить, что видео действительно существует, статус сменился на completed, и метаданные (размер, имя) корректны.
-24. Video search: Проверить, что видео индексируется и его можно найти в списке (поиск по имени или просто листинг).
-25. Video download: Проверить (ПРОВЕРИТЬ ССЫЛКУ ИЗ 1), что владелец может получить временную ссылку (presigned URL) на скачивание приватного файла.
-26. Video publish: Опубликовать видео (сделать его доступным публично). Это создаст public_token.
-27. Video public: Проверить доступ к видео по публичному токену (без авторизации), который был получен на шаге publish.
+21. Video -> Upload -> Complete
+23. Video -> get
+24. Video -> search
+25. Video -> download
+26. Video -> publish
+27. Video -> public
+28. Video -> revoke
+29. Video -> delete
+30. Auth -> Switch Organization

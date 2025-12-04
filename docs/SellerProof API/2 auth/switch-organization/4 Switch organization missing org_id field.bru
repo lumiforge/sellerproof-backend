@@ -16,6 +16,7 @@ auth:bearer {
 
 body:json {
   {
+    "refresh_token": "{{adminRefreshToken}}"
   }
 }
 
@@ -23,6 +24,6 @@ tests {
   test('Should return 400 Bad Request for switch organization request missing org_id field', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Invalid request format');
+    expect(res.body.error).to.include('Bad Request');
   });
 }

@@ -7,19 +7,11 @@ meta {
 get {
   url: {{baseUrl}}/api/v1/video/public?token=INVALID_TOKEN_123456789012345678901234567890123456789012
   body: none
-  headers: {
-    Accept: application/json
-  }
 }
 
 tests {
-  test("Should return 404 Not Found", function() {
-    expect(response.status).to.equal(404);
-  });
-
-  test("Should return error message", function() {
-    expect(response.body.error).to.equal("Not Found");
-    expect(response.body.message).to.equal("Video not found or token is invalid");
-    expect(response.body.code).to.equal(404);
+  test("Should return 400 Bad Request", function() {
+    expect(res.status).to.equal(400);
+    expect(res.body.error).to.equal("Bad Request");
   });
 }

@@ -1,0 +1,47 @@
+meta {
+  name: Re-publish video for manager test
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/publish
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}"
+  }
+}
+
+tests {
+  test("Should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("Should return success message", function() {
+    // Ожидаем сообщение об успехе или о том, что видео уже опубликовано
+    // В данном контексте (после revoke) должно быть "published successfully"
+    expect(res.body.message).to.satisfy(function(msg) {
+        return msg.includes("published successfully") || msg.includes("already published");
+    });
+  });
+
+  test("Should return public URL and token", function() {
+    expect(res.body.public_url).to.be.a('string');
+    expect(res.body.public_token).to.be.a('string');
+  });
+  
+  // Обновляем переменные окружения, так как публикация создает новый токен
+  // Это может пригодиться, если в дальнейших тестах проверяется доступ по ссылке
+  script:post-response {
+    bru.setEnvVar("publicVideoUrl", res.body.public_url);
+    bru.setEnvVar("publicShareToken", res.body.public_token);
+  }
+}
