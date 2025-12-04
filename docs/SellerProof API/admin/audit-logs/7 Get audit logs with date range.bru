@@ -1,0 +1,18 @@
+meta {
+  name: Get audit logs with date range
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/admin/audit-logs?from=2023-01-01&to=2025-12-31
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 200 OK with date filters', function() {
+    expect(res.status).to.equal(200);

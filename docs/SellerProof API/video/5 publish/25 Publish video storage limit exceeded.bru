@@ -1,0 +1,21 @@
+meta {
+  name: Publish video storage limit exceeded
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/publish
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{simpleUserAccessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{largeVideoId}}"
+  }
+}

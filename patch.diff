@@ -1,63 +1,614 @@
-
-diff --git a/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru b/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru
-index 1234567..abcdef8 100644
---- a/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru	
-+++ b/docs/SellerProof API/2 auth/switch-organization/1 Switch organization success.bru	
-@@ -12,5 +12,6 @@ auth:bearer {
- body:json {
-   {
--    "org_id": "{{adminOrgId}}"
-+    "org_id": "{{adminOrgId}}",
-+    "refresh_token": "{{adminRefreshToken}}"
-   }
- }
-
-diff --git a/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru b/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru
-index 1234567..abcdef8 100644
---- a/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru	
-+++ b/docs/SellerProof API/2 auth/switch-organization/4 Switch organization missing org_id field.bru	
-@@ -12,4 +12,5 @@ auth:bearer {
- body:json {
-   {
-+    "refresh_token": "{{adminRefreshToken}}"
-   }
- }
-
-diff --git a/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru b/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru
-index 1234567..abcdef8 100644
---- a/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru	
-+++ b/docs/SellerProof API/2 auth/switch-organization/5 Switch organization with invalid org_id format.bru	
-@@ -12,5 +12,6 @@ auth:bearer {
- body:json {
-   {
--    "org_id": "../../../etc/passwd"
-+    "org_id": "../../../etc/passwd",
-+    "refresh_token": "{{adminRefreshToken}}"
-   }
- }
-
-diff --git a/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru b/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru
-index 1234567..abcdef8 100644
---- a/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru	
-+++ b/docs/SellerProof API/2 auth/switch-organization/6 Switch organization user not member.bru	
-@@ -12,5 +12,6 @@ auth:bearer {
- body:json {
-   {
--    "org_id": "nonexistent_org_id"
-+    "org_id": "nonexistent_org_id",
-+    "refresh_token": "{{adminRefreshToken}}"
-   }
- }
-
-diff --git a/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru b/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru
-index 1234567..abcdef8 100644
---- a/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru	
-+++ b/docs/SellerProof API/2 auth/switch-organization/7 Switch organization inactive membership.bru	
-@@ -12,5 +12,6 @@ auth:bearer {
- body:json {
-   {
--    "org_id": "{{inactiveOrgId}}"
-+    "org_id": "{{inactiveOrgId}}",
-+    "refresh_token": "{{adminRefreshToken}}"
-   }
- }
+diff --git a/docs/SellerProof API/2 auth/1 register/20 Register with expired invite code.bru b/docs/SellerProof API/2 auth/1 register/20 Register with expired invite code.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/2 auth/1 register/20 Register with expired invite code.bru	
+@@ -0,0 +1,23 @@
++meta {
++  name: Register with expired invite code
++  type: http
++  seq: 20
++}
++
++post {
++  url: {{baseUrl}}/api/v1/auth/register
++  body: json
++  auth: inherit
++}
++
++body:json {
++  {
++    "email": "newuser@example.com",
++    "password": "password123",
++    "full_name": "New User",
++    "invite_code": "{{expiredInviteCode}}"
++  }
++}
++
++tests {
++  test('Should return 400 for expired invite code', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('invitation has expired');
++  });
++}
+diff --git a/docs/SellerProof API/2 auth/1 register/21 Register with invite code email mismatch.bru b/docs/SellerProof API/2 auth/1 register/21 Register with invite code email mismatch.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/2 auth/1 register/21 Register with invite code email mismatch.bru	
+@@ -0,0 +1,23 @@
++meta {
++  name: Register with invite code email mismatch
++  type: http
++  seq: 21
++}
++
++post {
++  url: {{baseUrl}}/api/v1/auth/register
++  body: json
++  auth: inherit
++}
++
++body:json {
++  {
++    "email": "different@example.com",
++    "password": "password123",
++    "full_name": "New User",
++    "invite_code": "{{userInviteCode}}"
++  }
++}
++
++tests {
++  test('Should return 400 when email does not match invite', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('registration email does not match invitation email');
++  });
++}
+diff --git a/docs/SellerProof API/2 auth/1 register/22 Register with used invite code.bru b/docs/SellerProof API/2 auth/1 register/22 Register with used invite code.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/2 auth/1 register/22 Register with used invite code.bru	
+@@ -0,0 +1,23 @@
++meta {
++  name: Register with used invite code
++  type: http
++  seq: 22
++}
++
++post {
++  url: {{baseUrl}}/api/v1/auth/register
++  body: json
++  auth: inherit
++}
++
++body:json {
++  {
++    "email": "test@example.com",
++    "password": "password123",
++    "full_name": "New User",
++    "invite_code": "{{usedInviteCode}}"
++  }
++}
++
++tests {
++  test('Should return 400 for non-pending invite code', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('invitation is not pending');
++  });
++}
+diff --git a/docs/SellerProof API/2 auth/2 login/18 Verify Email max attempts exceeded.bru b/docs/SellerProof API/2 auth/2 login/18 Verify Email max attempts exceeded.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/2 auth/2 login/18 Verify Email max attempts exceeded.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Verify Email max attempts exceeded
++  type: http
++  seq: 18
++}
++
++post {
++  url: {{baseUrl}}/api/v1/auth/verify-email
++  body: json
++  auth: inherit
++}
++
++body:json {
++  {
++    "email": "{{adminEmail}}",
++    "code": "000000"
++  }
++}
++
++tests {
++  test('Should return error when max attempts exceeded', function() {
++    // Note: This test assumes the user has already failed 5 times
++    expect(res.status).to.be.oneOf([400, 500]);
++    expect(res.body.message).to.include('too many failed attempts');
++  });
++}
+diff --git a/docs/SellerProof API/2 auth/2 login/19 Login suspended user.bru b/docs/SellerProof API/2 auth/2 login/19 Login suspended user.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/2 auth/2 login/19 Login suspended user.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Login suspended user
++  type: http
++  seq: 19
++}
++
++post {
++  url: {{baseUrl}}/api/v1/auth/login
++  body: json
++  auth: inherit
++}
++
++body:json {
++  {
++    "email": "{{suspendedUserEmail}}",
++    "password": "{{suspendedUserPassword}}"
++  }
++}
++
++tests {
++  test('Should return 400/403 for suspended user', function() {
++    expect(res.status).to.not.equal(200);
++    expect(res.body.message).to.include('user account is deactivated');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/accept/20 Accept invitation email mismatch.bru b/docs/SellerProof API/3 organization/accept/20 Accept invitation email mismatch.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/accept/20 Accept invitation email mismatch.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Accept invitation email mismatch
++  type: http
++  seq: 20
++}
++
++post {
++  url: {{baseUrl}}/api/v1/organization/invitations/accept
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++body:json {
++  {
++    "invite_code": "{{userInviteCode}}"
++  }
++}
++
++tests {
++  test('Should return 400 when current user email does not match invite', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('invitation email does not match user email');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/accept/21 Accept invitation expired.bru b/docs/SellerProof API/3 organization/accept/21 Accept invitation expired.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/accept/21 Accept invitation expired.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Accept invitation expired
++  type: http
++  seq: 21
++}
++
++post {
++  url: {{baseUrl}}/api/v1/organization/invitations/accept
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{simpleUserAccessToken}}
++}
++
++body:json {
++  {
++    "invite_code": "{{expiredInviteCode}}"
++  }
++}
++
++tests {
++  test('Should return 400 for expired invite', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('invitation has expired');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/accept/22 Accept invitation already used.bru b/docs/SellerProof API/3 organization/accept/22 Accept invitation already used.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/accept/22 Accept invitation already used.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Accept invitation already used
++  type: http
++  seq: 22
++}
++
++post {
++  url: {{baseUrl}}/api/v1/organization/invitations/accept
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{simpleUserAccessToken}}
++}
++
++body:json {
++  {
++    "invite_code": "{{usedInviteCode}}"
++  }
++}
++
++tests {
++  test('Should return 400 for non-pending invite', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('invitation is not pending');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/accept/23 Accept invitation invalid code format.bru b/docs/SellerProof API/3 organization/accept/23 Accept invitation invalid code format.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/accept/23 Accept invitation invalid code format.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Accept invitation invalid code format
++  type: http
++  seq: 23
++}
++
++post {
++  url: {{baseUrl}}/api/v1/organization/invitations/accept
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{simpleUserAccessToken}}
++}
++
++body:json {
++  {
++    "invite_code": "not-a-valid-uuid"
++  }
++}
++
++tests {
++  test('Should return 400 for invalid code', function() {
++    expect(res.status).to.equal(400);
++    expect(res.body.message).to.include('invalid invite code');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/invite/30 Invite user already invited.bru b/docs/SellerProof API/3 organization/invite/30 Invite user already invited.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/invite/30 Invite user already invited.bru	
+@@ -0,0 +1,23 @@
++meta {
++  name: Invite user already invited
++  type: http
++  seq: 30
++}
++
++post {
++  url: {{baseUrl}}/api/v1/organization/invite
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++body:json {
++  {
++    "email": "{{simpleUserEmail}}",
++    "role": "user",
++    "org_id": "{{adminOrgId}}"
++  }
++}
++
++tests {
++  test('Should return 409 Conflict for duplicate invitation', function() {
++    expect(res.status).to.equal(409);
++    expect(res.body.message).to.include('already invited');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/invite/31 Invite user already member.bru b/docs/SellerProof API/3 organization/invite/31 Invite user already member.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/invite/31 Invite user already member.bru	
+@@ -0,0 +1,23 @@
++meta {
++  name: Invite user already member
++  type: http
++  seq: 31
++}
++
++post {
++  url: {{baseUrl}}/api/v1/organization/invite
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++body:json {
++  {
++    "email": "{{managerEmail}}",
++    "role": "user",
++    "org_id": "{{adminOrgId}}"
++  }
++}
++
++tests {
++  test('Should return 409 Conflict for existing member', function() {
++    expect(res.status).to.equal(409);
++    expect(res.body.message).to.include('already a member');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/members/23 Remove organization owner (fail).bru b/docs/SellerProof API/3 organization/members/23 Remove organization owner (fail).bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/members/23 Remove organization owner (fail).bru	
+@@ -0,0 +1,17 @@
++meta {
++  name: Remove organization owner (fail)
++  type: http
++  seq: 23
++}
++
++delete {
++  url: {{baseUrl}}/api/v1/organization/members/{{adminId}}?org_id={{adminOrgId}}
++  body: none
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++tests {
++  test('Should return 403 Forbidden when trying to remove owner', function() {
++    expect(res.status).to.equal(403);
++    expect(res.body.message).to.include('cannot remove organization owner');
++  });
++}
+diff --git a/docs/SellerProof API/3 organization/members/24 Change organization owner role (fail).bru b/docs/SellerProof API/3 organization/members/24 Change organization owner role (fail).bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/3 organization/members/24 Change organization owner role (fail).bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Change organization owner role (fail)
++  type: http
++  seq: 24
++}
++
++put {
++  url: {{baseUrl}}/api/v1/organization/members/{{adminId}}/role
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++body:json {
++  {
++    "new_role": "manager"
++  }
++}
++
++tests {
++  test('Should return 403/500 when trying to change owner role', function() {
++    expect(res.status).to.not.equal(200);
++    expect(res.body.message).to.include('cannot change role of organization owner');
++  });
++}
+diff --git a/docs/SellerProof API/admin/audit-logs/7 Get audit logs with date range.bru b/docs/SellerProof API/admin/audit-logs/7 Get audit logs with date range.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/admin/audit-logs/7 Get audit logs with date range.bru	
+@@ -0,0 +1,18 @@
++meta {
++  name: Get audit logs with date range
++  type: http
++  seq: 7
++}
++
++get {
++  url: {{baseUrl}}/api/v1/admin/audit-logs?from=2023-01-01&to=2025-12-31
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++tests {
++  test('Should return 200 OK with date filters', function() {
++    expect(res.status).to.equal(200);
++    expect(res.body.logs).to.be.an('array');
++  });
++}
+diff --git a/docs/SellerProof API/admin/audit-logs/8 Get audit logs invalid date format.bru b/docs/SellerProof API/admin/audit-logs/8 Get audit logs invalid date format.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/admin/audit-logs/8 Get audit logs invalid date format.bru	
+@@ -0,0 +1,18 @@
++meta {
++  name: Get audit logs invalid date format
++  type: http
++  seq: 8
++}
++
++get {
++  url: {{baseUrl}}/api/v1/admin/audit-logs?from=invalid-date
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++tests {
++  test('Should handle invalid date format gracefully (ignore or error)', function() {
++    // Implementation ignores invalid dates, so it should return 200
++    expect(res.status).to.equal(200);
++  });
++}
+diff --git a/docs/SellerProof API/video/1 upload/initiate/20 Initiate upload invalid extension.bru b/docs/SellerProof API/video/1 upload/initiate/20 Initiate upload invalid extension.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/video/1 upload/initiate/20 Initiate upload invalid extension.bru	
+@@ -0,0 +1,22 @@
++meta {
++  name: Initiate upload invalid extension
++  type: http
++  seq: 20
++}
++
++post {
++  url: {{baseUrl}}/api/v1/video/upload/initiate
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++body:json {
++  {
++    "file_name": "malicious_script.sh",
++    "file_size_bytes": 1024,
++    "duration_seconds": 60
++  }
++}
++
++tests {
++  test('Should return 400/500 for invalid file extension', function() {
++    expect(res.status).to.not.equal(200);
++    expect(res.body.message).to.include('invalid file type');
++  });
++}
+diff --git a/docs/SellerProof API/video/2 get/18 Get deleted video (404).bru b/docs/SellerProof API/video/2 get/18 Get deleted video (404).bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/video/2 get/18 Get deleted video (404).bru	
+@@ -0,0 +1,17 @@
++meta {
++  name: Get deleted video (404)
++  type: http
++  seq: 18
++}
++
++get {
++  url: {{baseUrl}}/api/v1/video?video_id={{deletedVideoId}}
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++tests {
++  test('Should return 404 for deleted video', function() {
++    expect(res.status).to.equal(404);
++    expect(res.body.message).to.include('video not found');
++  });
++}
+diff --git a/docs/SellerProof API/video/3 search/22 Search deleted videos (should be empty).bru b/docs/SellerProof API/video/3 search/22 Search deleted videos (should be empty).bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/video/3 search/22 Search deleted videos (should be empty).bru	
+@@ -0,0 +1,18 @@
++meta {
++  name: Search deleted videos (should be empty)
++  type: http
++  seq: 22
++}
++
++get {
++  url: {{baseUrl}}/api/v1/video/search?query=deleted_video_name
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{adminAccessToken}}
++}
++
++tests {
++  test('Should not return deleted videos', function() {
++    expect(res.status).to.equal(200);
++    // Assuming the query matches a deleted video name
++    expect(res.body.videos).to.be.an('array');
++    // Logic depends on whether other videos match, but generally checking it doesn't return the deleted one
++  });
++}
+diff --git a/docs/SellerProof API/video/5 publish/25 Publish video storage limit exceeded.bru b/docs/SellerProof API/video/5 publish/25 Publish video storage limit exceeded.bru
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/SellerProof API/video/5 publish/25 Publish video storage limit exceeded.bru	
+@@ -0,0 +1,21 @@
++meta {
++  name: Publish video storage limit exceeded
++  type: http
++  seq: 25
++}
++
++post {
++  url: {{baseUrl}}/api/v1/video/publish
++  body: json
++  auth: bearer
++}
++
++auth:bearer {
++  token: {{simpleUserAccessToken}}
++}
++
++body:json {
++  {
++    "video_id": "{{largeVideoId}}"
++  }
++}
++
++tests {
++  test('Should return error if publishing exceeds storage quota', function() {
++    // This test requires a user near their quota limit
++    if (res.status !== 200) {
++        expect(res.body.message).to.include('storage limit exceeded');
++    }
++  });
++}

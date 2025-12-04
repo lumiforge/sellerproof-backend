@@ -1,0 +1,22 @@
+meta {
+  name: Initiate upload invalid extension
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "malicious_script.sh",
+    "file_size_bytes": 1024,
+    "duration_seconds": 60
+  }

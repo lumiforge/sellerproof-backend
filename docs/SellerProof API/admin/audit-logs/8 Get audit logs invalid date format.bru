@@ -1,0 +1,18 @@
+meta {
+  name: Get audit logs invalid date format
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/admin/audit-logs?from=invalid-date
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should handle invalid date format gracefully (ignore or error)', function() {
+    // Implementation ignores invalid dates, so it should return 200
