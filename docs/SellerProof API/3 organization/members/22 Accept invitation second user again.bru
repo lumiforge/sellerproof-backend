@@ -24,5 +24,11 @@ tests {
   test('Should accept manager invitation', function() {
     expect(res.status).to.equal(200);
     expect(res.body.role).to.equal('manager');
+    
+    // Update tokens as accepting invite switches context to the new org
+    if (res.body.access_token) {
+        bru.setEnvVar("managerAccessToken", res.body.access_token);
+        bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
+    }
   });
 }

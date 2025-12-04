@@ -22,7 +22,9 @@ tests {
 
     // If there are invitations, validate their structure
     if (res.body.invitations.length > 0) {
-      const invitation = res.body.invitations[0];
+      // Try to find a pending invitation first for delete tests
+      const pendingInvitation = res.body.invitations.find(inv => inv.status === 'pending');
+      const invitation = pendingInvitation || res.body.invitations[0];
       // Save invitation ID for delete tests
       bru.setEnvVar("validInvitationId", invitation.invitation_id);
       

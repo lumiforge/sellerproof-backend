@@ -1,1 +1,10 @@
-
+internal/http/handlers.go
+@@ -1125,7 +1125,7 @@
+ 		if strings.Contains(errorMsg, "video not found") {
+ 			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
+ 		} else if strings.Contains(errorMsg, "access denied") {
+-			s.writeError(w, http.StatusForbidden, "access denied")
++			s.writeError(w, http.StatusForbidden, errorMsg)
+ 		} else {
+ 			s.writeError(w, http.StatusInternalServerError, err.Error())
+ 		}

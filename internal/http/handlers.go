@@ -475,7 +475,7 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.authService.GetProfile(r.Context(), claims.UserID)
+	resp, err := s.authService.GetProfile(r.Context(), claims.UserID, claims.OrgID)
 	if err != nil {
 		slog.Error("GetProfile: Failed to get profile", "error", err.Error())
 		s.writeError(w, http.StatusInternalServerError, err.Error())
@@ -530,7 +530,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.authService.UpdateProfile(r.Context(), claims.UserID, &req)
+	resp, err := s.authService.UpdateProfile(r.Context(), claims.UserID, claims.OrgID, &req)
 	if err != nil {
 		// Проверяем тип ошибки и возвращаем соответствующий код
 		errorMsg := err.Error()
@@ -770,7 +770,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
 		} else if strings.Contains(errorMsg, "access denied") {
-			s.writeError(w, http.StatusForbidden, "access denied")
+			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
@@ -1537,6 +1537,9 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(errorMsg, "organization can have only one admin") {
 			s.writeError(w, http.StatusUnauthorized, errorMsg)
 			return
+		} else if strings.Contains(errorMsg, "already a member") || strings.Contains(errorMsg, "already invited") {
+			s.writeError(w, http.StatusConflict, errorMsg)
+			return
 		} else if strings.Contains(errorMsg, "only admins and managers") || strings.Contains(errorMsg, "inviter is not a member of this organization") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "required") {
@@ -1757,7 +1760,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 		slog.Error("CancelInvitation: Failed to cancel invitation", "error", errorMsg)
 		if strings.Contains(errorMsg, "not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
-		} else if strings.Contains(errorMsg, "not pending") {
+		} else if strings.Contains(errorMsg, "only pending") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)

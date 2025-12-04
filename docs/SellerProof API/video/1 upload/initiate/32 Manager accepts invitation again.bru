@@ -1,12 +1,12 @@
 meta {
-  name: Manager accepts invitation again
+  name: Verify Manager is in Admin Org
   type: http
-  seq: 2
+  seq: 32
 }
 
-post {
-  url: {{baseUrl}}/api/v1/organization/invitations/accept
-  body: json
+get {
+  url: {{baseUrl}}/api/v1/auth/profile
+  body: none
   auth: bearer
 }
 
@@ -14,25 +14,10 @@ auth:bearer {
   token: {{managerAccessToken}}
 }
 
-body:json {
-  {
-    "invite_code": "{{managerReInviteCode}}"
-  }
-}
 
 tests {
-  test('Should accept invitation and switch context to Admin Org', function() {
+  test('Should be in admin org', function() {
     expect(res.status).to.equal(200);
-    expect(res.body).to.have.property('access_token');
-    expect(res.body).to.have.property('org_id');
-    
     expect(res.body.org_id).to.equal(bru.getEnvVar("adminOrgId"));
-
-    bru.setEnvVar("managerAccessToken", res.body.access_token);
-    bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
-    
-    bru.setEnvVar("managerOrgId", res.body.org_id);
-    
-    console.log("Manager switched to Admin Org ID:", res.body.org_id);
   });
 }

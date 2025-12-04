@@ -702,7 +702,7 @@ func (s *Service) Logout(ctx context.Context, req *models.LogoutRequest) (*model
 }
 
 // GetProfile получает профиль пользователя
-func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetProfileResponse, error) {
+func (s *Service) GetProfile(ctx context.Context, userID, orgID string) (*models.GetProfileResponse, error) {
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -736,26 +736,38 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 	// 2. Первая активная организация
 	// 3. Любая существующая организация (если нет активных)
 	var selectedMembership *ydb.Membership
-
-	for _, m := range memberships {
-		// Проверяем, существует ли организация физически
-		org, exists := orgMap[m.OrgID]
-		if !exists {
-			continue
-		}
-
-		if m.Status == "active" {
-			// Приоритет 1: Активный владелец
-			if org.OwnerID == user.UserID {
-				selectedMembership = m
-				break
-			}
-			// Приоритет 2: Первая активная
-			if selectedMembership == nil {
-				selectedMembership = m
+	// Приоритет 0: Организация из текущего токена (Session Context)
+	if orgID != "" {
+		for _, m := range memberships {
+			if m.OrgID == orgID && m.Status == "active" {
+				if _, exists := orgMap[m.OrgID]; exists {
+					selectedMembership = m
+					break
+				}
 			}
 		}
+	}
+	// Fallback логика, если токен не содержит валидной организации или orgID пуст
+	if selectedMembership == nil {
+		for _, m := range memberships {
+			// Проверяем, существует ли организация физически
+			org, exists := orgMap[m.OrgID]
+			if !exists {
+				continue
+			}
 
+			if m.Status == "active" {
+				// Приоритет 1: Активный владелец
+				if org.OwnerID == user.UserID {
+					selectedMembership = m
+					break
+				}
+				// Приоритет 2: Первая активная
+				if selectedMembership == nil {
+					selectedMembership = m
+				}
+			}
+		}
 	}
 
 	// Приоритет 3: Если активных не найдено, берем первую валидную
@@ -790,7 +802,7 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*models.GetPro
 }
 
 // UpdateProfile обновляет профиль пользователя
-func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.UpdateProfileRequest) (*models.GetProfileResponse, error) {
+func (s *Service) UpdateProfile(ctx context.Context, userID, orgID string, req *models.UpdateProfileRequest) (*models.GetProfileResponse, error) {
 	// Валидация обязательных полей
 	if req.FullName == "" {
 		return nil, fmt.Errorf("full_name is required")
@@ -833,7 +845,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req *models.
 	}
 
 	// Получаем обновленный профиль пользователя
-	return s.GetProfile(ctx, userID)
+	return s.GetProfile(ctx, userID, orgID)
 }
 
 // SwitchOrganization переключает организацию пользователя

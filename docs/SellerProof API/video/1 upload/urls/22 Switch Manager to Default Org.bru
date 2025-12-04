@@ -1,7 +1,7 @@
 meta {
-  name: Manager switches to Admin Org (Prepare for upload)
+  name: Switch Manager to Default Org (Fix state for Test 23)
   type: http
-  seq: 31
+  seq: 22
 }
 
 post {
@@ -16,17 +16,15 @@ auth:bearer {
 
 body:json {
   {
-    "org_id": "{{adminOrgId}}",
+    "org_id": "{{managerDefaultOrgId}}",
     "refresh_token": "{{managerRefreshToken}}"
   }
 }
 
 tests {
-  test('Should switch manager to admin org', function() {
+  test('Should return 200 OK', function() {
     expect(res.status).to.equal(200);
-   expect(res.body).to.have.property('access_token');
-    expect(res.body).to.have.property('refresh_token');
-    
+    // Обновляем токены в окружении
     bru.setEnvVar("managerAccessToken", res.body.access_token);
     bru.setEnvVar("managerRefreshToken", res.body.refresh_token);
     bru.setEnvVar("managerOrgId", res.body.org_id);

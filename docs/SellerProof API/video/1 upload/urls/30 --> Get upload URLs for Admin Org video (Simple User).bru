@@ -1,7 +1,7 @@
 meta {
     name: Get upload URLs for Admin Org video (Simple User)
     type: http
-    seq: 29
+    seq: 30
 }
 
 post {
@@ -22,7 +22,7 @@ body:json {
 }
 
 tests {
-        test('Should return upload URLs for Simple User in Admin Org', function() {
+    test('Should return upload URLs for Simple User in Admin Org', function() {
         expect(res.status).to.equal(200);
         expect(res.body).to.have.property('part_urls');
         expect(res.body.part_urls).to.be.an('array');

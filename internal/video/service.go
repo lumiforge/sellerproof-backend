@@ -214,6 +214,11 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 		return nil, fmt.Errorf("access denied")
 	}
 
+	// Security fix: Only the uploader can generate upload urls
+	if video.UploadedBy != userID {
+		return nil, fmt.Errorf("access denied: only uploader can generate upload urls")
+	}
+
 	// Fix: Check video status to prevent overwriting completed or deleted videos
 	if video.IsDeleted {
 		return nil, fmt.Errorf("video is deleted")
