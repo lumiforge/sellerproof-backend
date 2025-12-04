@@ -1,5 +1,5 @@
 meta {
-  name: Get upload URLs success with valid JWT
+  name: --> Get upload URLs success with valid JWT
   type: http
   seq: 23
 }
@@ -38,7 +38,6 @@ tests {
     expect(res.body.part_urls).to.have.length(1);
     expect(res.body.part_urls[0]).to.be.a('string');
     expect(res.body.part_urls[0]).to.not.equal('');
-    expect(res.body.expires_at).to.be.at.least(Date.now() / 1000);
-   
+    expect(res.body.expires_at).to.be.at.least(Date.now() / 1000);   
   });
 }

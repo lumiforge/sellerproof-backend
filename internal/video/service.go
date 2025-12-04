@@ -265,8 +265,20 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, fmt.Errorf("video not found")
 	}
 
-	if video.OrgID != orgID {
+	// Проверка UploadedBy вместо OrgID позволяет завершить загрузку своего видео
+	// даже если он переключил активную организацию
+	// При этом это защищает от доступа к чужим видео
+	if video.UploadedBy != userID {
 		return nil, fmt.Errorf("access denied")
+	}
+
+	// Если видео уже загружено, не идем в S3, а возвращаем успех.
+	if video.UploadStatus == "completed" {
+		url, _ := s.storage.GeneratePresignedDownloadURL(ctx, video.StoragePath, 1*time.Hour)
+		return &CompleteMultipartUploadResult{
+			Message:  "Upload already completed",
+			VideoURL: url,
+		}, nil
 	}
 
 	// S3 требует, чтобы части были отсортированы по возрастанию номера

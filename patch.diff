@@ -1,10 +1,26 @@
-internal/http/handlers.go
-@@ -1125,7 +1125,7 @@
- 		if strings.Contains(errorMsg, "video not found") {
- 			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
- 		} else if strings.Contains(errorMsg, "access denied") {
--			s.writeError(w, http.StatusForbidden, "access denied")
-+			s.writeError(w, http.StatusForbidden, errorMsg)
- 		} else {
- 			s.writeError(w, http.StatusInternalServerError, err.Error())
- 		}
+--- internal/video/service.go	2025-12-04 13:35:00.000000000 +0300
++++ internal/video/service.go	2025-12-04 13:50:00.000000000 +0300
+@@ -234,8 +234,20 @@
+ 		return nil, fmt.Errorf("video not found")
+ 	}
+ 
+-	if video.OrgID != orgID {
++	// FIX: Мы заменяем проверку OrgID на проверку UploadedBy.
++	// Это позволяет пользователю завершить загрузку своего видео, 
++	// даже если он переключил активную организацию (Test 25).
++	// При этом это защищает от доступа к чужим видео (Test 21).
++	if video.UploadedBy != userID {
+ 		return nil, fmt.Errorf("access denied")
+ 	}
+ 
++	// Idempotency fix: Если видео уже загружено, не идем в S3, а возвращаем успех.
++	if video.UploadStatus == "completed" {
++		url, _ := s.storage.GeneratePresignedDownloadURL(ctx, video.StoragePath, 1*time.Hour)
++		return &CompleteMultipartUploadResult{
++			Message:  "Upload already completed",
++			VideoURL: url,
++		}, nil
++	}
++
+ 	// S3 требует, чтобы части были отсортированы по возрастанию номера
+ 	sort.Slice(parts, func(i, j int) bool {
