@@ -1,7 +1,7 @@
 meta {
-  name: Complete upload invalid ETags
+  name: Complete upload wrong Content-Type
   type: http
-  seq: 20
+  seq: 9
 }
 
 post {
@@ -14,6 +14,10 @@ auth:bearer {
   token: {{adminAccessToken}}
 }
 
+headers {
+  Content-Type: text/plain
+}
+
 body:json {
   {
     "video_id": "{{testVideoId}}",
@@ -21,19 +25,14 @@ body:json {
       {
         "part_number": 1,
         "etag": "d7a3decdb6280eb0ef3a059ac35ea0ee"
-      },
-      {
-        "part_number": 2,
-        "etag": null
       }
     ]
   }
 }
 
 tests {
-  test('Should return 400 for invalid ETags', function() {
-    expect(res.status).to.equal(400);
-    expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('etag');
+  test('Should return 415 for wrong Content-Type', function() {
+    expect(res.status).to.equal(415);
+
   });
 }

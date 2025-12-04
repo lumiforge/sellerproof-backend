@@ -1,12 +1,12 @@
 meta {
-  name: Complete upload missing required fields
+  name: Complete upload invalid JSON
   type: http
-  seq: 3
+  seq: 5
 }
 
 post {
   url: {{baseUrl}}/api/v1/video/upload/complete
-  body: json
+  body: raw
   auth: bearer
 }
 
@@ -14,8 +14,9 @@ auth:bearer {
   token: {{adminAccessToken}}
 }
 
-body:json {
+body:raw {
   {
+    "video_id": "{{testVideoId}}",
     "parts": [
       {
         "part_number": 1,
@@ -23,12 +24,11 @@ body:json {
       }
     ]
   }
-}
 
 tests {
-  test('Should return 400 for missing video_id field', function() {
+  test('Should return 400 for invalid JSON', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('video_id');
+    expect(res.body.message).to.include('JSON');
   });
 }

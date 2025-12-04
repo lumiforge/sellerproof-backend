@@ -1,7 +1,7 @@
 meta {
-  name: Complete upload for Admin Org video (Manager)
+  name: Complete upload for Admin Org video (Simple User)
   type: http
-  seq: 27
+  seq: 21
 }
 
 post {
@@ -11,12 +11,12 @@ post {
 }
 
 auth:bearer {
-  token: {{managerAccessToken}}
+  token: {{simpleUserAccessToken}}
 }
 
 body:json {
   {
-    "video_id": "{{adminOrgVideoId}}",
+    "video_id": "{{simpleUserAdminOrgVideoId}}",
     "parts": [
       {
         "part_number": 1,
@@ -25,18 +25,22 @@ body:json {
       {
         "part_number": 2,
         "etag": "35eada417bf56dd1e6302107c1c23e4f"
+      },
+      {
+        "part_number": 3,
+        "etag": "5021b3b7c402468d5b018a8b4a2b448a"
       }
     ]
   }
 }
 
 tests {
-  test('Should complete upload for Manager in Admin Org', function() {
+  test('Should complete upload for Simple User in Admin Org', function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.have.property('message');
     expect(res.body.message).to.include('completed');
     expect(res.body).to.have.property('video_url');
     
-    console.log("Manager completed upload for video:", bru.getEnvVar("adminOrgVideoId"));
+    console.log("Simple User completed upload for video:", bru.getEnvVar("simpleUserAdminOrgVideoId"));
   });
 }

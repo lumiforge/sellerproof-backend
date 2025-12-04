@@ -1,7 +1,7 @@
 meta {
-  name: Complete upload success with second user JWT
+  name: Complete upload with Unicode video ID
   type: http
-  seq: 25
+  seq: 17
 }
 
 post {
@@ -11,23 +11,27 @@ post {
 }
 
 auth:bearer {
-  token: {{managerAccessToken}}
+  token: {{adminAccessToken}}
 }
 
 body:json {
   {
-    "video_id": "{{secondUserVideoId}}",
+    "video_id": "{{testUnicodeVideoId}}",
     "parts": [
       {
         "part_number": 1,
         "etag": "d7a3decdb6280eb0ef3a059ac35ea0ee"
+      },
+      {
+        "part_number": 2,
+        "etag": "35eada417bf56dd1e6302107c1c23e4f"
       }
     ]
   }
 }
 
 tests {
-  test('Should return 200 OK and valid upload completion response for second user JWT token', function() {
+  test("Should return 200 for unicode characters in video_id", function() {
     expect(res.status).to.equal(200);
     expect(res.body).to.be.an('object');
     

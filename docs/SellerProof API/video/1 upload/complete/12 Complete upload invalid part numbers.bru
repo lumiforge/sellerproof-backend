@@ -1,7 +1,7 @@
 meta {
-  name: Complete upload XSS video ID
+  name: Complete upload invalid part numbers
   type: http
-  seq: 11
+  seq: 12
 }
 
 post {
@@ -16,20 +16,24 @@ auth:bearer {
 
 body:json {
   {
-    "video_id": "<script>alert('xss')</script>",
+    "video_id": "{{testVideoId}}",
     "parts": [
       {
         "part_number": 1,
         "etag": "d7a3decdb6280eb0ef3a059ac35ea0ee"
+      },
+      {
+        "part_number": -1,
+        "etag": "35eada417bf56dd1e6302107c1c23e4f"
       }
     ]
   }
 }
 
 tests {
-  test('Should return 400 for XSS in video_id', function() {
+  test('Should return 400 for invalid part numbers', function() {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include("validation error in field 'video_id': contains characters not allowed in filenames");
+    expect(res.body.message).to.include('part_number');
   });
 }

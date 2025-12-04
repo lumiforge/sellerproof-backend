@@ -1,7 +1,7 @@
 meta {
-  name: Complete upload wrong Content-Type
+  name: Complete upload missing required fields
   type: http
-  seq: 16
+  seq: 2
 }
 
 post {
@@ -14,13 +14,8 @@ auth:bearer {
   token: {{adminAccessToken}}
 }
 
-headers {
-  Content-Type: text/plain
-}
-
 body:json {
   {
-    "video_id": "{{testVideoId}}",
     "parts": [
       {
         "part_number": 1,
@@ -31,8 +26,9 @@ body:json {
 }
 
 tests {
-  test('Should return 415 for wrong Content-Type', function() {
-    expect(res.status).to.equal(415);
-
+  test('Should return 400 for missing video_id field', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('video_id');
   });
 }

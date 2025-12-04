@@ -1,7 +1,7 @@
 meta {
-  name: Complete upload with invalid JWT token
+  name: Complete upload invalid ETags
   type: http
-  seq: 22
+  seq: 13
 }
 
 post {
@@ -11,7 +11,7 @@ post {
 }
 
 auth:bearer {
-  token: invalid.jwt.token
+  token: {{adminAccessToken}}
 }
 
 body:json {
@@ -24,14 +24,16 @@ body:json {
       },
       {
         "part_number": 2,
-        "etag": "35eada417bf56dd1e6302107c1c23e4f"
+        "etag": null
       }
     ]
   }
 }
 
 tests {
-  test("Should return 401 for invalid JWT token", function() {
-    expect(res.status).to.equal(401);
+  test('Should return 400 for invalid ETags', function() {
+    expect(res.status).to.equal(400);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('etag');
   });
 }
