@@ -39,6 +39,10 @@ func (s *Service) LogAction(
 	userAgent string,
 	details map[string]interface{},
 ) error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+
 	// Handle nil details
 	if details == nil {
 		details = make(map[string]interface{})
@@ -85,6 +89,9 @@ func (s *Service) GetLogs(
 	limit int,
 	offset int,
 ) ([]*models.AuditLog, int64, error) {
+	if s == nil || s.db == nil {
+		return nil, 0, nil
+	}
 	if limit > 1000 {
 		limit = 1000
 	}

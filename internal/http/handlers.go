@@ -121,8 +121,8 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		errorMsg := err.Error()
 		if errorMsg == "email already exists" {
 			s.writeJSON(w, http.StatusCreated, models.RegisterResponse{
-				UserID:  resp.UserID,
-				Message: resp.Message,
+				UserID:  "",
+				Message: "Registration successful. Please check your email for verification.",
 			})
 			return
 
