@@ -5,17 +5,21 @@ definitions:
     properties:
       invite_code:
         type: string
-    required:
-    - invite_code
     type: object
   models.AcceptInvitationResponse:
-    description: Accept invitation response with membership details
+    description: Accept invitation response with membership details and new tokens
     properties:
+      access_token:
+        type: string
+      expires_at:
+        type: integer
       membership_id:
         type: string
       message:
         type: string
       org_id:
+        type: string
+      refresh_token:
         type: string
       role:
         type: string
@@ -50,13 +54,9 @@ definitions:
       parts:
         items:
           $ref: '#/definitions/models.CompletedPart'
-        minItems: 1
         type: array
       video_id:
         type: string
-    required:
-    - parts
-    - video_id
     type: object
   models.CompleteMultipartUploadResponse:
     description: Multipart upload completion response
@@ -120,7 +120,20 @@ definitions:
       message:
         type: string
     type: object
+  models.ForgotPasswordRequest:
+    description: Forgot password request
+    properties:
+      email:
+        type: string
+    type: object
+  models.ForgotPasswordResponse:
+    description: Forgot password response
+    properties:
+      message:
+        type: string
+    type: object
   models.GetAuditLogsResponse:
+    description: Audit logs list with pagination
     properties:
       limit:
         type: integer
@@ -137,13 +150,9 @@ definitions:
     description: Part upload URLs request
     properties:
       total_parts:
-        minimum: 1
         type: integer
       video_id:
         type: string
-    required:
-    - total_parts
-    - video_id
     type: object
   models.GetPartUploadURLsResponse:
     description: Part upload URLs response
@@ -155,32 +164,17 @@ definitions:
           type: string
         type: array
     type: object
-  models.HealthResponse:
-    description: Health check response
-    properties:
-      status:
-        type: string
-      timestamp:
-        type: string
-      version:
-        type: string
-    type: object
   models.InitiateMultipartUploadRequest:
     description: Multipart upload initiation request
     properties:
       duration_seconds:
-        minimum: 1
         type: integer
       file_name:
-        maxLength: 255
         type: string
       file_size_bytes:
-        minimum: 1
         type: integer
-    required:
-    - duration_seconds
-    - file_name
-    - file_size_bytes
+      title:
+        type: string
     type: object
   models.InitiateMultipartUploadResponse:
     description: Multipart upload initiation response
@@ -205,7 +199,11 @@ definitions:
         type: integer
       invitation_id:
         type: string
+      invite_code:
+        type: string
       invited_by:
+        type: string
+      org_id:
         type: string
       role:
         type: string
@@ -221,15 +219,7 @@ definitions:
       org_id:
         type: string
       role:
-        enum:
-        - user
-        - manager
-        - admin
         type: string
-    required:
-    - email
-    - org_id
-    - role
     type: object
   models.InviteUserResponse:
     description: Invite user response with invitation details
@@ -272,9 +262,6 @@ definitions:
         type: string
       password:
         type: string
-    required:
-    - email
-    - password
     type: object
   models.LoginResponse:
     description: Login response with tokens and user info
@@ -297,8 +284,6 @@ definitions:
     properties:
       refresh_token:
         type: string
-    required:
-    - refresh_token
     type: object
   models.LogoutResponse:
     description: Logout response with message
@@ -363,8 +348,6 @@ definitions:
     properties:
       video_id:
         type: string
-    required:
-    - video_id
     type: object
   models.PublishVideoResult:
     description: Publish video result
@@ -381,8 +364,6 @@ definitions:
     properties:
       refresh_token:
         type: string
-    required:
-    - refresh_token
     type: object
   models.RefreshTokenResponse:
     description: Refresh token response with new tokens
@@ -401,16 +382,12 @@ definitions:
         type: string
       full_name:
         type: string
+      invite_code:
+        type: string
       organization_name:
         type: string
       password:
-        minLength: 8
         type: string
-    required:
-    - email
-    - full_name
-    - organization_name
-    - password
     type: object
   models.RegisterResponse:
     description: Registration response with user ID and message
@@ -420,13 +397,27 @@ definitions:
       user_id:
         type: string
     type: object
+  models.ResetPasswordRequest:
+    description: Reset password request
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      new_password:
+        type: string
+    type: object
+  models.ResetPasswordResponse:
+    description: Reset password response
+    properties:
+      message:
+        type: string
+    type: object
   models.RevokeVideoRequest:
     description: Revoke video public access request
     properties:
       video_id:
         type: string
-    required:
-    - video_id
     type: object
   models.RevokeVideoResponse:
     description: Revoke video public access response
@@ -448,25 +439,44 @@ definitions:
           $ref: '#/definitions/models.Video'
         type: array
     type: object
+  models.SwitchOrganizationRequest:
+    description: Switch organization request
+    properties:
+      org_id:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  models.SwitchOrganizationResponse:
+    description: Switch organization response
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: integer
+      org_id:
+        type: string
+      refresh_token:
+        type: string
+    type: object
   models.UpdateMemberRoleRequest:
     description: Update member role request
     properties:
       new_role:
-        enum:
-        - user
-        - manager
-        - admin
         type: string
-    required:
-    - new_role
+    type: object
+  models.UpdateMemberStatusRequest:
+    description: Update member status request
+    properties:
+      status:
+        description: '"active" or "suspended"'
+        type: string
     type: object
   models.UpdateProfileRequest:
     description: Profile update request with full name
     properties:
       full_name:
         type: string
-    required:
-    - full_name
     type: object
   models.UserInfo:
     description: User profile information
@@ -495,9 +505,6 @@ definitions:
         type: string
       email:
         type: string
-    required:
-    - code
-    - email
     type: object
   models.VerifyEmailResponse:
     description: Email verification response with success status
@@ -516,6 +523,8 @@ definitions:
         type: string
       file_size_bytes:
         type: integer
+      title:
+        type: string
       upload_status:
         type: string
       uploaded_at:
@@ -581,6 +590,10 @@ paths:
           description: Audit logs retrieved successfully
           schema:
             $ref: '#/definitions/models.GetAuditLogsResponse'
+        "400":
+          description: Bad request - invalid parameters
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -598,137 +611,25 @@ paths:
       summary: Get audit logs
       tags:
       - admin
-  /api/v1/organization/create:
+  /auth/forgot-password:
     post:
       consumes:
       - application/json
-      description: Create a new organization (admin only)
+      description: Initiate password reset process by sending a code to email
       parameters:
-      - description: Create organization request
+      - description: Forgot password request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/models.CreateOrganizationRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/models.CreateOrganizationResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create organization
-      tags:
-      - organization
-  /api/v1/organization/invitations:
-    get:
-      description: List all invitations for organization (admin/manager only)
-      parameters:
-      - description: Organization ID
-        in: query
-        name: org_id
-        required: true
-        type: string
+          $ref: '#/definitions/models.ForgotPasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.ListInvitationsResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: List invitations
-      tags:
-      - organization
-  /api/v1/organization/invitations/{id}:
-    delete:
-      description: Cancel pending invitation (admin/manager only)
-      parameters:
-      - description: Invitation ID
-        in: path
-        name: invitation_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Cancel invitation
-      tags:
-      - organization
-  /api/v1/organization/invitations/accept:
-    post:
-      consumes:
-      - application/json
-      description: Accept invitation to organization using invite code
-      parameters:
-      - description: Accept invitation request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.AcceptInvitationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.AcceptInvitationResponse'
+            $ref: '#/definitions/models.ForgotPasswordResponse'
         "400":
           description: Bad Request
           schema:
@@ -737,276 +638,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Accept invitation
+      summary: Request password reset
       tags:
-      - organization
-  /api/v1/organization/invite:
-    post:
-      consumes:
-      - application/json
-      description: Invite user to organization with specific role (admin/manager only)
-      parameters:
-      - description: Invite user request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.InviteUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.InviteUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Invite user to organization
-      tags:
-      - organization
-  /api/v1/organization/members:
-    get:
-      description: List all members of organization (admin only)
-      parameters:
-      - description: Organization ID
-        in: query
-        name: org_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ListMembersResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: List organization members
-      tags:
-      - organization
-  /api/v1/organization/members/{user_id}:
-    delete:
-      description: Remove member from organization (admin only)
-      parameters:
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Remove member
-      tags:
-      - organization
-  /api/v1/organization/members/{user_id}/role:
-    put:
-      consumes:
-      - application/json
-      description: Update organization member role (admin only)
-      parameters:
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: string
-      - description: Update member role request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UpdateMemberRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update member role
-      tags:
-      - organization
-  /api/v1/video/{id}:
-    delete:
-      description: Soft-delete a video belonging to current organization
-      parameters:
-      - description: Video ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.DeleteVideoResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete video
-      tags:
-      - video
-  /api/v1/video/public:
-    get:
-      consumes:
-      - application/json
-      description: Get public video by public token
-      parameters:
-      - description: Public access token
-        in: query
-        name: token
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.PublicVideoResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "410":
-          description: Gone
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      summary: Get public video
-      tags:
-      - video
-  /api/v1/video/revoke:
-    post:
-      consumes:
-      - application/json
-      description: Move video from public bucket back to private (admin/manager only)
-      parameters:
-      - description: Revoke video request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.RevokeVideoRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.RevokeVideoResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Revoke video publication
-      tags:
-      - video
+      - auth
   /auth/login:
     post:
       consumes:
@@ -1032,6 +666,10 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: User login
@@ -1124,6 +762,14 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update user profile
@@ -1194,6 +840,72 @@ paths:
       summary: Register a new user
       tags:
       - auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Reset password using verification code
+      parameters:
+      - description: Reset password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ResetPasswordResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Reset password
+      tags:
+      - auth
+  /auth/switch-organization:
+    post:
+      consumes:
+      - application/json
+      description: Switch active organization for the current user and rotate tokens
+      parameters:
+      - description: Switch organization request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.SwitchOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SwitchOrganizationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Switch organization
+      tags:
+      - auth
   /auth/verify-email:
     post:
       consumes:
@@ -1224,21 +936,385 @@ paths:
       summary: Verify user email
       tags:
       - auth
-  /health:
-    get:
+  /organization/create:
+    post:
       consumes:
       - application/json
-      description: Check API health status
+      description: Create a new organization (admin only)
+      parameters:
+      - description: Create organization request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.CreateOrganizationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create organization
+      tags:
+      - organization
+  /organization/invitations:
+    get:
+      description: List all invitations for organization (admin/manager only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.HealthResponse'
-      summary: Health check
+            $ref: '#/definitions/models.ListInvitationsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List invitations
       tags:
-      - health
+      - organization
+  /organization/invitations/{invitation_id}:
+    delete:
+      description: Cancel pending invitation (admin/manager only)
+      parameters:
+      - description: Invitation ID
+        in: path
+        name: invitation_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel invitation
+      tags:
+      - organization
+  /organization/invitations/accept:
+    post:
+      consumes:
+      - application/json
+      description: Accept invitation to organization using invite code
+      parameters:
+      - description: Accept invitation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AcceptInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AcceptInvitationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Accept invitation
+      tags:
+      - organization
+  /organization/invite:
+    post:
+      consumes:
+      - application/json
+      description: Invite user to organization with specific role (admin/manager only)
+      parameters:
+      - description: Invite user request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.InviteUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.InviteUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Invite user to organization
+      tags:
+      - organization
+  /organization/members:
+    get:
+      description: List all members of organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListMembersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization members
+      tags:
+      - organization
+  /organization/members/{user_id}:
+    delete:
+      description: Remove member from organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove member
+      tags:
+      - organization
+  /organization/members/{user_id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update organization member role (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Update member role request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMemberRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update member role
+      tags:
+      - organization
+  /organization/members/{user_id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Update organization member status (active/suspended)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Update member status request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMemberStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update member status
+      tags:
+      - organization
   /video:
     get:
       consumes:
@@ -1265,6 +1341,14 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1272,6 +1356,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Get video information
+      tags:
+      - video
+  /video/{id}:
+    delete:
+      description: Soft-delete a video belonging to current organization
+      parameters:
+      - description: Video ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete video
       tags:
       - video
   /video/download:
@@ -1300,6 +1425,14 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1307,6 +1440,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Download private video
+      tags:
+      - video
+  /video/public:
+    get:
+      consumes:
+      - application/json
+      description: Get public video by public token
+      parameters:
+      - description: Public access token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PublicVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get public video
       tags:
       - video
   /video/publish:
@@ -1340,6 +1510,14 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1347,6 +1525,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Publish video
+      tags:
+      - video
+  /video/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Move video from public bucket back to private (admin/manager only)
+      parameters:
+      - description: Revoke video request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RevokeVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RevokeVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke video publication
       tags:
       - video
   /video/search:
@@ -1376,6 +1598,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.SearchVideosResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1414,6 +1640,14 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/models.ErrorResponse'
         "500":
@@ -1486,6 +1720,14 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/models.ErrorResponse'
         "500":

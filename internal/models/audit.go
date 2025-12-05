@@ -41,9 +41,9 @@ const (
 	// AuditVideoDownloadPublic  AuditActionType = "video_download_public"
 
 	// Organization actions
-	AuditOrgUserInvite         AuditActionType = "org_user_invite"
-	AuditOrgInvitationAccepted AuditActionType = "org_invitation_accepted"
-	AuditOrgRoleChanged        AuditActionType = "org_role_changed"
+	AuditOrgUserInvite          AuditActionType = "org_user_invite"
+	AuditOrgInvitationAccepted  AuditActionType = "org_invitation_accepted"
+	AuditOrgRoleChanged         AuditActionType = "org_role_changed"
 	AuditOrgMemberStatusChanged AuditActionType = "org_member_status_changed"
 
 	// Error actions
@@ -59,7 +59,8 @@ const (
 	AuditResultFailure AuditActionResult = "failure"
 )
 
-// GetAuditLogs request/response models
+// GetAuditLogs request model
+// @Description	Request filters for audit logs listing
 type GetAuditLogsRequest struct {
 	UserID     string `query:"user_id"`
 	OrgID      string `query:"org_id"`
@@ -72,6 +73,7 @@ type GetAuditLogsRequest struct {
 }
 
 // GetAuditLogsResponse response for audit logs listing
+// @Description	Audit logs list with pagination
 type GetAuditLogsResponse struct {
 	Logs   []*AuditLog `json:"logs"`
 	Total  int64       `json:"total"`

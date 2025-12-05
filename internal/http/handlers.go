@@ -250,6 +250,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.LoginRequest	true	"Login request"
 // @Success	200		{object}	models.LoginResponse
 // @Failure	401		{object}	models.ErrorResponse
+// @Failure	403		{object}	models.ErrorResponse
 // @Failure	400		{object}	models.ErrorResponse
 // @Router		/auth/login [post]
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
@@ -507,6 +508,8 @@ func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 // @Success	200	{object}	models.UserInfo
 // @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
+// @Failure	500	{object}	models.ErrorResponse
 // @Router		/auth/profile [put]
 func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
@@ -698,6 +701,8 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 // @Success	200	{object}	models.GetPartUploadURLsResponse
 // @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/urls [post]
 func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
@@ -793,6 +798,8 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 // @Security		BearerAuth
 // @Success	200	{object}	models.CompleteMultipartUploadResponse
 // @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/complete [post]
@@ -923,6 +930,8 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 // @Security		BearerAuth
 // @Success	200	{object}	models.Video
 // @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video [get]
@@ -1008,6 +1017,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 // @Param		page_size	query		int		false	"Page size"	default(10)
 // @Security		BearerAuth
 // @Success	200	{object}	models.SearchVideosResponse
+// @Failure	400	{object}	models.ErrorResponse
 // @Failure	401	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/search [get]
@@ -1098,7 +1108,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 // @Failure	404	{object}	models.ErrorResponse
 // @Failure	410	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/video/public [get]
+// @Router		/video/public [get]
 func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -1158,14 +1168,7 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, publicVideo)
 }
 
-// Health handles health check
-// @Summary		Health check
-// @Description	Check API health status
-// @Tags		health
-// @Accept		json
-// @Produce	json
-// @Success	200	{object}	models.HealthResponse
-// @Router		/health [get]
+// Health handles health check (undocumented in Swagger)
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, models.HealthResponse{
 		Status:    "ok",
@@ -1175,6 +1178,18 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 // SwitchOrganization handles organization switching
+// @Summary		Switch organization
+// @Description	Switch active organization for the current user and rotate tokens
+// @Tags		auth
+// @Accept		json
+// @Produce		json
+// @Param		request	body		models.SwitchOrganizationRequest	true	"Switch organization request"
+// @Security	BearerAuth
+// @Success	200		{object}	models.SwitchOrganizationResponse
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/auth/switch-organization [post]
 func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -1256,7 +1271,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	409	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router	/api/v1/organization/create [post]
+// @Router		/organization/create [post]
 func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -1315,6 +1330,8 @@ func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 // @Param		video_id	query		string	true	"Video ID"
 // @Success	200	{object}	models.DownloadURLResult
 // @Failure	401	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/download [get]
@@ -1401,7 +1418,7 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	404	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router	/api/v1/video/{id} [delete]
+// @Router		/video/{id} [delete]
 func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
@@ -1478,10 +1495,12 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.InviteUserRequest	true	"Invite user request"
 // @Security	BearerAuth
 // @Success	200	{object}	models.InviteUserResponse
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
+// @Failure	409	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/invite [post]
+// @Router		/organization/invite [post]
 func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -1568,9 +1587,10 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.AcceptInvitationRequest	true	"Accept invitation request"
 // @Security	BearerAuth
 // @Success	200	{object}	models.AcceptInvitationResponse
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/invitations/accept [post]
+// @Router		/organization/invitations/accept [post]
 func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
@@ -1634,10 +1654,11 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 // @Param		org_id	query		string	true	"Organization ID"
 // @Security	BearerAuth
 // @Success	200	{object}	models.ListInvitationsResponse
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/invitations [get]
+// @Router		/organization/invitations [get]
 func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -1695,10 +1716,12 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 // @Param		invitation_id	path		string	true	"Invitation ID"
 // @Security	BearerAuth
 // @Success	200	{object}	map[string]string
-// @Failure	400	{object}	models.ErrorResponse
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/invitations/{id} [delete]
+// @Router		/organization/invitations/{invitation_id} [delete]
 func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := GetUserClaims(r)
@@ -1779,10 +1802,11 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 // @Param		org_id	query		string	true	"Organization ID"
 // @Security	BearerAuth
 // @Success	200	{object}	models.ListMembersResponse
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/members [get]
+// @Router		/organization/members [get]
 func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -1834,10 +1858,11 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.UpdateMemberRoleRequest	true	"Update member role request"
 // @Security	BearerAuth
 // @Success	200	{object}	map[string]string
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/members/{user_id}/role [put]
+// @Router		/organization/members/{user_id}/role [put]
 func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
@@ -1926,10 +1951,11 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 // @Param		request	body		models.UpdateMemberStatusRequest	true	"Update member status request"
 // @Security	BearerAuth
 // @Success	200	{object}	map[string]string
+// @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/members/{user_id}/status [put]
+// @Router		/organization/members/{user_id}/status [put]
 func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.Header.Get("X-Forwarded-For")
 	if ipAddress == "" {
@@ -1990,12 +2016,15 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 // @Description	Remove member from organization (admin only)
 // @Tags		organization
 // @Produce	json
+// @Param		org_id	query		string	true	"Organization ID"
 // @Param		user_id	path		string	true	"User ID"
 // @Security	BearerAuth
 // @Success	200	{object}	map[string]string
+// @Failure	401	{object}	models.ErrorResponse
+// @Failure	400	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/organization/members/{user_id} [delete]
+// @Router		/organization/members/{user_id} [delete]
 func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
@@ -2083,6 +2112,8 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 // @Failure	401	{object}	models.ErrorResponse
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
+// @Failure	404	{object}	models.ErrorResponse
+// @Failure	415	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/publish [post]
 func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
@@ -2176,7 +2207,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 // @Failure	403	{object}	models.ErrorResponse
 // @Failure	404	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
-// @Router		/api/v1/video/revoke [post]
+// @Router		/video/revoke [post]
 func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	// Extract client info for audit logging
 	ipAddress := r.Header.Get("X-Forwarded-For")
@@ -2316,6 +2347,7 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 // @Param offset query int false "Offset for pagination (default 0)"
 // @Produce json
 // @Success 200 {object} models.GetAuditLogsResponse "Audit logs retrieved successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad request - invalid parameters"
 // @Failure 401 {object} models.ErrorResponse "Unauthorized"
 // @Failure 403 {object} models.ErrorResponse "Forbidden - insufficient permissions"
 // @Failure 500 {object} models.ErrorResponse "Internal server error"

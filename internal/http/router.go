@@ -15,7 +15,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check endpoint (no auth required)
-	mux.Handle("/very-secret-health-check", chainMiddleware(server.Health, methodMiddleware("GET")))
+	// mux.Handle("/very-secret-health-check", chainMiddleware(server.Health, methodMiddleware("GET")))
 
 	// Public video endpoint (no auth required)
 	mux.HandleFunc("/api/v1/video/public", chainMiddleware(server.GetPublicVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware))
@@ -262,16 +262,3 @@ func methodMiddleware(method string) func(http.Handler) http.Handler {
 		})
 	}
 }
-
-// pathMiddleware creates middleware that checks URL path prefix
-// func pathMiddleware(prefix string) func(http.Handler) http.Handler {
-// 	return func(next http.Handler) http.Handler {
-// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 			if !strings.HasPrefix(r.URL.Path, prefix) {
-// 				http.NotFound(w, r)
-// 				return
-// 			}
-// 			next.ServeHTTP(w, r)
-// 		})
-// 	}
-// }
