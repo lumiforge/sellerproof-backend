@@ -60,7 +60,7 @@ git:
 
 build-zip:
 	rm $(ZIP)
-	zip -r $(ZIP) internal go.mod main.go
+	zip -r $(ZIP) internal go.mod main.go -x 'internal/*/mocks/*'
 	
 test:
 	go test -v ./...

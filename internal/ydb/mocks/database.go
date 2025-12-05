@@ -1410,6 +1410,42 @@ func (_m *Database) UpdateUser(ctx context.Context, user *ydb.User) error {
 	return r0
 }
 
+// UpdateUserPassword provides a mock function with given fields: ctx, userID, passwordHash
+func (_m *Database) UpdateUserPassword(ctx context.Context, userID string, passwordHash string) error {
+	ret := _m.Called(ctx, userID, passwordHash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserPassword")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, userID, passwordHash)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateUserPasswordResetInfo provides a mock function with given fields: ctx, userID, code, expiresAt
+func (_m *Database) UpdateUserPasswordResetInfo(ctx context.Context, userID string, code string, expiresAt time.Time) error {
+	ret := _m.Called(ctx, userID, code, expiresAt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserPasswordResetInfo")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, time.Time) error); ok {
+		r0 = rf(ctx, userID, code, expiresAt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpdateVideo provides a mock function with given fields: ctx, video
 func (_m *Database) UpdateVideo(ctx context.Context, video *ydb.Video) error {
 	ret := _m.Called(ctx, video)
