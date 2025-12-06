@@ -2518,3 +2518,31 @@ func (s *Server) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusOK, resp)
 }
+
+// GetUserOrganizations handles getting user organizations
+// @Summary		Get user organizations
+// @Description	Get list of organizations the user belongs to
+// @Tags		auth
+// @Accept		json
+// @Produce		json
+// @Security	BearerAuth
+// @Success	200		{object}	models.GetUserOrganizationsResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/auth/organizations [get]
+func (s *Server) GetUserOrganizations(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	resp, err := s.authService.GetUserOrganizations(r.Context(), claims.UserID)
+	if err != nil {
+		slog.Error("GetUserOrganizations: Failed to get organizations", "error", err.Error())
+		s.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}

@@ -566,3 +566,34 @@ func TestService_ResetPassword_Success(t *testing.T) {
 	assert.Equal(t, "Password has been reset successfully", resp.Message)
 	mockDB.AssertExpectations(t)
 }
+
+func TestService_GetUserOrganizations_Success(t *testing.T) {
+	service, mockDB, _ := setupAuthService()
+	ctx := context.Background()
+	userID := "user-1"
+
+	memberships := []*ydb.Membership{
+		{OrgID: "org-1", Role: "admin"},
+		{OrgID: "org-2", Role: "user"},
+	}
+	orgs := []*ydb.Organization{
+		{OrgID: "org-1", Name: "Org 1"},
+		{OrgID: "org-2", Name: "Org 2"},
+	}
+
+	mockDB.On("GetMembershipsByUser", ctx, userID).Return(memberships, nil)
+	mockDB.On("GetOrganizationsByIDs", ctx, []string{"org-1", "org-2"}).Return(orgs, nil)
+
+	resp, err := service.GetUserOrganizations(ctx, userID)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Organizations, 2)
+	assert.Equal(t, "org-1", resp.Organizations[0].OrgID)
+	assert.Equal(t, "Org 1", resp.Organizations[0].Name)
+	assert.Equal(t, "admin", resp.Organizations[0].Role)
+	assert.Equal(t, "org-2", resp.Organizations[1].OrgID)
+	assert.Equal(t, "Org 2", resp.Organizations[1].Name)
+	assert.Equal(t, "user", resp.Organizations[1].Role)
+	mockDB.AssertExpectations(t)
+}

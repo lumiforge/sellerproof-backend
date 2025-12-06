@@ -173,3 +173,9 @@ type ResetPasswordRequest struct {
 type ResetPasswordResponse struct {
 	Message string `json:"message"`
 }
+
+// GetUserOrganizationsResponse represents a response with user organizations
+// @Description Response containing list of user organizations
+type GetUserOrganizationsResponse struct {
+	Organizations []*OrganizationInfo `json:"organizations"`
+}

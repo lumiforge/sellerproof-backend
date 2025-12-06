@@ -1,0 +1,35 @@
+meta {
+  name: Get user organizations success
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/organizations
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 200 OK and list of organizations', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+    expect(res.body).to.have.property('organizations');
+    expect(res.body.organizations).to.be.an('array');
+
+    if (res.body.organizations.length > 0) {
+      const org = res.body.organizations[0];
+      expect(org).to.have.property('org_id');
+      expect(org).to.have.property('name');
+      expect(org).to.have.property('role');
+
+      expect(org.org_id).to.be.a('string');
+      expect(org.name).to.be.a('string');
+      expect(org.role).to.be.a('string');
+    }
+  });
+}

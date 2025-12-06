@@ -350,3 +350,36 @@ func TestHandler_ResetPassword_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Password has been reset successfully")
 }
+
+func TestHandler_GetUserOrganizations_Success(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	// 1. Generate a valid token to bypass middleware
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "user", "org-1")
+
+	// Mock for AuthMiddleware session check
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{
+		UserID:   "user-1",
+		IsActive: true,
+	}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{
+		Status: "active",
+	}, nil)
+
+	// Mock for GetUserOrganizations
+	mockDB.On("GetMembershipsByUser", mock.Anything, "user-1").Return([]*ydb.Membership{}, nil)
+	// GetOrganizationsByIDs won't be called if memberships is empty
+
+	req := httptest.NewRequest("GET", "/api/v1/auth/organizations", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp models.GetUserOrganizationsResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Empty(t, resp.Organizations)
+}

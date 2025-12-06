@@ -1720,3 +1720,47 @@ func (s *Service) ResetPassword(ctx context.Context, req *models.ResetPasswordRe
 		Message: "Password has been reset successfully",
 	}, nil
 }
+
+// GetUserOrganizations retrieves all organizations for a user
+func (s *Service) GetUserOrganizations(ctx context.Context, userID string) (*models.GetUserOrganizationsResponse, error) {
+	memberships, err := s.db.GetMembershipsByUser(ctx, userID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetUserMembership
+	}
+
+	if len(memberships) == 0 {
+		return &models.GetUserOrganizationsResponse{
+			Organizations: []*models.OrganizationInfo{},
+		}, nil
+	}
+
+	orgIDs := make([]string, 0, len(memberships))
+	for _, m := range memberships {
+		orgIDs = append(orgIDs, m.OrgID)
+	}
+
+	orgs, err := s.db.GetOrganizationsByIDs(ctx, orgIDs)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetOrganizations
+	}
+
+	orgMap := make(map[string]*ydb.Organization)
+	for _, o := range orgs {
+		orgMap[o.OrgID] = o
+	}
+
+	result := make([]*models.OrganizationInfo, 0, len(memberships))
+	for _, m := range memberships {
+		if org, exists := orgMap[m.OrgID]; exists {
+			result = append(result, &models.OrganizationInfo{
+				OrgID: m.OrgID,
+				Name:  org.Name,
+				Role:  m.Role,
+			})
+		}
+	}
+
+	return &models.GetUserOrganizationsResponse{
+		Organizations: result,
+	}, nil
+}

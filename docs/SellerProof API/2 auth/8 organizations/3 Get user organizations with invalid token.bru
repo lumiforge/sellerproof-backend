@@ -1,0 +1,21 @@
+meta {
+  name: Get user organizations with invalid token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/organizations
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: invalid_token
+}
+
+tests {
+  test('Should return 401 Unauthorized', function() {
+    expect(res.status).to.equal(401);
+  });
+}

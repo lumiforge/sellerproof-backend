@@ -58,6 +58,9 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/auth/logout", chainMiddleware(server.Logout, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
+	mux.HandleFunc("/api/v1/auth/organizations", chainMiddleware(server.GetUserOrganizations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, server.authService, next)
+	}))
 	mux.HandleFunc("/api/v1/auth/profile", func(w http.ResponseWriter, r *http.Request) {
 		// Apply basic middleware first
 		CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
