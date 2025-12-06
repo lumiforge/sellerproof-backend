@@ -24,6 +24,6 @@ body:json {
 
 tests {
   test('Should not invite admin user', function() {
-    expect(res.status).to.equal(401);
+    expect(res.status).to.equal(409);
   });
 }

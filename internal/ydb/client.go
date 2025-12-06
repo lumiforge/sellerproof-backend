@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
@@ -634,7 +635,7 @@ func (c *YDBClient) GetUserByID(ctx context.Context, userID string) (*User, erro
 				named.Optional("password_reset_expires_at", &user.PasswordResetExpiresAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -695,7 +696,7 @@ func (c *YDBClient) GetUserByEmail(ctx context.Context, email string) (*User, er
 			)
 
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 
 		}
@@ -987,7 +988,7 @@ func (c *YDBClient) GetRefreshToken(ctx context.Context, tokenHash string) (*Ref
 			)
 
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -1106,7 +1107,7 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 				named.Required("updated_at", &plan.UpdatedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -1405,7 +1406,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				&uploadExpiresAt,
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 
 			// Присваиваем значения nullable полей
@@ -1523,9 +1524,8 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("video not found")
+		return nil, app_errors.ErrVideoNotFound
 	}
-
 	return &v, nil
 }
 
@@ -1665,7 +1665,7 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 				named.Required("column0", &usage),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -1809,9 +1809,8 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			)
 
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
-
 			// Присваиваем значения nullable полей
 			v.PartsUploaded = partsUploaded
 			v.TotalParts = totalParts
@@ -1833,7 +1832,7 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("video not found")
+		return nil, app_errors.ErrVideoNotFound
 	}
 
 	return &v, nil
@@ -1905,7 +1904,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				named.Required("column0", &total),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -2426,7 +2425,7 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 				named.Required("updated_at", &subscription.UpdatedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -2485,7 +2484,7 @@ func (c *YDBClient) GetSubscriptionByOrg(ctx context.Context, orgID string) (*Su
 				named.Required("updated_at", &subscription.UpdatedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -2871,7 +2870,7 @@ func (c *YDBClient) GetInvitationByCode(ctx context.Context, code string) (*Invi
 				named.Optional("accepted_at", &invitation.AcceptedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -3157,7 +3156,7 @@ func (c *YDBClient) GetPublicVideoShareByToken(ctx context.Context, token string
 				named.Optional("last_accessed_at", &lastAccessedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 			share.LastAccessedAt = lastAccessedAt
 		}
@@ -3213,7 +3212,7 @@ func (c *YDBClient) GetActivePublicVideoShare(ctx context.Context, videoID strin
 				named.Optional("last_accessed_at", &lastAccessedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 			share.LastAccessedAt = lastAccessedAt
 		}
@@ -3367,7 +3366,7 @@ func (c *YDBClient) GetInvitationByEmail(ctx context.Context, orgID, email strin
 				named.Optional("accepted_at", &invitation.AcceptedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()
@@ -3893,7 +3892,7 @@ func (c *YDBClient) GetInvitationByID(ctx context.Context, invitationID string) 
 				named.Optional("accepted_at", &invitation.AcceptedAt),
 			)
 			if err != nil {
-				return fmt.Errorf("scan failed: %w", err)
+				return app_errors.ErrScanFailed
 			}
 		}
 		return res.Err()

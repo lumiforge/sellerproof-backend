@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/audit"
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
@@ -1553,8 +1554,8 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 		errorMsg := err.Error()
 		slog.Error("InviteUser: Failed to invite user", "error", errorMsg, "user_agent", userAgent, "ip_address", ipAddress)
-		if strings.Contains(errorMsg, "organization can have only one admin") {
-			s.writeError(w, http.StatusUnauthorized, errorMsg)
+		if errors.Is(err, app_errors.ErrOrgCanHaveOnlyOneAdmin) {
+			s.writeError(w, http.StatusConflict, err.Error())
 			return
 		} else if strings.Contains(errorMsg, "already a member") || strings.Contains(errorMsg, "already invited") {
 			s.writeError(w, http.StatusConflict, errorMsg)

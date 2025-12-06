@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/lumiforge/sellerproof-backend/internal/config"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
 	jwtmanager "github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
@@ -123,17 +124,17 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	if req.InviteCode != "" {
 		inv, err := s.db.GetInvitationByCode(ctx, req.InviteCode)
 		if err != nil {
-			return nil, fmt.Errorf("invalid invite code")
+			return nil, app_errors.ErrInvalidInviteCode
 		}
 		if inv.Status != "pending" {
-			return nil, fmt.Errorf("invitation is not pending")
+			return nil, app_errors.ErrInvitationNotPending
 		}
 		if time.Now().After(inv.ExpiresAt) {
-			return nil, fmt.Errorf("invitation has expired")
+			return nil, app_errors.ErrInvitationExpired
 		}
 		// Проверяем, что email регистрации совпадает с приглашением
 		if !strings.EqualFold(inv.Email, req.Email) {
-			return nil, fmt.Errorf("registration email does not match invitation email")
+			return nil, app_errors.ErrRegistrationEmailMismatch
 		}
 		invitation = inv
 	}
@@ -147,7 +148,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			// Generate new verification code
 			newVerificationCode, err := email.GenerateVerificationCode()
 			if err != nil {
-				return nil, fmt.Errorf("failed to generate verification code: %w", err)
+				return nil, app_errors.ErrFailedToGenerateVerificationCode
 			}
 
 			// Update user record
@@ -159,7 +160,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			existingUser.UpdatedAt = time.Now()
 
 			if err := s.db.UpdateUser(ctx, existingUser); err != nil {
-				return nil, fmt.Errorf("failed to update user: %w", err)
+				return nil, app_errors.ErrFailedToUpdateUser
 			}
 
 			// Resend email
@@ -186,7 +187,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 				Message: "Registration successful. Please check your email for verification.",
 			}, nil
 		}
-		return nil, fmt.Errorf("email already exists")
+		return nil, app_errors.ErrEmailAlreadyExists
 	}
 
 	if err := validation.ValidateInputWithError(req.Password, "password", nameOptions); err != nil {
@@ -196,13 +197,13 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	// Хеширование пароля
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
+		return nil, app_errors.ErrFailedToHashPassword
 	}
 
 	// Генерация кода верификации
 	verificationCode, err := email.GenerateVerificationCode()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate verification code: %w", err)
+		return nil, app_errors.ErrFailedToGenerateVerificationCode
 	}
 
 	// Подготовка структуры User
@@ -274,7 +275,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		// Subscription (trial)
 		freePlan, err := s.db.GetPlanByID(ctx, "free")
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch free plan details: %w", err)
+			return nil, app_errors.ErrFailedToFetchFreePlan
 		}
 
 		subscription = &ydb.Subscription{
@@ -298,9 +299,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 	err = s.db.RegisterUserTx(ctx, user, org, membership, subscription, invitationID)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") {
-			return nil, fmt.Errorf("email already exists")
+			return nil, app_errors.ErrEmailAlreadyExists
 		}
-		return nil, fmt.Errorf("registration failed: %w", err)
+		return nil, app_errors.ErrRegistrationFailed
 	}
 
 	// ПОСТ-ТРАНЗАКЦИОННЫЕ ДЕЙСТВИЯ (Side Effects)
@@ -339,7 +340,7 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, app_errors.ErrUserNotFound
 	}
 
 	// Check if email is already verified
@@ -360,12 +361,12 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 	// 1. Проверка на превышение лимита попыток
 	const MaxVerificationAttempts = 5
 	if user.VerificationAttempts >= MaxVerificationAttempts {
-		return nil, fmt.Errorf("too many failed attempts. please request a new verification code")
+		return nil, app_errors.ErrTooManyFailedAttempts
 	}
 
 	// Проверка срока действия кода
 	if time.Now().After(user.VerificationExpiresAt) {
-		return nil, fmt.Errorf("verification code expired")
+		return nil, app_errors.ErrVerificationCodeExpired
 	}
 
 	// 2. Проверка кода верификации
@@ -381,10 +382,10 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 
 		// Если это была последняя попытка
 		if user.VerificationAttempts >= MaxVerificationAttempts {
-			return nil, fmt.Errorf("too many failed attempts. please request a new verification code")
+			return nil, app_errors.ErrTooManyFailedAttempts
 		}
 
-		return nil, fmt.Errorf("invalid verification code. attempts remaining: %d", MaxVerificationAttempts-user.VerificationAttempts)
+		return nil, app_errors.ErrInvalidVerificationCode
 	}
 
 	// Обновление статуса верификации (Успех)
@@ -395,7 +396,7 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 
 	err = s.db.UpdateUser(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
+		return nil, app_errors.ErrFailedToUpdateUser
 	}
 
 	return &models.VerifyEmailResponse{
@@ -409,15 +410,15 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	// Валидация обязательных полей
 	if req.Email == "" {
-		return nil, fmt.Errorf("email is required")
+		return nil, app_errors.ErrEmailRequired
 	}
 	if req.Password == "" {
-		return nil, fmt.Errorf("password is required")
+		return nil, app_errors.ErrPasswordRequired
 	}
 
 	// Валидация длины email сначала
 	if len(req.Email) > 254 {
-		return nil, fmt.Errorf("email must be less than 255 characters long")
+		return nil, app_errors.ErrEmailTooLong
 	}
 	// Нормализация email (Fix: Case Sensitivity)
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
@@ -432,28 +433,28 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		// TODO delete me
 		log.Println("Error in login 1", err)
 
-		return nil, fmt.Errorf("invalid credentials")
+		return nil, app_errors.ErrInvalidCredentials
 	}
 	if len(req.Password) > 72 {
-		return nil, fmt.Errorf("password must be less than 73 characters long")
+		return nil, app_errors.ErrPasswordTooLong
 	}
 
 	// Проверка, что email подтвержден (ДО проверки пароля для правильной семантики)
 	if !user.EmailVerified {
 		slog.Error("Email not verified", "email", req.Email, "emailVerified", user.EmailVerified)
-		return nil, fmt.Errorf("email not verified")
+		return nil, app_errors.ErrEmailNotVerified
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		// TODO delete me
 		log.Println("Error in login 2", err)
-		return nil, fmt.Errorf("invalid credentials")
+		return nil, app_errors.ErrInvalidCredentials
 	}
 
 	// Проверка, что пользователь активен
 	if !user.IsActive {
-		return nil, fmt.Errorf("user account is deactivated")
+		return nil, app_errors.ErrUserAccountDeactivated
 	}
 
 	// Получение всех членств пользователя
@@ -461,11 +462,11 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get user membership: %w", err)
+		return nil, app_errors.ErrFailedToGetUserMembership
 	}
 	if len(memberships) == 0 {
 
-		return nil, fmt.Errorf("failed to get user membership: membership not found")
+		return nil, app_errors.ErrMembershipNotFound
 	}
 	// Оптимизация: Получаем все организации одним запросом (Batch Fetch)
 	orgIDs := make([]string, 0, len(memberships))
@@ -475,7 +476,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	orgs, err := s.db.GetOrganizationsByIDs(ctx, orgIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get organizations: %w", err)
+		return nil, app_errors.ErrFailedToGetOrganizations
 	}
 
 	// Создаем карту для быстрого поиска организации по ID
@@ -567,7 +568,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		selectedMembership.OrgID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, app_errors.ErrFailedToGenerateTokens
 	}
 
 	// Сохранение refresh токена в базу
@@ -587,7 +588,7 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 	if err != nil {
 		slog.Error("Failed to save refresh token", "error", err, "user_id", user.UserID)
 
-		return nil, fmt.Errorf("failed to create session: %w", err)
+		return nil, app_errors.ErrFailedToCreateSession
 	}
 
 	fullName := user.FullName
@@ -613,33 +614,32 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 // RefreshToken обновляет access токен
 func (s *Service) RefreshToken(ctx context.Context, req *models.RefreshTokenRequest) (*models.RefreshTokenResponse, error) {
-	// Валидация refresh токена
 	claims, err := s.jwtManager.ValidateToken(req.RefreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token: %w", err)
+		return nil, app_errors.ErrInvalidRefreshToken
 	}
 
 	// Проверка токена в базе
 	tokenHash := s.hashToken(req.RefreshToken)
 	tokenRecord, err := s.db.GetRefreshToken(ctx, tokenHash)
 	if err != nil || tokenRecord == nil || tokenRecord.IsRevoked {
-		return nil, fmt.Errorf("refresh token not found or revoked")
+		return nil, app_errors.ErrRefreshTokenNotFoundOrRevoked
 	}
 	// FIX: Проверяем актуальный статус пользователя и его права перед обновлением
 	user, err := s.db.GetUserByID(ctx, claims.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, app_errors.ErrUserNotFound
 	}
 	if !user.IsActive {
-		return nil, fmt.Errorf("user account is deactivated")
+		return nil, app_errors.ErrUserAccountDeactivated
 	}
 	// Проверяем, что пользователь всё ещё состоит в этой организации и получаем актуальную роль
 	membership, err := s.db.GetMembership(ctx, claims.UserID, claims.OrgID)
 	if err != nil {
-		return nil, fmt.Errorf("membership not found or revoked: %w", err)
+		return nil, app_errors.ErrMembershipNotFoundOrRevoked
 	}
 	if membership.Status != "active" {
-		return nil, fmt.Errorf("membership is not active")
+		return nil, app_errors.ErrMembershipNotActive
 	}
 	// Генерация новой пары токенов
 	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(
@@ -649,7 +649,7 @@ func (s *Service) RefreshToken(ctx context.Context, req *models.RefreshTokenRequ
 		membership.OrgID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate new tokens: %w", err)
+		return nil, app_errors.ErrFailedToGenerateNewTokens
 	}
 
 	// Отзыв старого токена
@@ -688,11 +688,11 @@ func (s *Service) Logout(ctx context.Context, req *models.LogoutRequest) (*model
 	if err != nil {
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "refresh token not found") {
-			return nil, fmt.Errorf("failed to revoke refresh token: refresh token not found")
+			return nil, app_errors.ErrRefreshTokenNotFoundOrRevoked
 		} else if strings.Contains(errorMsg, "refresh token expired") {
-			return nil, fmt.Errorf("failed to revoke refresh token: refresh token expired")
+			return nil, app_errors.ErrRefreshTokenExpired
 		}
-		return nil, fmt.Errorf("failed to revoke refresh token: %w", err)
+		return nil, app_errors.ErrFailedToRevokeRefreshToken
 	}
 
 	return &models.LogoutResponse{
@@ -704,13 +704,13 @@ func (s *Service) Logout(ctx context.Context, req *models.LogoutRequest) (*model
 func (s *Service) GetProfile(ctx context.Context, userID, orgID string) (*models.GetProfileResponse, error) {
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found: %w", err)
+		return nil, app_errors.ErrUserNotFound
 	}
 
 	// Получение всех членств пользователя
 	memberships, err := s.db.GetMembershipsByUser(ctx, user.UserID)
 	if err != nil || len(memberships) == 0 {
-		return nil, fmt.Errorf("failed to get user membership: membership not found")
+		return nil, app_errors.ErrMembershipNotFound
 	}
 
 	// Оптимизация: Получаем все организации одним запросом (Batch Fetch)
@@ -721,7 +721,7 @@ func (s *Service) GetProfile(ctx context.Context, userID, orgID string) (*models
 
 	orgs, err := s.db.GetOrganizationsByIDs(ctx, orgIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get organizations: %w", err)
+		return nil, app_errors.ErrFailedToGetOrganizations
 	}
 
 	// Создаем карту для быстрого поиска организации по ID
@@ -781,7 +781,7 @@ func (s *Service) GetProfile(ctx context.Context, userID, orgID string) (*models
 
 	// Если после всех проверок организация не выбрана (все удалены или рассинхрон), возвращаем ошибку
 	if selectedMembership == nil {
-		return nil, fmt.Errorf("no valid organizations found for user")
+		return nil, app_errors.ErrNoValidOrganizations
 	}
 
 	fullName := user.FullName
@@ -804,15 +804,15 @@ func (s *Service) GetProfile(ctx context.Context, userID, orgID string) (*models
 func (s *Service) UpdateProfile(ctx context.Context, userID, orgID string, req *models.UpdateProfileRequest) (*models.GetProfileResponse, error) {
 	// Валидация обязательных полей
 	if req.FullName == "" {
-		return nil, fmt.Errorf("full_name is required")
+		return nil, app_errors.ErrFullNameRequired
 	}
 
 	// Валидация длины имени
 	if len(req.FullName) < 2 {
-		return nil, fmt.Errorf("full_name must be at least 2 characters long")
+		return nil, app_errors.ErrFullNameTooShort
 	}
 	if len(req.FullName) > 100 {
-		return nil, fmt.Errorf("full_name must be less than 101 characters long")
+		return nil, app_errors.ErrFullNameTooLong
 	}
 
 	// Валидация безопасности используя validation package
@@ -830,7 +830,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, orgID string, req *
 	// Получаем текущего пользователя
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found: %w", err)
+		return nil, app_errors.ErrUserNotFound
 	}
 
 	// Обновляем только поле full_name
@@ -840,7 +840,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, orgID string, req *
 	// Сохраняем изменения в базе
 	err = s.db.UpdateUser(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
+		return nil, app_errors.ErrFailedToUpdateUser
 	}
 
 	// Получаем обновленный профиль пользователя
@@ -854,19 +854,19 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	// Валидация формата токена
 	claims, err := s.jwtManager.ValidateToken(req.RefreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token: %w", err)
+		return nil, app_errors.ErrInvalidRefreshToken
 	}
 
 	// Проверка принадлежности токена пользователю
 	if claims.UserID != userID {
-		return nil, fmt.Errorf("refresh token does not belong to user")
+		return nil, app_errors.ErrRefreshTokenDoesNotBelongToUser
 	}
 
 	// Проверка существования и статуса токена в БД
 	oldTokenHash := s.hashToken(req.RefreshToken)
 	tokenRecord, err := s.db.GetRefreshToken(ctx, oldTokenHash)
 	if err != nil || tokenRecord == nil || tokenRecord.IsRevoked {
-		return nil, fmt.Errorf("refresh token not found or revoked")
+		return nil, app_errors.ErrRefreshTokenNotFoundOrRevoked
 	}
 
 	// 2. Проверка прав доступа к новой организации
@@ -875,22 +875,22 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	// TODO DELETE ME
 	log.Printf("Error in switch-organization: %v, userID: %v, orgID: %v", err, userID, req.OrgID)
 	if err != nil {
-		return nil, fmt.Errorf("user is not a member of this organization")
+		return nil, app_errors.ErrUserIsAlreadyMember
 	}
 
 	if membership.Status != "active" {
-		return nil, fmt.Errorf("membership is not active")
+		return nil, app_errors.ErrMembershipNotActive
 	}
 
 	// Получаем информацию о пользователе
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, app_errors.ErrUserNotFound
 	}
 
 	// все проверки пройдены, можно сжигать старый токен
 	if err := s.db.RevokeRefreshToken(ctx, oldTokenHash); err != nil {
-		return nil, fmt.Errorf("failed to revoke old token: %w", err)
+		return nil, app_errors.ErrFailedToRevokeOldToken
 	}
 
 	// 3. Генерация новой сессии
@@ -904,7 +904,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 		req.OrgID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, app_errors.ErrFailedToGenerateTokens
 	}
 
 	// ОБНОВЛЕНИЕ LastOrgID
@@ -930,7 +930,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	}
 	if err := s.db.CreateRefreshToken(ctx, refreshTokenRecord); err != nil {
 		slog.Error("Failed to save refresh token during org switch", "error", err, "user_id", user.UserID)
-		return nil, fmt.Errorf("failed to create session: %w", err)
+		return nil, app_errors.ErrFailedToCreateSession
 	}
 
 	return &models.SwitchOrganizationResponse{
@@ -953,13 +953,13 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	log.Println("InviteUser input", "inviter_id", inviterID, "org_id", orgID, "email", req.Email, "role", req.Role)
 	// Валидация входных данных
 	if req.Email == "" {
-		return nil, fmt.Errorf("email is required")
+		return nil, app_errors.ErrEmailRequired
 	}
 	if req.Role == "" {
-		return nil, fmt.Errorf("role is required")
+		return nil, app_errors.ErrRoleRequired
 	}
 	if req.Role == string(rbac.RoleAdmin) {
-		return nil, fmt.Errorf("organization can have only one admin")
+		return nil, app_errors.ErrOrgCanHaveOnlyOneAdmin
 	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	// Валидация email
@@ -977,7 +977,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 		}
 	}
 	if !roleFound {
-		return nil, fmt.Errorf("invalid role: %s", req.Role)
+		return nil, app_errors.ErrInvalidRole
 	}
 
 	// Проверяем, что приглашающий является admin или manager в организации
@@ -985,16 +985,16 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	// TODO: remove this after testing
 	log.Println("InviteUser GetMembership(inviter) result", "membership", inviterMembership, "error", err)
 	if err != nil {
-		return nil, fmt.Errorf("inviter is not a member of this organization")
+		return nil, app_errors.ErrInviterNotMember
 	}
 
 	if inviterMembership.Role != string(rbac.RoleAdmin) && inviterMembership.Role != string(rbac.RoleManager) {
-		return nil, fmt.Errorf("only admins and managers can invite users")
+		return nil, app_errors.ErrOnlyAdminsAndManagersCanInvite
 	}
 
 	// Проверяем, что приглашающий не пытается создать более высокую роль
 	if inviterMembership.Role == string(rbac.RoleManager) && req.Role == string(rbac.RoleAdmin) {
-		return nil, fmt.Errorf("managers cannot invite admins")
+		return nil, app_errors.ErrManagersCannotInviteAdmins
 	}
 
 	// Проверяем, что пользователь еще не приглашен в эту организацию
@@ -1003,11 +1003,11 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	log.Println("InviteUser GetInvitationByEmail result", "invitation", existingInvitation, "error", err)
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		slog.Error("Failed to check existing invitations", "error", err)
-		return nil, fmt.Errorf("failed to check existing invitations: %w", err)
+		return nil, app_errors.ErrFailedToCheckExistingInvitations
 	}
 
 	if existingInvitation != nil {
-		return nil, fmt.Errorf("user already invited to this organization")
+		return nil, app_errors.ErrUserAlreadyInvited
 	}
 
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
@@ -1018,7 +1018,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 		// TODO: remove this after testing
 		log.Println("InviteUser GetMembership(existingUser) result", "membership", membership)
 		if membership != nil {
-			return nil, fmt.Errorf("user is already a member of this organization")
+			return nil, app_errors.ErrUserIsAlreadyMember
 		}
 	}
 
@@ -1044,7 +1044,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	// TODO: remove this after testing
 	log.Println("InviteUser CreateInvitation result", "error", err)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create invitation: %w", err)
+		return nil, app_errors.ErrFailedToCreateInvitation
 	}
 
 	// Do not use the email service for the time being, since it is not useful for the client (who can use any other messaging service).
@@ -1077,7 +1077,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	// TODO: remove this after testing
 	log.Println("AcceptInvitation input", "user_id", userID, "invite_code", req.InviteCode)
 	if req.InviteCode == "" {
-		return nil, fmt.Errorf("invite_code is required")
+		return nil, app_errors.ErrInviteCodeRequired
 	}
 
 	// Получаем приглашение по коду
@@ -1085,12 +1085,12 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	// TODO: remove this after testing
 	log.Println("AcceptInvitation GetInvitationByCode result", "invitation", invitation, "error", err)
 	if err != nil {
-		return nil, fmt.Errorf("invalid invite code")
+		return nil, app_errors.ErrInvalidInviteCode
 	}
 
 	// Проверяем статус приглашения
 	if invitation.Status != "pending" {
-		return nil, fmt.Errorf("invitation is not pending")
+		return nil, app_errors.ErrInvitationNotPending
 	}
 
 	// Проверяем срок действия приглашения
@@ -1098,7 +1098,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		err = s.db.UpdateInvitationStatus(ctx, invitation.InvitationID, "expired")
 		// TODO: remove this after testing
 		log.Println("AcceptInvitation UpdateInvitationStatus(expired) result", "error", err)
-		return nil, fmt.Errorf("invitation has expired")
+		return nil, app_errors.ErrInvitationExpired
 	}
 
 	// Получаем пользователя
@@ -1106,16 +1106,16 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	// TODO: remove this after testing
 	log.Println("AcceptInvitation GetUserByID result", "user", user, "error", err)
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, app_errors.ErrUserNotFound
 	}
 	// Проверяем, что пользователь активен
 	if !user.IsActive {
-		return nil, fmt.Errorf("user account is deactivated")
+		return nil, app_errors.ErrUserAccountDeactivated
 	}
 
 	// Проверяем, что email пользователя совпадает с email приглашения
 	if user.Email != invitation.Email {
-		return nil, fmt.Errorf("invitation email does not match user email")
+		return nil, app_errors.ErrRegistrationEmailMismatch
 	}
 
 	membership, err := s.db.GetMembership(ctx, userID, invitation.OrgID)
@@ -1125,7 +1125,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		// Если ошибка - membership не найден, продолжаем
 	} else if membership != nil && membership.Status == "active" {
 		// Только если ТОТ ЖЕ пользователь уже активный член
-		return nil, fmt.Errorf("user is already a member of this organization")
+		return nil, app_errors.ErrUserIsAlreadyMember
 	}
 
 	// Создаем членство в организации
@@ -1150,7 +1150,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 			"user_id", userID,
 			"org_id", invitation.OrgID,
 			"membership_id", newMembership.MembershipID)
-		return nil, fmt.Errorf("failed to create membership: %w", err)
+		return nil, app_errors.ErrFailedToCreateMembership
 
 	}
 
@@ -1173,7 +1173,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	// TODO: remove this after testing
 	log.Println("AcceptInvitation GenerateTokenPair result", "access_token", accessToken, "refresh_token", refreshToken, "role", role, "org_id", invitation.OrgID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, app_errors.ErrFailedToGenerateTokens
 	}
 
 	// Сохранение refresh токена
@@ -1192,7 +1192,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	log.Println("AcceptInvitation before CreateRefreshToken", "refresh_token_record", refreshTokenRecord)
 	if err := s.db.CreateRefreshToken(ctx, refreshTokenRecord); err != nil {
 		slog.Error("Failed to save refresh token during invitation accept", "error", err, "user_id", user.UserID)
-		return nil, fmt.Errorf("failed to create session: %w", err)
+		return nil, app_errors.ErrFailedToCreateSession
 	}
 
 	// TODO: remove this after testing
@@ -1216,7 +1216,7 @@ func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.
 	// TODO: remove this after testing
 	log.Println("ListInvitations GetInvitationsByOrg result", "count", len(invitations), "error", err)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get invitations: %w", err)
+		return nil, app_errors.ErrFailedToGetInvitations
 	}
 
 	result := make([]*models.InvitationInfo, 0, len(invitations))
@@ -1255,18 +1255,18 @@ func (s *Service) CancelInvitation(ctx context.Context, invitationID string) err
 	if err != nil {
 		// Нам нужен другой метод для получения приглашения по ID
 		// На время используем эту логику
-		return fmt.Errorf("invitation not found")
+		return app_errors.ErrInvitationNotFound
 	}
 
 	if invitation.Status != "pending" {
-		return fmt.Errorf("only pending invitations can be cancelled")
+		return app_errors.ErrOnlyPendingInvitationsCanBeCancelled
 	}
 
 	err = s.db.UpdateInvitationStatus(ctx, invitationID, "cancelled")
 	// TODO: remove this after testing
 	log.Println("CancelInvitation UpdateInvitationStatus result", "error", err)
 	if err != nil {
-		return fmt.Errorf("failed to cancel invitation: %w", err)
+		return app_errors.ErrFailedToCancelInvitation
 	}
 
 	// TODO: remove this after testing
@@ -1283,11 +1283,11 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 	// TODO: remove this after testing
 	log.Println("UpdateMemberRole GetMembership(admin) result", "membership", adminMembership, "error", err)
 	if err != nil {
-		return fmt.Errorf("admin is not a member of this organization")
+		return app_errors.ErrInviterNotMember
 	}
 
 	if adminMembership.Role != string(rbac.RoleAdmin) {
-		return fmt.Errorf("only admins can change roles")
+		return app_errors.ErrOnlyAdminsCanChangeRoles
 	}
 
 	// Проверяем валидность новой роли
@@ -1300,7 +1300,7 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 		}
 	}
 	if !roleFound {
-		return fmt.Errorf("invalid role: %s", newRole)
+		return app_errors.ErrInvalidRole
 	}
 
 	// Получаем текущее членство
@@ -1308,19 +1308,19 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 	// TODO: remove this after testing
 	log.Println("UpdateMemberRole GetMembership(target) result", "membership", targetMembership, "error", err)
 	if err != nil {
-		return fmt.Errorf("target user is not a member of this organization")
+		return app_errors.ErrTargetUserNotMember
 	}
 	// Получаем организацию для проверки владельца
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
 	// TODO: remove this after testing
 	log.Println("UpdateMemberRole GetOrganizationByID result", "org", org, "error", err)
 	if err != nil {
-		return fmt.Errorf("failed to get organization info: %w", err)
+		return app_errors.ErrFailedToGetOrganizationInfo
 	}
 
 	// Нельзя менять роль владельца организации
 	if org.OwnerID == targetUserID {
-		return fmt.Errorf("cannot change role of organization owner")
+		return app_errors.ErrCannotChangeRoleOfOrgOwner
 	}
 	// Обновляем роль
 	targetMembership.Role = newRole
@@ -1330,7 +1330,7 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 	// TODO: remove this after testing
 	log.Println("UpdateMemberRole UpdateMembership result", "membership_id", targetMembership.MembershipID, "error", err)
 	if err != nil {
-		return fmt.Errorf("failed to update member role: %w", err)
+		return app_errors.ErrFailedToUpdateMemberRole
 	}
 
 	// TODO: remove this after testing
@@ -1347,11 +1347,11 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 	// TODO: remove this after testing
 	log.Println("RemoveMember GetMembership(admin) result", "membership", adminMembership, "error", err)
 	if err != nil {
-		return fmt.Errorf("admin is not a member of this organization")
+		return app_errors.ErrInviterNotMember
 	}
 
 	if adminMembership.Role != string(rbac.RoleAdmin) {
-		return fmt.Errorf("only admins can remove members")
+		return app_errors.ErrOnlyAdminsCanRemoveMembers
 	}
 
 	// Проверяем, что целевой пользователь состоит в организации
@@ -1359,7 +1359,7 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 	// TODO: remove this after testing
 	log.Println("RemoveMember GetMembership(target) result", "membership", targetMembership, "error", err)
 	if err != nil {
-		return fmt.Errorf("target user is not a member of this organization")
+		return app_errors.ErrTargetUserNotMember
 	}
 
 	// Нельзя удалить владельца организации
@@ -1367,7 +1367,7 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 	// TODO: remove this after testing
 	log.Println("RemoveMember GetOrganizationByID result", "org", org, "error", err)
 	if err == nil && org.OwnerID == targetUserID {
-		return fmt.Errorf("cannot remove organization owner")
+		return app_errors.ErrCannotRemoveOrgOwner
 	}
 
 	// Удаляем членство
@@ -1375,7 +1375,7 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 	// TODO: remove this after testing
 	log.Println("RemoveMember DeleteMembership result", "membership_id", targetMembership.MembershipID, "error", err)
 	if err != nil {
-		return fmt.Errorf("failed to remove member: %w", err)
+		return app_errors.ErrFailedToRemoveMember
 	}
 
 	// TODO: remove this after testing
@@ -1389,7 +1389,7 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 	log.Println("UpdateMemberStatus input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID, "new_status", newStatus)
 	// Валидация статуса
 	if newStatus != "active" && newStatus != "suspended" {
-		return fmt.Errorf("invalid status: %s", newStatus)
+		return app_errors.ErrInvalidStatus
 	}
 
 	// Получаем членство администратора
@@ -1397,12 +1397,12 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 	// TODO: remove this after testing
 	log.Println("UpdateMemberStatus GetMembership(admin) result", "membership", adminMembership, "error", err)
 	if err != nil {
-		return fmt.Errorf("admin is not a member of this organization")
+		return app_errors.ErrInviterNotMember
 	}
 
 	// Проверяем права: только Admin и Manager могут менять статусы
 	if adminMembership.Role != string(rbac.RoleAdmin) && adminMembership.Role != string(rbac.RoleManager) {
-		return fmt.Errorf("insufficient permissions")
+		return app_errors.ErrInsufficientPermissions
 	}
 
 	// Получаем целевое членство
@@ -1410,13 +1410,13 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 	// TODO: remove this after testing
 	log.Println("UpdateMemberStatus GetMembership(target) result", "membership", targetMembership, "error", err)
 	if err != nil {
-		return fmt.Errorf("target user is not a member of this organization")
+		return app_errors.ErrTargetUserNotMember
 	}
 
 	// Проверка иерархии: Manager не может блокировать Admin или другого Manager
 	if adminMembership.Role == string(rbac.RoleManager) {
 		if targetMembership.Role == string(rbac.RoleAdmin) || targetMembership.Role == string(rbac.RoleManager) {
-			return fmt.Errorf("managers cannot manage admins or other managers")
+			return app_errors.ErrManagersCannotManageAdmins
 		}
 	}
 
@@ -1425,7 +1425,7 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 	// TODO: remove this after testing
 	log.Println("UpdateMemberStatus GetOrganizationByID result", "org", org, "error", err)
 	if err == nil && org.OwnerID == targetUserID {
-		return fmt.Errorf("cannot change status of organization owner")
+		return app_errors.ErrCannotChangeStatusOfOrgOwner
 	}
 
 	targetMembership.Status = newStatus
@@ -1445,7 +1445,7 @@ func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.M
 	// TODO: remove this after testing
 	log.Println("ListOrgMembers GetMembershipsByOrg result", "count", len(memberships), "error", err)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get members: %w", err)
+		return nil, app_errors.ErrFailedToGetMembers
 	}
 
 	result := make([]*models.MemberInfo, 0, len(memberships))
@@ -1486,7 +1486,7 @@ func (s *Service) CheckPermission(ctx context.Context, userID, orgID string, per
 	// Получение роли пользователя
 	membership, err := s.db.GetMembership(ctx, userID, orgID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get user membership: %w", err)
+		return false, app_errors.ErrFailedToGetUserMembership
 	}
 
 	roleStr := membership.Role
@@ -1497,7 +1497,7 @@ func (s *Service) CheckPermission(ctx context.Context, userID, orgID string, per
 // CreateOrganization создает новую организацию для администратора
 func (s *Service) CreateOrganization(ctx context.Context, userID string, req *models.CreateOrganizationRequest) (*models.CreateOrganizationResponse, error) {
 	if req == nil {
-		return nil, fmt.Errorf("request is required")
+		return nil, app_errors.ErrRequestIsRequired
 	}
 
 	orgName, err := validation.SanitizeOrganizationName(req.Name)
@@ -1512,7 +1512,7 @@ func (s *Service) CreateOrganization(ctx context.Context, userID string, req *mo
 
 	memberships, err := s.db.GetMembershipsByUser(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user memberships: %w", err)
+		return nil, app_errors.ErrFailedToGetUserMemberships
 	}
 
 	isAdmin := false
@@ -1524,13 +1524,13 @@ func (s *Service) CreateOrganization(ctx context.Context, userID string, req *mo
 	}
 
 	if !isAdmin {
-		return nil, fmt.Errorf("only admins can create organizations")
+		return nil, app_errors.ErrOnlyAdminsCanCreateOrgs
 	}
 
 	// Проверка уникальности названия организации для данного пользователя
 	orgs, err := s.db.GetOrganizationsByOwner(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user organizations: %w", err)
+		return nil, app_errors.ErrFailedToGetUserOrgs
 	}
 	for _, org := range orgs {
 		if strings.EqualFold(org.Name, orgName) {
@@ -1547,7 +1547,7 @@ func (s *Service) CreateOrganization(ctx context.Context, userID string, req *mo
 
 	settingsJSON, err := json.Marshal(settings)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal organization settings: %w", err)
+		return nil, app_errors.ErrFailedToMarshalOrgSettings
 	}
 
 	org := &ydb.Organization{
@@ -1561,7 +1561,7 @@ func (s *Service) CreateOrganization(ctx context.Context, userID string, req *mo
 
 	if err := s.db.CreateOrganization(ctx, org); err != nil {
 		slog.Error("Failed to create organization", "error", err, "user_id", userID, "org_name", orgName)
-		return nil, fmt.Errorf("failed to create organization: %w", err)
+		return nil, app_errors.ErrFailedToCreateOrg
 	}
 
 	membershipRecord := &ydb.Membership{
@@ -1577,7 +1577,7 @@ func (s *Service) CreateOrganization(ctx context.Context, userID string, req *mo
 
 	if err := s.db.CreateMembership(ctx, membershipRecord); err != nil {
 		slog.Error("Failed to create membership for new organization", "error", err, "user_id", userID, "org_id", orgID)
-		return nil, fmt.Errorf("failed to create membership: %w", err)
+		return nil, app_errors.ErrFailedToCreateMembership
 	}
 
 	slog.Info("Organization created", "user_id", userID, "org_id", orgID, "name", orgName)
@@ -1596,16 +1596,16 @@ func (s *Service) ValidateActiveSession(ctx context.Context, userID, orgID strin
 
 	user, err := s.db.GetUserByID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("user not found")
+		return app_errors.ErrUserNotFound
 	}
 	if !user.IsActive {
-		return fmt.Errorf("user account is deactivated")
+		return app_errors.ErrUserAccountDeactivated
 	}
 
 	if orgID != "" {
 		membership, err := s.db.GetMembership(ctx, userID, orgID)
 		if err != nil || membership.Status != "active" {
-			return fmt.Errorf("membership is not active or revoked")
+			return app_errors.ErrMembershipNotActiveOrRevoked
 		}
 	}
 	return nil
@@ -1627,7 +1627,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, req *models.ForgotPa
 	}
 
 	if !user.IsActive {
-		return nil, fmt.Errorf("user account is deactivated")
+		return nil, app_errors.ErrUserAccountDeactivated
 	}
 
 	// Rate Limiting: Проверяем, когда был создан предыдущий код
@@ -1645,12 +1645,12 @@ func (s *Service) RequestPasswordReset(ctx context.Context, req *models.ForgotPa
 
 	resetCode, err := email.GenerateVerificationCode()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate reset code: %w", err)
+		return nil, app_errors.ErrFailedToGenerateResetCode
 	}
 
 	expiresAt := time.Now().Add(1 * time.Hour)
 	if err := s.db.UpdateUserPasswordResetInfo(ctx, user.UserID, resetCode, expiresAt); err != nil {
-		return nil, fmt.Errorf("failed to save reset code: %w", err)
+		return nil, app_errors.ErrFailedToSaveResetCode
 	}
 
 	if s.email.IsConfigured() {
@@ -1685,33 +1685,33 @@ func (s *Service) ResetPassword(ctx context.Context, req *models.ResetPasswordRe
 		return nil, err
 	}
 	if req.Code == "" {
-		return nil, fmt.Errorf("code is required")
+		return nil, app_errors.ErrInviteCodeRequired
 	}
 	if len(req.NewPassword) < 8 || len(req.NewPassword) > 72 {
-		return nil, fmt.Errorf("password must be between 8 and 72 characters")
+		return nil, app_errors.ErrPasswordWrongLength
 	}
 
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("invalid request")
+		return nil, app_errors.ErrInvalidRequest
 	}
 
 	// TODO: remove this after testing
 	log.Println("ResetPassword GetUserByEmail result", "password_reset_code:", user.PasswordResetCode)
 	if user.PasswordResetCode == nil || *user.PasswordResetCode != req.Code {
-		return nil, fmt.Errorf("invalid reset code")
+		return nil, app_errors.ErrInvalidResetCode
 	}
 	if user.PasswordResetExpiresAt == nil || time.Now().After(*user.PasswordResetExpiresAt) {
-		return nil, fmt.Errorf("reset code expired")
+		return nil, app_errors.ErrResetCodeExpired
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
+		return nil, app_errors.ErrFailedToHashPassword
 	}
 
 	if err := s.db.UpdateUserPassword(ctx, user.UserID, string(passwordHash)); err != nil {
-		return nil, fmt.Errorf("failed to update password: %w", err)
+		return nil, app_errors.ErrFailedToUpdatePassword
 	}
 
 	_ = s.db.RevokeAllUserRefreshTokens(ctx, user.UserID)

@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
@@ -70,28 +71,28 @@ type DeleteVideoResult struct {
 // DeleteVideoDirect deletes a video and removes associated storage objects
 func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, videoID string) (*DeleteVideoResult, error) {
 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoDelete) {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
 		if strings.Contains(err.Error(), "video not found") {
-			return nil, fmt.Errorf("video not found")
+			return nil, app_errors.ErrVideoNotFound
 		}
-		return nil, fmt.Errorf("failed to read video: %w", err)
+		return nil, app_errors.ErrFailedToReadVideo
 	}
 
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	if !video.IsDeleted {
 		if err := s.storage.DeletePrivateObject(ctx, video.StoragePath); err != nil {
-			return nil, fmt.Errorf("failed to delete video from storage: %w", err)
+			return nil, app_errors.ErrFailedToDeleteVideoFromStorage
 		}
 
 		if video.PublicURL != nil && *video.PublicURL != "" {
@@ -110,7 +111,7 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 	video.ShareExpiresAt = nil
 
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
-		return nil, fmt.Errorf("failed to update video record: %w", err)
+		return nil, app_errors.ErrFailedToUpdateVideoRecord
 	}
 
 	return &DeleteVideoResult{Message: "Video deleted"}, nil
@@ -123,14 +124,14 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get subscription: %w", err)
+		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
 	// TODO Race Condition при проверке квоты хранилища
 	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to get storage usage: %w", err)
+		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
 	var limitBytes int64 = sub.StorageLimitMB * 1024 * 1024
@@ -138,7 +139,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	if sub.StorageLimitMB > 0 {
 		remainingQuota := limitBytes - currentUsage
 		if fileSizeBytes > remainingQuota {
-			return nil, fmt.Errorf("storage limit exceeded")
+			return nil, app_errors.ErrStorageLimitExceeded
 		}
 	}
 
@@ -148,13 +149,13 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	contentType := validation.GetContentTypeFromExtension(fileName)
 
 	if contentType == "" || !validation.IsVideoContentType(contentType) {
-		return nil, fmt.Errorf("invalid file type or extension. Only video files are allowed")
+		return nil, app_errors.ErrInvalidFileType
 	}
 
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, contentType)
 	if err != nil {
 
-		return nil, fmt.Errorf("failed to initiate s3 upload: %w", err)
+		return nil, app_errors.ErrFailedToInitiateS3Upload
 	}
 
 	fileNameSearch := strings.ToLower(fileName)
@@ -182,7 +183,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 
 	if err := s.db.CreateVideo(ctx, video); err != nil {
 
-		return nil, fmt.Errorf("failed to create video record: %w", err)
+		return nil, app_errors.ErrFailedToCreateVideoRecord
 	}
 
 	return &InitiateMultipartUploadResult{
@@ -205,26 +206,26 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 	if err != nil {
 		// Check if the error is specifically "video not found"
 		if strings.Contains(err.Error(), "video not found") {
-			return nil, fmt.Errorf("video not found")
+			return nil, app_errors.ErrVideoNotFound
 		}
 		return nil, fmt.Errorf("video not found %w", err)
 	}
 
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	// Security fix: Only the uploader can generate upload urls
 	if video.UploadedBy != userID {
-		return nil, fmt.Errorf("access denied: only uploader can generate upload urls")
+		return nil, app_errors.ErrUploaderOnlyCanGenUploadURLs
 	}
 
 	// Fix: Check video status to prevent overwriting completed or deleted videos
 	if video.IsDeleted {
-		return nil, fmt.Errorf("video is deleted")
+		return nil, app_errors.ErrVideoIsDeleted
 	}
 	if video.UploadStatus == "completed" {
-		return nil, fmt.Errorf("video upload is already completed")
+		return nil, app_errors.ErrVideoUploadAlreadyCompleted
 	}
 
 	urls := make([]string, totalParts)
@@ -233,7 +234,7 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 		uploadID := video.UploadID
 		url, err := s.storage.GeneratePresignedPartURL(ctx, storagePath, uploadID, int32(i+1), 1*time.Hour)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate url for part %d: %w", i+1, err)
+			return nil, app_errors.ErrFailedToGenerateURLForPart
 		}
 		urls[i] = url
 	}
@@ -242,7 +243,7 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 	uploadStatus := "uploading"
 	video.UploadStatus = uploadStatus
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
-		return nil, fmt.Errorf("failed to update video status: %w", err)
+		return nil, app_errors.ErrFailedToUpdateVideoStatus
 	}
 
 	return &GetPartUploadURLsResult{
@@ -262,14 +263,14 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	log.Println("CompleteMultipartUploadDirect with userID", userID, "orgID", orgID, "videoID", videoID)
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return nil, fmt.Errorf("video not found")
+		return nil, app_errors.ErrVideoNotFound
 	}
 
 	// Проверка UploadedBy вместо OrgID позволяет завершить загрузку своего видео
 	// даже если он переключил активную организацию
 	// При этом это защищает от доступа к чужим видео
 	if video.UploadedBy != userID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	// Если видео уже загружено, не идем в S3, а возвращаем успех.
@@ -297,13 +298,13 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	storagePath := video.StoragePath
 	uploadID := video.UploadID
 	if err := s.storage.CompleteMultipartUpload(ctx, storagePath, uploadID, s3Parts); err != nil {
-		return nil, fmt.Errorf("failed to complete s3 upload: %w", err)
+		return nil, app_errors.ErrFailedToCompleteS3Upload
 	}
 	headerBytes, err := s.storage.GetObjectHeader(ctx, storagePath)
 	if err != nil {
 		slog.Error("Failed to get object header for verification", "error", err, "video_id", videoID)
 		// В случае ошибки чтения S3 лучше прервать процесс, чем пропустить потенциально опасный файл
-		return nil, fmt.Errorf("failed to verify file integrity")
+		return nil, app_errors.ErrFailedToVerifyFileIntegrity
 	}
 	// Определяем реальный тип контента
 	detectedType := http.DetectContentType(headerBytes)
@@ -378,7 +379,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		video.IsDeleted = true
 		_ = s.db.UpdateVideo(ctx, video)
 
-		return nil, fmt.Errorf("invalid file content: detected %s, expected video", detectedType)
+		return nil, app_errors.ErrInvalidFileContent
 	}
 
 	// Размер файла
@@ -386,18 +387,18 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 
 	if err != nil {
 		slog.Error("Failed to get object size after upload", "error", err, "video_id", videoID)
-		return nil, fmt.Errorf("failed to verify upload integrity")
+		return nil, app_errors.ErrFailedToVerifyUploadIntegrity
 	}
 
 	// Подписка
 	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get subscription: %w", err)
+		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
 	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get storage usage: %w", err)
+		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
 	// video.FileSizeBytes - заявленный размер
@@ -424,7 +425,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		video.IsDeleted = true
 		_ = s.db.UpdateVideo(ctx, video)
 
-		return nil, fmt.Errorf("storage limit exceeded: actual file size is larger than quota")
+		return nil, app_errors.ErrStorageLimitExceededFileSize
 	}
 
 	// Обновляем размер файла в БД на реальный
@@ -443,7 +444,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 			// так как теперь у нас есть файл, занимающий место.
 			slog.Error("CRITICAL: Failed to rollback S3 object after DB failure", "error", delErr, "path", storagePath)
 		}
-		return nil, fmt.Errorf("failed to update video status: %w", err)
+		return nil, app_errors.ErrFailedToUpdateVideoStatus
 	}
 
 	url, _ := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
@@ -467,11 +468,11 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 		return nil, err
 	}
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	var uploadedAt int64
@@ -618,7 +619,7 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 // SearchVideosDirect searches videos with direct parameters
 func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, query string, page, pageSize int32) (*SearchVideosResult, error) {
 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoSearch) {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	filterUserID := ""
@@ -671,15 +672,15 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, role, videoID string) (*models.DownloadURLResult, error) {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return nil, fmt.Errorf("video not found")
+		return nil, app_errors.ErrVideoNotFound
 	}
 
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	// Генерируем временный URL на приватный bucket (1 час)
@@ -698,16 +699,16 @@ func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, role
 func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
 	// Проверка прав - только admin и manager могут публиковать
 	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
-		return nil, fmt.Errorf("access denied: only admins and managers can publish")
+		return nil, app_errors.ErrOnlyAdminsAndManagersCanPublish
 	}
 
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return nil, fmt.Errorf("video not found")
+		return nil, app_errors.ErrVideoNotFound
 	}
 
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	// Проверяем, не опубликован ли уже
@@ -722,7 +723,7 @@ func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID,
 	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
 	publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to publish video: %w", err)
+		return nil, app_errors.ErrFailedToPublishVideo
 	}
 
 	// Сохраняем публичный URL в БД
@@ -730,7 +731,7 @@ func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID,
 	video.PublishedAt = aws.Time(time.Now())
 	video.PublishStatus = "published"
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
-		return nil, fmt.Errorf("failed to update video record: %w", err)
+		return nil, app_errors.ErrFailedToUpdateVideoRecord
 	}
 
 	return &models.PublishVideoResult{
@@ -754,27 +755,27 @@ func generatePublicToken() (string, error) {
 func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
 	// Проверка прав - только admin и manager могут публиковать
 	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
-		return nil, fmt.Errorf("access denied: only admins and managers can publish")
+		return nil, app_errors.ErrOnlyAdminsAndManagersCanPublish
 	}
 
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return nil, fmt.Errorf("video not found")
+		return nil, app_errors.ErrVideoNotFound
 	}
 
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	// Проверяем, что видео полностью загружено
 	if video.UploadStatus != "completed" {
-		return nil, fmt.Errorf("video upload not completed")
+		return nil, app_errors.ErrVideoUploadNotCompleted
 	}
 
 	// 1. Проверяем, есть ли уже активный токен (Идемпотентность)
 	existingShare, err := s.db.GetActivePublicVideoShare(ctx, videoID)
 	if err != nil && !strings.Contains(err.Error(), "not found") {
-		return nil, fmt.Errorf("failed to check active share: %w", err)
+		return nil, app_errors.ErrFailedToCheckActiveShare
 	}
 	if existingShare != nil {
 		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, existingShare.PublicToken)
@@ -790,19 +791,19 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 	if video.PublishStatus != "published" {
 		sub, err := s.db.GetSubscriptionByUser(ctx, userID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get subscription: %w", err)
+			return nil, app_errors.ErrFailedToGetSubscription
 		}
 
 		currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get storage usage: %w", err)
+			return nil, app_errors.ErrFailedToGetStorageUsage
 		}
 
 		// Проверяем, хватит ли места для копии файла
 		// TODO Race Condition
 		limitBytes := sub.StorageLimitMB * 1024 * 1024
 		if sub.StorageLimitMB > 0 && (currentUsage+video.FileSizeBytes) > limitBytes {
-			return nil, fmt.Errorf("storage limit exceeded: publishing requires additional storage space")
+			return nil, app_errors.ErrStorageLimitExceededPublishing
 		}
 	}
 
@@ -814,7 +815,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 	// TODO Race Condition
 	s3PublicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to copy video to public bucket: %w", err)
+		return nil, app_errors.ErrFailedToCopyVideoToPublic
 	}
 
 	// 4. Подготовка данных для БД
@@ -822,7 +823,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 	if err != nil {
 		// Если генерация токена упала, нужно почистить S3, чтобы не оставлять мусор
 		_ = s.storage.DeletePublicObject(ctx, publicKey)
-		return nil, fmt.Errorf("failed to generate public token: %w", err)
+		return nil, app_errors.ErrFailedToGeneratePublicToken
 	}
 
 	shareID := uuid.New().String()
@@ -847,7 +848,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		if delErr := s.storage.DeletePublicObject(ctx, publicKey); delErr != nil {
 			slog.Error("Failed to rollback S3 object after DB failure", "error", delErr, "key", publicKey)
 		}
-		return nil, fmt.Errorf("failed to publish video record: %w", err)
+		return nil, app_errors.ErrFailedToPublishVideoRecord
 	}
 
 	// Формируем ссылку для ответа API
@@ -866,26 +867,26 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 	publicShare, err := s.db.GetPublicVideoShareByToken(ctx, token)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return nil, fmt.Errorf("video not found or token is invalid")
+			return nil, app_errors.ErrVideoNotFoundOrTokenInvalid
 		}
-		return nil, fmt.Errorf("failed to get public share: %w", err)
+		return nil, app_errors.ErrFailedToGetPublicShare
 	}
 
 	// Проверяем, не отозван ли доступ
 	if publicShare.Revoked {
-		return nil, fmt.Errorf("public access to this video has been revoked")
+		return nil, app_errors.ErrPublicAccessRevoked
 	}
 
 	// Получаем информацию о видео
 	video, err := s.db.GetVideo(ctx, publicShare.VideoID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get video: %w", err)
+		return nil, app_errors.ErrFailedToGetVideo
 	}
 
 	// Генерируем временную ссылку на видео (presigned URL на 1 час)
 	streamURL, err := s.GeneratePublicStreamURL(ctx, publicShare.VideoID, 1*time.Hour)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate stream URL: %w", err)
+		return nil, app_errors.ErrFailedToGenerateStreamURL
 	}
 
 	// TODO Potentially DoS: Increment access count for each download
@@ -923,7 +924,7 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 func (s *Service) GeneratePublicStreamURL(ctx context.Context, videoID string, expiration time.Duration) (string, error) {
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get video: %w", err)
+		return "", app_errors.ErrFailedToGetVideo
 	}
 
 	// Генерируем ключ для публичного bucket
@@ -932,7 +933,7 @@ func (s *Service) GeneratePublicStreamURL(ctx context.Context, videoID string, e
 	// Генерируем presigned URL
 	url, err := s.storage.GeneratePresignedDownloadURL(ctx, publicKey, expiration)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+		return "", app_errors.ErrFailedToGeneratePresignedURL
 	}
 
 	return url, nil
@@ -947,7 +948,7 @@ func (s *Service) GetVideoForRevocation(ctx context.Context, userID, orgID, vide
 	}
 
 	if video.OrgID != orgID {
-		return nil, fmt.Errorf("access denied")
+		return nil, app_errors.ErrAccessDenied
 	}
 
 	return video, nil
@@ -957,21 +958,21 @@ func (s *Service) GetVideoForRevocation(ctx context.Context, userID, orgID, vide
 func (s *Service) RevokePublicShare(ctx context.Context, userID, orgID, role, videoID string) error {
 	// Проверка прав - только admin и manager могут отзывать
 	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
-		return fmt.Errorf("access denied: only admins and managers can revoke")
+		return app_errors.ErrOnlyAdminsAndManagersCanRevoke
 	}
 
 	video, err := s.db.GetVideo(ctx, videoID)
 	if err != nil {
-		return fmt.Errorf("video not found")
+		return app_errors.ErrVideoNotFound
 	}
 
 	if video.OrgID != orgID {
-		return fmt.Errorf("access denied")
+		return app_errors.ErrAccessDenied
 	}
 
 	// Проверяем, что видео опубликовано
 	if video.PublishStatus != "published" {
-		return fmt.Errorf("video is not published")
+		return app_errors.ErrVideoNotPublished
 	}
 
 	// Перемещаем видео из публичного bucket в приватный
@@ -983,7 +984,7 @@ func (s *Service) RevokePublicShare(ctx context.Context, userID, orgID, role, vi
 		// Копируем видео из публичного bucket в приватный (если еще не там)
 		err = s.storage.CopyObject(ctx, s.storage.GetPublicBucket(), publicKey, s.storage.GetPrivateBucket(), privateKey)
 		if err != nil {
-			return fmt.Errorf("failed to copy video to private bucket: %w", err)
+			return app_errors.ErrFailedToCopyVideoToPrivate
 		}
 
 		// Удаляем видео из публичного bucket
@@ -997,7 +998,7 @@ func (s *Service) RevokePublicShare(ctx context.Context, userID, orgID, role, vi
 	// Обновляем статус видео в БД
 	err = s.db.UpdateVideoStatus(ctx, videoID, "private", "")
 	if err != nil {
-		return fmt.Errorf("failed to update video status: %w", err)
+		return app_errors.ErrFailedToUpdateVideoStatus
 	}
 
 	// Отзываем все публичные шаринги для этого видео

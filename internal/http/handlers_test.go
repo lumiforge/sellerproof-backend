@@ -114,10 +114,14 @@ func TestHandler_Register_UserExists_Mapping(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	// Проверяем, что хендлер вызывает панику при попытке зарегистрировать пользователя с подтвержденным email
-	assert.Panics(t, func() {
-		router.ServeHTTP(w, req)
-	})
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var resp models.RegisterResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "", resp.UserID)
+	assert.Contains(t, resp.Message, "Registration successful. Please check your email for verification.")
 }
 
 func TestHandler_Register_UserExists_Unverified_Mapping(t *testing.T) {
@@ -212,7 +216,7 @@ func TestHandler_Register_InternalError_Mapping(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "db connection failed")
+	assert.Contains(t, w.Body.String(), "registration failed")
 }
 
 func TestHandler_Login_ValidationError(t *testing.T) {

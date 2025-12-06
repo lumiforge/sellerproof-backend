@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 )
 
 // PostboxClient клиент для работы с Yandex Cloud Postbox
@@ -187,7 +188,7 @@ func (p *PostboxClient) SendSubscriptionEmail(toEmail, planName string, isUpgrad
 // sendEmail отправляет email через SMTP
 func (p *PostboxClient) sendEmail(toEmail, subject, body string) error {
 	if p.Username == "" || p.Password == "" || p.FromEmail == "" {
-		return fmt.Errorf("Postbox credentials not configured")
+		return app_errors.ErrPostboxCredentialsNotConfigured
 	}
 
 	message := fmt.Sprintf("From: %s\r\n", p.FromEmail) +

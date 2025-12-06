@@ -2,7 +2,8 @@ package rbac
 
 import (
 	"context"
-	"fmt"
+
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 )
 
 // Permission представляет разрешение в системе
@@ -117,7 +118,7 @@ func (r *RBAC) CheckPermission(ctx context.Context, userID, orgID string, permis
 	}
 
 	// Если роль не найдена в контексте, возвращаем false
-	return false, fmt.Errorf("user role not found in context")
+	return false, app_errors.ErrUserRoleNotFoundInContext
 }
 
 // CheckPermissionWithRole проверяет разрешение для указанной роли

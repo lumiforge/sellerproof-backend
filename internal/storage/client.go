@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 )
 
 // Client обертка над S3 клиентом
@@ -30,7 +30,7 @@ type Client struct {
 // DeletePrivateObject removes object from private bucket
 func (c *Client) DeletePrivateObject(ctx context.Context, key string) error {
 	if key == "" {
-		return errors.New("object key is required")
+		return app_errors.ErrObjectKeyRequired
 	}
 
 	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
@@ -43,7 +43,7 @@ func (c *Client) DeletePrivateObject(ctx context.Context, key string) error {
 // DeletePublicObject removes object from public bucket
 func (c *Client) DeletePublicObject(ctx context.Context, key string) error {
 	if key == "" {
-		return errors.New("object key is required")
+		return app_errors.ErrObjectKeyRequired
 	}
 
 	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
@@ -63,7 +63,7 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	region := cfg.SESRegion
 
 	if accessKey == "" || secretKey == "" || privateBucket == "" || publicBucket == "" {
-		return nil, fmt.Errorf("AWS credentials and bucket names must be set")
+		return nil, app_errors.ErrAWSCredsOrBucketNamesNotSet
 	}
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
@@ -71,7 +71,7 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load aws config: %w", err)
+		return nil, app_errors.ErrFailedToLoadAWSConfig
 	}
 
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
@@ -177,7 +177,7 @@ func (c *Client) CopyToPublicBucket(ctx context.Context, sourceKey, destKey stri
 	// Формируем постоянный публичный URL
 	u, err := url.Parse(c.endpoint)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse endpoint url: %w", err)
+		return "", app_errors.ErrFailedToParseEndpointURL
 	}
 
 	// Принудительно ставим HTTPS для публичных ссылок
@@ -217,7 +217,7 @@ func (c *Client) GetPrivateBucket() string {
 // DeleteObject deletes object from specified bucket
 func (c *Client) DeleteObject(ctx context.Context, bucket, key string) error {
 	if key == "" {
-		return errors.New("object key is required")
+		return app_errors.ErrObjectKeyRequired
 	}
 
 	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{

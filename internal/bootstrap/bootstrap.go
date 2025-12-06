@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/auth"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	httpserver "github.com/lumiforge/sellerproof-backend/internal/http"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/logger"
@@ -36,13 +36,13 @@ func Initialize(ctx context.Context) (http.Handler, error) {
 	// Инициализация YDB
 	db, err := ydb.NewYDBClient(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to YDB: %w", err)
+		return nil, app_errors.ErrFailedToConnectYDB
 	}
 
 	// Инициализация JWT менеджера
 	jwtManager := jwt.NewJWTManager(cfg)
 	if jwtManager == nil {
-		return nil, fmt.Errorf("JWT secret key is not configured")
+		return nil, app_errors.ErrJWTSecretKeyNotConfigured
 	}
 
 	// Инициализация RBAC
@@ -54,7 +54,7 @@ func Initialize(ctx context.Context) (http.Handler, error) {
 	// Инициализация S3 клиента
 	storageClient, err := storage.NewClient(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize storage client: %w", err)
+		return nil, app_errors.ErrFailedToInitStorageClient
 	}
 
 	// Инициализация сервисов

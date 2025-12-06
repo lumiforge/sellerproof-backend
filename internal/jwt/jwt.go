@@ -1,12 +1,12 @@
 package jwt
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/lumiforge/sellerproof-backend/internal/config"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 )
 
 // Claims представляет структуру claims в JWT токене
@@ -42,13 +42,13 @@ func (j *JWTManager) GenerateTokenPair(userID, email, role, orgID string) (strin
 	// Генерация access токена
 	accessToken, err := j.generateToken(userID, email, role, orgID, j.accessExpiry)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", app_errors.ErrFailedToGenerateAccessToken
 	}
 
 	// Генерация refresh токена
 	refreshToken, err := j.generateToken(userID, email, role, orgID, j.refreshExpiry)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", app_errors.ErrFailedToGenerateRefreshToken
 	}
 
 	return accessToken, refreshToken, nil
@@ -79,18 +79,18 @@ func (j *JWTManager) generateToken(userID, email, role, orgID string, expiry tim
 func (j *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			return nil, app_errors.ErrUnexpectedSigningMethod
 		}
 		return []byte(j.secretKey), nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		return nil, app_errors.ErrFailedToParseToken
 	}
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return nil, fmt.Errorf("invalid token")
+		return nil, app_errors.ErrInvalidToken
 	}
 
 	return claims, nil
@@ -100,13 +100,13 @@ func (j *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 func (j *JWTManager) RefreshAccessToken(refreshTokenString string) (string, error) {
 	claims, err := j.ValidateToken(refreshTokenString)
 	if err != nil {
-		return "", fmt.Errorf("invalid refresh token: %w", err)
+		return "", app_errors.ErrInvalidRefreshToken
 	}
 
 	// Генерируем новый access токен с теми же claims
 	accessToken, err := j.generateToken(claims.UserID, claims.Email, claims.Role, claims.OrgID, j.accessExpiry)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate new access token: %w", err)
+		return "", app_errors.ErrFailedToGenerateNewTokens
 	}
 
 	return accessToken, nil
@@ -127,12 +127,12 @@ func (j *JWTManager) GetTokenExpiry(tokenType string) time.Duration {
 // ExtractTokenFromHeader извлекает токен из Authorization header
 func ExtractTokenFromHeader(authHeader string) (string, error) {
 	if authHeader == "" {
-		return "", fmt.Errorf("authorization header is empty")
+		return "", app_errors.ErrAuthHeaderEmpty
 	}
 
 	const bearerPrefix = "Bearer "
 	if len(authHeader) < len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
-		return "", fmt.Errorf("authorization header format must be Bearer {token}")
+		return "", app_errors.ErrAuthHeaderWrongFormat
 	}
 
 	return authHeader[len(bearerPrefix):], nil
