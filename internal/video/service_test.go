@@ -31,14 +31,18 @@ func TestService_InitiateMultipartUpload_StorageLimitExceeded(t *testing.T) {
 	orgID := "org-1"
 	fileSize := int64(20 * 1024 * 1024) // 20 MB
 
+	// 0. Получение организации
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
+
 	// 1. Получение подписки (Лимит 100 МБ)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
-		StorageLimitMB: 100,
+		StorageLimitMB:  100,
+		VideoCountLimit: 100,
 	}, nil)
 
 	// 2. Получение текущего использования (Занято 90 МБ)
 	currentUsage := int64(90 * 1024 * 1024)
-	mockDB.On("GetStorageUsage", ctx, orgID).Return(currentUsage, nil)
+	mockDB.On("GetStorageUsage", ctx, userID).Return(currentUsage, int64(5), nil)
 
 	// Act
 	// 90 + 20 = 110 > 100 -> Ошибка
@@ -175,13 +179,16 @@ func TestService_CompleteMultipartUpload_QuotaExceededPostUpload(t *testing.T) {
 	realSize := int64(100 * 1024 * 1024)
 	mockStorage.On("GetObjectSize", ctx, storagePath).Return(realSize, nil)
 
+	// 4.5 Get Org
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
+
 	// 5. Подписка (Лимит 50 МБ)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
 		StorageLimitMB: 50,
 	}, nil)
 
 	// 6. Текущее использование (0 МБ)
-	mockDB.On("GetStorageUsage", ctx, orgID).Return(int64(0), nil)
+	mockDB.On("GetStorageUsage", ctx, userID).Return(int64(0), int64(0), nil)
 
 	// 7. Ожидаем удаление и пометку failed, т.к. 100 > 50
 	mockStorage.On("DeletePrivateObject", ctx, storagePath).Return(nil)
@@ -226,8 +233,9 @@ func TestService_CompleteMultipartUpload_Success(t *testing.T) {
 	// Valid MP4
 	mockStorage.On("GetObjectHeader", ctx, storagePath).Return([]byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}, nil)
 	mockStorage.On("GetObjectSize", ctx, storagePath).Return(int64(1024), nil)
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{StorageLimitMB: 100}, nil)
-	mockDB.On("GetStorageUsage", ctx, orgID).Return(int64(0), nil)
+	mockDB.On("GetStorageUsage", ctx, userID).Return(int64(0), int64(0), nil)
 
 	// Update DB success
 	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
@@ -339,4 +347,60 @@ func TestService_PublishVideo_Idempotency(t *testing.T) {
 	assert.Equal(t, "Video already published", resp.Message)
 	// Важно: методы storage (CopyToPublicBucket) не должны вызываться
 	mockDB.AssertExpectations(t)
+}
+
+func TestService_InitiateMultipartUpload_MemberUpload_OwnerQuota(t *testing.T) {
+	service, mockDB, mockStorage := setupVideoService()
+	ctx := context.Background()
+
+	memberID := "user-member"
+	ownerID := "user-owner"
+	orgID := "org-1"
+	fileSize := int64(10 * 1024 * 1024) // 10 MB
+
+	// 1. Get Organization to find owner
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{
+		OrgID:   orgID,
+		OwnerID: ownerID,
+	}, nil)
+
+	// 2. Get Owner's subscription (Limit 100MB)
+	mockDB.On("GetSubscriptionByUser", ctx, ownerID).Return(&ydb.Subscription{
+		StorageLimitMB:  100,
+		VideoCountLimit: 100,
+	}, nil)
+
+	// 3. Get Owner's storage usage (Used 95MB)
+	// 95 + 10 = 105 > 100 -> Error
+	mockDB.On("GetStorageUsage", ctx, ownerID).Return(int64(95*1024*1024), int64(10), nil)
+
+	// Act
+	resp, err := service.InitiateMultipartUploadDirect(ctx, memberID, orgID, "Title", "video.mp4", fileSize, 60)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, "storage limit exceeded", err.Error())
+
+	mockDB.AssertExpectations(t)
+	mockStorage.AssertExpectations(t)
+}
+
+func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
+	service, mockDB, _ := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	fileSize := int64(10 * 1024 * 1024)
+
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
+	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{StorageLimitMB: 1000, VideoCountLimit: 5}, nil)
+	mockDB.On("GetStorageUsage", ctx, userID).Return(int64(100), int64(5), nil) // Already 5 videos
+
+	resp, err := service.InitiateMultipartUploadDirect(ctx, userID, orgID, "Title", "video.mp4", fileSize, 60)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, "video count limit exceeded", err.Error())
 }

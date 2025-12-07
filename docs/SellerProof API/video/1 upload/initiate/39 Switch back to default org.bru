@@ -1,0 +1,30 @@
+meta {
+  name: Switch back to default org
+  type: http
+  seq: 39
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{adminOrgId}}",
+    "refresh_token": "{{adminRefreshToken}}"
+  }
+}
+
+tests {
+  test('Should switch back to default organization', function() {
+    expect(res.status).to.equal(200);
+    bru.setEnvVar("adminAccessToken", res.body.access_token);
+    bru.setEnvVar("adminRefreshToken", res.body.refresh_token);
+  });
+}

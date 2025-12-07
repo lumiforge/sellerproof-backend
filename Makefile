@@ -50,7 +50,8 @@ export price_rub_enterprise
 export SP_PRESIGN_TTL_FOR_ARCHIVE_SECONDS
 export SP_PRESIGN_TTL_SECONDS
 
-
+# diff:
+#     git diff HEAD > changes.patch
 
 git:
 	@if [ -z "$(M)" ]; then echo 'ERROR: set MSG, e.g. make git MSG="feat: deploy function"'; exit 1; fi

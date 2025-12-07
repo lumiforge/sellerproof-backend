@@ -45,6 +45,7 @@ const (
 	AuditOrgInvitationAccepted  AuditActionType = "org_invitation_accepted"
 	AuditOrgRoleChanged         AuditActionType = "org_role_changed"
 	AuditOrgMemberStatusChanged AuditActionType = "org_member_status_changed"
+	AuditOrgDelete              AuditActionType = "org_delete"
 
 	// Error actions
 	// AuditAPIError         AuditActionType = "api_error"

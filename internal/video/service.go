@@ -120,15 +120,21 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, title, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
 
+	// Получаем организацию для определения владельца
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetOrganizationInfo
+	}
+
 	// Проверка квоты
-	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
+	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 	if err != nil {
 
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
 	// TODO Race Condition при проверке квоты хранилища
-	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
+	currentUsage, videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID)
 	if err != nil {
 
 		return nil, app_errors.ErrFailedToGetStorageUsage
@@ -141,6 +147,10 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		if fileSizeBytes > remainingQuota {
 			return nil, app_errors.ErrStorageLimitExceeded
 		}
+	}
+
+	if sub.VideoCountLimit > 0 && videoCount >= sub.VideoCountLimit {
+		return nil, fmt.Errorf("video count limit exceeded")
 	}
 
 	videoID := uuid.New().String()
@@ -390,13 +400,19 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrFailedToVerifyUploadIntegrity
 	}
 
+	// Получаем организацию для определения владельца
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetOrganizationInfo
+	}
+
 	// Подписка
-	sub, err := s.db.GetSubscriptionByUser(ctx, userID)
+	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
-	currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
+	currentUsage, videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID)
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
@@ -426,6 +442,10 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		_ = s.db.UpdateVideo(ctx, video)
 
 		return nil, app_errors.ErrStorageLimitExceededFileSize
+	}
+
+	if sub.VideoCountLimit > 0 && videoCount >= sub.VideoCountLimit {
+		return nil, fmt.Errorf("video count limit exceeded")
 	}
 
 	// Обновляем размер файла в БД на реальный
@@ -789,12 +809,18 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 	// 2. ПРОВЕРКА КВОТЫ
 	// Если видео еще не опубликовано, публикация создаст копию, занимающую место.
 	if video.PublishStatus != "published" {
-		sub, err := s.db.GetSubscriptionByUser(ctx, userID)
+		// Получаем организацию для определения владельца
+		org, err := s.db.GetOrganizationByID(ctx, orgID)
+		if err != nil {
+			return nil, app_errors.ErrFailedToGetOrganizationInfo
+		}
+
+		sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 		if err != nil {
 			return nil, app_errors.ErrFailedToGetSubscription
 		}
 
-		currentUsage, err := s.db.GetStorageUsage(ctx, orgID)
+		currentUsage, _, err := s.db.GetStorageUsage(ctx, org.OwnerID)
 		if err != nil {
 			return nil, app_errors.ErrFailedToGetStorageUsage
 		}

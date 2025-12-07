@@ -2546,3 +2546,53 @@ func (s *Server) GetUserOrganizations(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusOK, resp)
 }
+
+// DeleteOrganization handles organization deletion
+// @Summary		Delete organization
+// @Description	Delete organization and all related data (owner only)
+// @Tags		organization
+// @Produce		json
+// @Param		org_id	query		string	true	"Organization ID"
+// @Security	BearerAuth
+// @Success	200		{object}	map[string]string
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	403		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/organization [delete]
+func (s *Server) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	orgID := r.URL.Query().Get("org_id")
+	if orgID == "" {
+		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		return
+	}
+
+	if err := uuid.Validate(orgID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		return
+	}
+
+	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	err := s.authService.DeleteOrganization(r.Context(), claims.UserID, orgID)
+	if err != nil {
+		slog.Error("DeleteOrganization: Failed to delete organization", "error", err.Error(), "org_id", orgID, "user_id", claims.UserID)
+		if errors.Is(err, app_errors.ErrOnlyOwnerCanDeleteOrg) {
+			s.writeError(w, http.StatusForbidden, err.Error())
+		} else {
+			s.writeError(w, http.StatusInternalServerError, "Failed to delete organization")
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Organization deleted successfully"})
+}

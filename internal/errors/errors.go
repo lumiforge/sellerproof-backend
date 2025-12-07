@@ -98,6 +98,7 @@ var (
 	ErrResetCodeExpired                     = errors.New("reset code expired")
 	ErrFailedToUpdatePassword               = errors.New("failed to update password")
 	ErrOrgCanHaveOnlyOneAdmin               = errors.New("organization can have only one admin")
+	ErrOnlyOwnerCanDeleteOrg                = errors.New("only organization owner can delete it")
 
 	// Bootstrap errors
 	ErrFailedToConnectYDB        = errors.New("failed to connect to YDB")

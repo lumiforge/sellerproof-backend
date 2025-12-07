@@ -1764,3 +1764,20 @@ func (s *Service) GetUserOrganizations(ctx context.Context, userID string) (*mod
 		Organizations: result,
 	}, nil
 }
+
+// DeleteOrganization удаляет организацию пользователя
+func (s *Service) DeleteOrganization(ctx context.Context, userID, orgID string) error {
+	// 1. Получаем информацию об организации
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return app_errors.ErrFailedToGetOrganizationInfo
+	}
+
+	// 2. Проверяем, является ли пользователь владельцем
+	if org.OwnerID != userID {
+		return app_errors.ErrOnlyOwnerCanDeleteOrg
+	}
+
+	// 3. Удаляем организацию и связанные данные
+	return s.db.DeleteOrganizationTx(ctx, orgID)
+}

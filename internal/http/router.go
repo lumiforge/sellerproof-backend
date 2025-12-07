@@ -91,6 +91,10 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 
+	mux.HandleFunc("/api/v1/organization", chainMiddleware(server.DeleteOrganization, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, server.authService, next)
+	}))
+
 	// Organization and Membership routes
 	mux.HandleFunc("/api/v1/organization/invite", chainMiddleware(server.InviteUser, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)

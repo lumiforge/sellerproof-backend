@@ -1,0 +1,25 @@
+meta {
+  name: Delete organization success
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization?org_id={{newCreatedAdminOrgId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 200 OK', function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test('Should return success message', function() {
+    expect(res.body.message).to.equal('Organization deleted successfully');
+  });
+}

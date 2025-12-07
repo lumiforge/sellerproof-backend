@@ -1,0 +1,30 @@
+meta {
+  name: Create second org for quota test
+  type: http
+  seq: 36
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/create
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "name": "Admin Second Org",
+    "description": "Second organization to test global quota"
+  }
+}
+
+tests {
+  test('Should create second organization successfully', function() {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.have.property('org_id');
+    bru.setEnvVar("adminSecondOrgId", res.body.org_id);
+  });
+}

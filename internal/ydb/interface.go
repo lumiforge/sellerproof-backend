@@ -24,6 +24,7 @@ type Database interface {
 	GetOrganizationsByIDs(ctx context.Context, orgIDs []string) ([]*Organization, error)
 	GetOrganizationsByOwner(ctx context.Context, ownerID string) ([]*Organization, error)
 	UpdateOrganization(ctx context.Context, org *Organization) error
+	DeleteOrganizationTx(ctx context.Context, orgID string) error
 
 	// Членство в организациях
 	CreateMembership(ctx context.Context, membership *Membership) error
@@ -41,7 +42,6 @@ type Database interface {
 	CreateSubscription(ctx context.Context, subscription *Subscription) error
 	GetSubscriptionByID(ctx context.Context, subscriptionID string) (*Subscription, error)
 	GetSubscriptionByUser(ctx context.Context, userID string) (*Subscription, error)
-	GetSubscriptionByOrg(ctx context.Context, orgID string) (*Subscription, error)
 	UpdateSubscription(ctx context.Context, subscription *Subscription) error
 	CreateSubscriptionHistory(ctx context.Context, history *SubscriptionHistory) error
 	GetSubscriptionHistory(ctx context.Context, subscriptionID string) ([]*SubscriptionHistory, error)
@@ -78,7 +78,7 @@ type Database interface {
 	GetVideo(ctx context.Context, videoID string) (*Video, error)
 	UpdateVideo(ctx context.Context, video *Video) error
 	UpdateVideoStatus(ctx context.Context, videoID, status, publicURL string) error
-	GetStorageUsage(ctx context.Context, orgID string) (int64, error)
+	GetStorageUsage(ctx context.Context, ownerID string) (int64, int64, error)
 	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
 	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
 

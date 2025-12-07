@@ -383,3 +383,51 @@ func TestHandler_GetUserOrganizations_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, resp.Organizations)
 }
+
+func TestHandler_DeleteOrganization_Success(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	// Generate token
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "admin", "org-1")
+
+	// Mock AuthMiddleware session check
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active"}, nil)
+
+	// Mock Service calls
+	mockDB.On("GetOrganizationByID", mock.Anything, "org-1").Return(&ydb.Organization{OrgID: "org-1", OwnerID: "user-1"}, nil)
+	mockDB.On("DeleteOrganizationTx", mock.Anything, "org-1").Return(nil)
+
+	req := httptest.NewRequest("DELETE", "/api/v1/organization?org_id=org-1", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Organization deleted successfully")
+}
+
+func TestHandler_DeleteOrganization_Forbidden(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "admin", "org-1")
+
+	// Mock AuthMiddleware
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active"}, nil)
+
+	// Mock Service calls
+	mockDB.On("GetOrganizationByID", mock.Anything, "org-1").Return(&ydb.Organization{OrgID: "org-1", OwnerID: "other-owner"}, nil)
+
+	req := httptest.NewRequest("DELETE", "/api/v1/organization?org_id=org-1", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "only organization owner can delete it")
+}

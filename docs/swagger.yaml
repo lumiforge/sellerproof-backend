@@ -164,6 +164,14 @@ definitions:
           type: string
         type: array
     type: object
+  models.GetUserOrganizationsResponse:
+    description: Response containing list of user organizations
+    properties:
+      organizations:
+        items:
+          $ref: '#/definitions/models.OrganizationInfo'
+        type: array
+    type: object
   models.InitiateMultipartUploadRequest:
     description: Multipart upload initiation request
     properties:
@@ -709,6 +717,31 @@ paths:
       security:
       - BearerAuth: []
       summary: User logout
+      tags:
+      - auth
+  /auth/organizations:
+    get:
+      consumes:
+      - application/json
+      description: Get list of organizations the user belongs to
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetUserOrganizationsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user organizations
       tags:
       - auth
   /auth/profile:

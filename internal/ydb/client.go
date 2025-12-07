@@ -596,7 +596,7 @@ func (c *YDBClient) GetUserByID(ctx context.Context, userID string) (*User, erro
 		DECLARE $user_id AS Text;
 		SELECT user_id, email, password_hash, full_name, email_verified,
 			   verification_code, verification_expires_at, verification_attempts,
-			   created_at, updated_at, is_active, last_org_id, 
+			   created_at, updated_at, is_active, last_org_id,
 			   password_reset_code, password_reset_expires_at
 			   FROM users
 		WHERE user_id = $user_id
@@ -1635,24 +1635,25 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 }
 
 // GetStorageUsage возвращает использованный объем хранилища
-func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, error) {
+func (c *YDBClient) GetStorageUsage(ctx context.Context, ownerID string) (int64, int64, error) {
 	query := `
-		DECLARE $org_id AS Text;
+		DECLARE $owner_id AS Text;
 
-		SELECT COALESCE(SUM(
-			file_size_bytes +
-			CASE WHEN publish_status = 'published' THEN file_size_bytes ELSE 0 END
-		), 0)
-		FROM videos
-		WHERE org_id = $org_id AND is_deleted = false AND upload_status != 'failed'
+		SELECT
+			COALESCE(SUM(v.file_size_bytes + CASE WHEN v.publish_status = 'published' THEN v.file_size_bytes ELSE 0 END), 0) as size,
+			COUNT(*) as count
+		FROM videos AS v
+		INNER JOIN organizations AS o ON v.org_id = o.org_id
+		WHERE o.owner_id = $owner_id AND v.is_deleted = false AND v.upload_status != 'failed'
 	`
 
 	var usage int64
+	var count uint64
 
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
-				table.ValueParam("$org_id", types.TextValue(orgID)),
+				table.ValueParam("$owner_id", types.TextValue(ownerID)),
 			),
 		)
 		if err != nil {
@@ -1662,7 +1663,8 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			err := res.ScanNamed(
-				named.Required("column0", &usage),
+				named.Required("size", &usage),
+				named.Required("count", &count),
 			)
 			if err != nil {
 				return app_errors.ErrScanFailed
@@ -1672,9 +1674,9 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, orgID string) (int64, e
 	})
 
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return usage, nil
+	return usage, int64(count), nil
 }
 
 // PublishVideoTx выполняет публикацию видео в одной транзакции:
@@ -2387,7 +2389,7 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID string) (*Subscription, error) {
 	query := `
 		DECLARE $subscription_id AS Text;
-		SELECT subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
+		SELECT subscription_id, user_id, plan_id, storage_limit_mb, video_count_limit,
 			   is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
 		FROM subscriptions
 		WHERE subscription_id = $subscription_id
@@ -2412,7 +2414,6 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 			err := res.ScanNamed(
 				named.Required("subscription_id", &subscription.SubscriptionID),
 				named.Required("user_id", &subscription.UserID),
-				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
 				named.Required("storage_limit_mb", &subscription.StorageLimitMB),
 				named.Required("video_count_limit", &subscription.VideoCountLimit),
@@ -2441,64 +2442,6 @@ func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 	return &subscription, nil
 }
 
-func (c *YDBClient) GetSubscriptionByOrg(ctx context.Context, orgID string) (*Subscription, error) {
-	query := `
-		DECLARE $org_id AS Text;
-		SELECT subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
-			   is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-		FROM subscriptions
-		WHERE org_id = $org_id AND is_active = true
-		ORDER BY created_at DESC
-		LIMIT 1
-	`
-
-	var subscription Subscription
-	var found bool
-
-	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
-			table.NewQueryParameters(
-				table.ValueParam("$org_id", types.TextValue(orgID)),
-			),
-		)
-		if err != nil {
-			return err
-		}
-		defer res.Close()
-
-		if res.NextResultSet(ctx) && res.NextRow() {
-			found = true
-			err := res.ScanNamed(
-				named.Required("subscription_id", &subscription.SubscriptionID),
-				named.Required("user_id", &subscription.UserID),
-				named.Required("org_id", &subscription.OrgID),
-				named.Required("plan_id", &subscription.PlanID),
-				named.Required("storage_limit_mb", &subscription.StorageLimitMB),
-				named.Required("video_count_limit", &subscription.VideoCountLimit),
-				named.Required("is_active", &subscription.IsActive),
-				named.Required("trial_ends_at", &subscription.TrialEndsAt),
-				named.Required("started_at", &subscription.StartedAt),
-				named.Required("expires_at", &subscription.ExpiresAt),
-				named.Required("billing_cycle", &subscription.BillingCycle),
-				named.Required("created_at", &subscription.CreatedAt),
-				named.Required("updated_at", &subscription.UpdatedAt),
-			)
-			if err != nil {
-				return app_errors.ErrScanFailed
-			}
-		}
-		return res.Err()
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return nil, fmt.Errorf("subscription not found")
-	}
-
-	return &subscription, nil
-}
 
 func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscription) error {
 	query := `
@@ -3907,4 +3850,24 @@ func (c *YDBClient) GetInvitationByID(ctx context.Context, invitationID string) 
 	}
 
 	return invitation, nil
+}
+
+// DeleteOrganizationTx удаляет организацию и все связанные данные в одной транзакции
+func (c *YDBClient) DeleteOrganizationTx(ctx context.Context, orgID string) error {
+	query := `
+		DECLARE $org_id AS Text;
+
+		DELETE FROM organizations WHERE org_id = $org_id;
+		DELETE FROM memberships WHERE org_id = $org_id;
+		DELETE FROM invitations WHERE org_id = $org_id;
+		DELETE FROM subscriptions WHERE org_id = $org_id;
+		DELETE FROM videos WHERE org_id = $org_id;
+	`
+
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query,
+			table.NewQueryParameters(table.ValueParam("$org_id", types.TextValue(orgID))),
+		)
+		return err
+	})
 }

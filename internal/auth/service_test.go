@@ -65,7 +65,7 @@ func TestService_Register_Success(t *testing.T) {
 		mock.MatchedBy(func(u *ydb.User) bool { return u.Email == "test@example.com" }), // User
 		mock.MatchedBy(func(o *ydb.Organization) bool { return o.Name == "Test Org" }),  // Org
 		mock.AnythingOfType("*ydb.Membership"),                                          // Membership
-		mock.AnythingOfType("*ydb.Subscription"),                                        // Subscription
+		mock.MatchedBy(func(s *ydb.Subscription) bool { return s.UserID != "" }),        // Subscription
 		"",                                                                              // InvitationID (empty)
 	).Return(nil)
 
@@ -595,5 +595,40 @@ func TestService_GetUserOrganizations_Success(t *testing.T) {
 	assert.Equal(t, "org-2", resp.Organizations[1].OrgID)
 	assert.Equal(t, "Org 2", resp.Organizations[1].Name)
 	assert.Equal(t, "user", resp.Organizations[1].Role)
+	mockDB.AssertExpectations(t)
+}
+
+func TestService_DeleteOrganization_Success(t *testing.T) {
+	service, mockDB, _ := setupAuthService()
+	ctx := context.Background()
+	userID := "user-1"
+	orgID := "org-1"
+
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{
+		OrgID:   orgID,
+		OwnerID: userID,
+	}, nil)
+	mockDB.On("DeleteOrganizationTx", ctx, orgID).Return(nil)
+
+	err := service.DeleteOrganization(ctx, userID, orgID)
+
+	assert.NoError(t, err)
+	mockDB.AssertExpectations(t)
+}
+
+func TestService_DeleteOrganization_NotOwner(t *testing.T) {
+	service, mockDB, _ := setupAuthService()
+	ctx := context.Background()
+	userID := "user-1"
+	orgID := "org-1"
+
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{
+		OrgID:   orgID,
+		OwnerID: "other-user",
+	}, nil)
+
+	err := service.DeleteOrganization(ctx, userID, orgID)
+	assert.Error(t, err)
+	assert.Equal(t, "only organization owner can delete it", err.Error())
 	mockDB.AssertExpectations(t)
 }

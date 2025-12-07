@@ -288,6 +288,24 @@ func (_m *Database) DeleteUser(ctx context.Context, userID string) error {
 	return r0
 }
 
+// DeleteOrganizationTx provides a mock function with given fields: ctx, orgID
+func (_m *Database) DeleteOrganizationTx(ctx context.Context, orgID string) error {
+	ret := _m.Called(ctx, orgID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteOrganizationTx")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, orgID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetActivePublicVideoShare provides a mock function with given fields: ctx, videoID
 func (_m *Database) GetActivePublicVideoShare(ctx context.Context, videoID string) (*ydb.PublicVideoShare, error) {
 	ret := _m.Called(ctx, videoID)
@@ -835,32 +853,39 @@ func (_m *Database) GetRefreshTokensByUser(ctx context.Context, userID string) (
 	return r0, r1
 }
 
-// GetStorageUsage provides a mock function with given fields: ctx, orgID
-func (_m *Database) GetStorageUsage(ctx context.Context, orgID string) (int64, error) {
-	ret := _m.Called(ctx, orgID)
+// GetStorageUsage provides a mock function with given fields: ctx, ownerID
+func (_m *Database) GetStorageUsage(ctx context.Context, ownerID string) (int64, int64, error) {
+	ret := _m.Called(ctx, ownerID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetStorageUsage")
 	}
 
 	var r0 int64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (int64, error)); ok {
-		return rf(ctx, orgID)
+	var r1 int64
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (int64, int64, error)); ok {
+		return rf(ctx, ownerID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) int64); ok {
-		r0 = rf(ctx, orgID)
+		r0 = rf(ctx, ownerID)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, orgID)
+	if rf, ok := ret.Get(1).(func(context.Context, string) int64); ok {
+		r1 = rf(ctx, ownerID)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(int64)
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, ownerID)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // GetSubscriptionByID provides a mock function with given fields: ctx, subscriptionID
@@ -893,35 +918,6 @@ func (_m *Database) GetSubscriptionByID(ctx context.Context, subscriptionID stri
 	return r0, r1
 }
 
-// GetSubscriptionByOrg provides a mock function with given fields: ctx, orgID
-func (_m *Database) GetSubscriptionByOrg(ctx context.Context, orgID string) (*ydb.Subscription, error) {
-	ret := _m.Called(ctx, orgID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetSubscriptionByOrg")
-	}
-
-	var r0 *ydb.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*ydb.Subscription, error)); ok {
-		return rf(ctx, orgID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *ydb.Subscription); ok {
-		r0 = rf(ctx, orgID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ydb.Subscription)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, orgID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
 
 // GetSubscriptionByUser provides a mock function with given fields: ctx, userID
 func (_m *Database) GetSubscriptionByUser(ctx context.Context, userID string) (*ydb.Subscription, error) {

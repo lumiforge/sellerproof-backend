@@ -1,0 +1,31 @@
+meta {
+  name: Initiate upload in second org
+  type: http
+  seq: 38
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "video_in_second_org.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should initiate upload in second org using global quota', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('video_id');
+    expect(res.body).to.have.property('upload_id');
+  });
+}

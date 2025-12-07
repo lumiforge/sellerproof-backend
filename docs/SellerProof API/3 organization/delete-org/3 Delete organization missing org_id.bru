@@ -1,0 +1,26 @@
+meta {
+  name: Delete organization missing org_id
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 400 Bad Request', function() {
+    expect(res.status).to.equal(400);
+  });
+
+  test('Should return error message', function() {
+    expect(res.body.error).to.equal('Bad Request');
+    expect(res.body.message).to.include('org_id is required');
+  });
+}

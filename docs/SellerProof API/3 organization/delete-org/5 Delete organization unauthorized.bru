@@ -1,0 +1,17 @@
+meta {
+  name: Delete organization unauthorized
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/organization?org_id={{adminOrgId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test('Should return 401 Unauthorized', function() {
+    expect(res.status).to.equal(401);
+  });
+}
