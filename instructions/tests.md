@@ -31,17 +31,19 @@
 18. Organization -> Invitations
 19. Organization -> Role
 20. Organization -> Delete Invitation
-21. Video -> Upload -> Initiate
-22. Video -> Upload -> URLs
-23. Сслыки копируем URLs из всех --> тестов
-24. Вставляем URLs в run.sh file -> запускаем run.sh
-25. Запускаем run.sh
-26. Video -> Upload -> Complete
-27. Video -> get
-28. Video -> search
-29. Video -> download
-30. Video -> publish
-31. Video -> public
-32. Video -> revoke
-33. Video -> delete
-34. Auth -> Switch Organization
+21. Organization -> Delete organization
+22. Organization -> Update name
+23. Video -> Upload -> Initiate
+24. Video -> Upload -> URLs
+25. Сслыки копируем URLs из всех --> тестов
+26. Вставляем URLs в run.sh file -> запускаем run.sh
+27. Запускаем run.sh
+28. Video -> Upload -> Complete
+29. Video -> get
+30. Video -> search
+31. Video -> download
+32. Video -> publish
+33. Video -> public
+34. Video -> revoke
+35. Video -> delete
+36. Auth -> Switch Organization

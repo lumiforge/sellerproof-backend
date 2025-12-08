@@ -1675,6 +1675,11 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := uuid.Validate(orgID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		return
+	}
+
 	// Validate org_id
 	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
 		slog.Error("ListInvitations: org_id is invalid", "error", err.Error())
@@ -2038,6 +2043,10 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	if orgID == "" {
 		slog.Error("RemoveMember: org_id is required")
 		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		return
+	}
+	if err := uuid.Validate(orgID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
 		return
 	}
 
@@ -2595,4 +2604,76 @@ func (s *Server) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Organization deleted successfully"})
+}
+
+// UpdateOrganizationName handles updating organization name
+// @Summary		Update organization name
+// @Description	Update the name of an organization (admin only)
+// @Tags		organization
+// @Accept		json
+// @Produce		json
+// @Param		org_id	query		string	true	"Organization ID"
+// @Param		request	body		models.UpdateOrganizationNameRequest	true	"Update organization name request"
+// @Security	BearerAuth
+// @Success	200		{object}	models.UpdateOrganizationNameResponse
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	403		{object}	models.ErrorResponse
+// @Failure	404		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/organization/name [put]
+func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	orgID := r.URL.Query().Get("org_id")
+	if orgID == "" {
+		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		return
+	}
+
+	if err := uuid.Validate(orgID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		return
+	}
+	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.UpdateOrganizationNameRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	resp, err := s.authService.UpdateOrganizationName(r.Context(), claims.UserID, orgID, &req)
+	if err != nil {
+		slog.Error("UpdateOrganizationName: Failed to update organization name", "error", err.Error(), "org_id", orgID, "user_id", claims.UserID)
+		var valErr validation.ValidationError
+		if errors.As(err, &valErr) {
+			s.writeError(w, http.StatusBadRequest, valErr.Error())
+			return
+		}
+		if errors.Is(err, app_errors.ErrInsufficientPermissions) {
+			s.writeError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		if errors.Is(err, app_errors.ErrMembershipNotFound) || errors.Is(err, app_errors.ErrFailedToGetOrganizationInfo) {
+			s.writeError(w, http.StatusNotFound, "Organization not found or access denied")
+			return
+		}
+		s.writeError(w, http.StatusInternalServerError, "Failed to update organization name")
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
 }

@@ -480,6 +480,22 @@ definitions:
         description: '"active" or "suspended"'
         type: string
     type: object
+  models.UpdateOrganizationNameRequest:
+    description: Update organization name request
+    properties:
+      name:
+        type: string
+    type: object
+  models.UpdateOrganizationNameResponse:
+    description: Update organization name response
+    properties:
+      message:
+        type: string
+      name:
+        type: string
+      org_id:
+        type: string
+    type: object
   models.UpdateProfileRequest:
     description: Profile update request with full name
     properties:
@@ -969,6 +985,45 @@ paths:
       summary: Verify user email
       tags:
       - auth
+  /organization:
+    delete:
+      description: Delete organization and all related data (owner only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete organization
+      tags:
+      - organization
   /organization/create:
     post:
       consumes:
@@ -1346,6 +1401,55 @@ paths:
       security:
       - BearerAuth: []
       summary: Update member status
+      tags:
+      - organization
+  /organization/name:
+    put:
+      consumes:
+      - application/json
+      description: Update the name of an organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: query
+        name: org_id
+        required: true
+        type: string
+      - description: Update organization name request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateOrganizationNameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateOrganizationNameResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update organization name
       tags:
       - organization
   /video:

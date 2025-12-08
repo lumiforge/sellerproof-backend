@@ -632,3 +632,59 @@ func TestService_DeleteOrganization_NotOwner(t *testing.T) {
 	assert.Equal(t, "only organization owner can delete it", err.Error())
 	mockDB.AssertExpectations(t)
 }
+
+func TestService_UpdateOrganizationName_Success(t *testing.T) {
+	service, mockDB, _ := setupAuthService()
+	ctx := context.Background()
+	userID := "user-1"
+	orgID := "org-1"
+	newName := "New Org Name"
+
+	req := &models.UpdateOrganizationNameRequest{Name: newName}
+
+	// Mock membership (Admin)
+	mockDB.On("GetMembership", ctx, userID, orgID).Return(&ydb.Membership{
+		UserID: userID,
+		OrgID:  orgID,
+		Role:   "admin",
+	}, nil)
+
+	// Mock GetOrganization
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{
+		OrgID: orgID,
+		Name:  "Old Name",
+	}, nil)
+
+	// Mock UpdateOrganization
+	mockDB.On("UpdateOrganization", ctx, mock.MatchedBy(func(o *ydb.Organization) bool {
+		return o.OrgID == orgID && o.Name == newName
+	})).Return(nil)
+
+	resp, err := service.UpdateOrganizationName(ctx, userID, orgID, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, newName, resp.Name)
+	mockDB.AssertExpectations(t)
+}
+
+func TestService_UpdateOrganizationName_NotAdmin(t *testing.T) {
+	service, mockDB, _ := setupAuthService()
+	ctx := context.Background()
+	userID := "user-1"
+	orgID := "org-1"
+
+	req := &models.UpdateOrganizationNameRequest{Name: "New Name"}
+
+	// Mock membership (Manager)
+	mockDB.On("GetMembership", ctx, userID, orgID).Return(&ydb.Membership{
+		UserID: userID,
+		OrgID:  orgID,
+		Role:   "manager",
+	}, nil)
+
+	_, err := service.UpdateOrganizationName(ctx, userID, orgID, req)
+
+	assert.Error(t, err)
+	assert.Equal(t, "insufficient permissions", err.Error())
+	mockDB.AssertExpectations(t)
+}

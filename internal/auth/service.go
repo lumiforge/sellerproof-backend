@@ -1781,3 +1781,47 @@ func (s *Service) DeleteOrganization(ctx context.Context, userID, orgID string) 
 	// 3. Удаляем организацию и связанные данные
 	return s.db.DeleteOrganizationTx(ctx, orgID)
 }
+
+// UpdateOrganizationName updates the name of an organization
+func (s *Service) UpdateOrganizationName(ctx context.Context, userID, orgID string, req *models.UpdateOrganizationNameRequest) (*models.UpdateOrganizationNameResponse, error) {
+	if req.Name == "" {
+		return nil, validation.ValidationError{Field: "name", Message: "is required"}
+	}
+
+	orgName, err := validation.SanitizeOrganizationName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if user is a member of the organization
+	membership, err := s.db.GetMembership(ctx, userID, orgID)
+	if err != nil {
+		return nil, app_errors.ErrMembershipNotFound
+	}
+
+	// Check permissions: Only Admin can update organization name
+	if membership.Role != string(rbac.RoleAdmin) {
+		return nil, app_errors.ErrInsufficientPermissions
+	}
+
+	// Get Organization
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetOrganizationInfo
+	}
+
+	// Update name
+	org.Name = orgName
+	org.UpdatedAt = time.Now()
+
+	if err := s.db.UpdateOrganization(ctx, org); err != nil {
+		slog.Error("Failed to update organization name", "error", err, "org_id", orgID)
+		return nil, app_errors.ErrInternalServer
+	}
+
+	return &models.UpdateOrganizationNameResponse{
+		OrgID:   org.OrgID,
+		Name:    org.Name,
+		Message: "Organization name updated successfully",
+	}, nil
+}

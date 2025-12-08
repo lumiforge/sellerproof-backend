@@ -179,3 +179,17 @@ type ResetPasswordResponse struct {
 type GetUserOrganizationsResponse struct {
 	Organizations []*OrganizationInfo `json:"organizations"`
 }
+
+// UpdateOrganizationNameRequest represents a request to update organization name
+// @Description Update organization name request
+type UpdateOrganizationNameRequest struct {
+	Name string `json:"name"`
+}
+
+// UpdateOrganizationNameResponse represents a response for organization name update
+// @Description Update organization name response
+type UpdateOrganizationNameResponse struct {
+	OrgID   string `json:"org_id"`
+	Name    string `json:"name"`
+	Message string `json:"message"`
+}

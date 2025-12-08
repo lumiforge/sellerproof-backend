@@ -1,0 +1,28 @@
+meta {
+  name: Update organization name access denied user
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/name?org_id={{adminOrgId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{simpleUserAccessToken}}
+}
+
+body:json {
+  {
+    "name": "Hacked Name"
+  }
+}
+
+tests {
+  test('Should return 403 Forbidden', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body.error).to.equal('Forbidden');
+  });
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Update organization name success
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{baseUrl}}/api/v1/organization/name?org_id={{adminOrgId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "name": "Updated Admin Organization Name"
+  }
+}
+
+tests {
+  test('Should return 200 OK', function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test('Should return updated name', function() {
+    expect(res.body.name).to.equal('Updated Admin Organization Name');
+    expect(res.body.message).to.include('updated successfully');
+  });
+}
