@@ -110,9 +110,11 @@ type UserInfo struct {
 // OrganizationInfo represents information about user's organization
 // @Description	Organization information for user
 type OrganizationInfo struct {
-	OrgID string `json:"org_id"`
-	Name  string `json:"name"`
-	Role  string `json:"role"`
+	OrgID       string `json:"org_id"`
+	Name        string `json:"name"`
+	Role        string `json:"role"`
+	MemberCount int    `json:"member_count"`
+	CreatedAt   int64  `json:"created_at"`
 }
 
 // SwitchOrganizationRequest represents a request to switch organization

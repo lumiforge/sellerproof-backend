@@ -552,9 +552,11 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 		orgName := org.Name
 		role := m.Role
 		organizations = append(organizations, &models.OrganizationInfo{
-			OrgID: m.OrgID,
-			Name:  orgName,
-			Role:  role,
+			OrgID:       m.OrgID,
+			Name:        orgName,
+			Role:        role,
+			CreatedAt:   org.CreatedAt.Unix(),
+			MemberCount: 0, // Optimization: don't count members on login
 		})
 	}
 	slog.Info("Organizations collected", "count", len(organizations), "user_id", user.UserID)
@@ -875,7 +877,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	// TODO DELETE ME
 	log.Printf("Error in switch-organization: %v, userID: %v, orgID: %v", err, userID, req.OrgID)
 	if err != nil {
-		return nil, app_errors.ErrUserIsAlreadyMember
+		return nil, app_errors.ErrMembershipNotFound
 	}
 
 	if membership.Status != "active" {
@@ -1752,10 +1754,20 @@ func (s *Service) GetUserOrganizations(ctx context.Context, userID string) (*mod
 	result := make([]*models.OrganizationInfo, 0, len(memberships))
 	for _, m := range memberships {
 		if org, exists := orgMap[m.OrgID]; exists {
+			// Получаем количество участников
+			// TODO: В будущем оптимизировать через отдельный метод GetMemberCount или поле в Organization
+			members, err := s.db.GetMembershipsByOrg(ctx, m.OrgID)
+			memberCount := 0
+			if err == nil {
+				memberCount = len(members)
+			}
+
 			result = append(result, &models.OrganizationInfo{
-				OrgID: m.OrgID,
-				Name:  org.Name,
-				Role:  m.Role,
+				OrgID:       m.OrgID,
+				Name:        org.Name,
+				Role:        m.Role,
+				MemberCount: memberCount,
+				CreatedAt:   org.CreatedAt.Unix(),
 			})
 		}
 	}

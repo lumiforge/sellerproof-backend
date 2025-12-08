@@ -236,8 +236,9 @@ func TestService_Login_Success(t *testing.T) {
 	mockDB.On("GetMembershipsByUser", ctx, user.UserID).Return([]*ydb.Membership{
 		{OrgID: "org-1", Role: "admin", Status: "active"},
 	}, nil)
+	orgCreatedAt := time.Now()
 	mockDB.On("GetOrganizationsByIDs", ctx, []string{"org-1"}).Return([]*ydb.Organization{
-		{OrgID: "org-1", Name: "Test Org", OwnerID: user.UserID},
+		{OrgID: "org-1", Name: "Test Org", OwnerID: user.UserID, CreatedAt: orgCreatedAt},
 	}, nil)
 	mockDB.On("UpdateUser", ctx, mock.Anything).Return(nil) // Update LastOrgID
 
@@ -255,6 +256,10 @@ func TestService_Login_Success(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "access-token", resp.AccessToken)
 	assert.Equal(t, user.UserID, resp.User.UserID)
+	assert.Len(t, resp.Organizations, 1)
+	assert.Equal(t, "org-1", resp.Organizations[0].OrgID)
+	assert.Equal(t, orgCreatedAt.Unix(), resp.Organizations[0].CreatedAt)
+	assert.Equal(t, 0, resp.Organizations[0].MemberCount) // MemberCount is 0 in Login
 }
 
 func TestService_Login_InvalidPassword(t *testing.T) {
@@ -571,18 +576,21 @@ func TestService_GetUserOrganizations_Success(t *testing.T) {
 	service, mockDB, _ := setupAuthService()
 	ctx := context.Background()
 	userID := "user-1"
+	now := time.Now()
 
 	memberships := []*ydb.Membership{
 		{OrgID: "org-1", Role: "admin"},
 		{OrgID: "org-2", Role: "user"},
 	}
 	orgs := []*ydb.Organization{
-		{OrgID: "org-1", Name: "Org 1"},
-		{OrgID: "org-2", Name: "Org 2"},
+		{OrgID: "org-1", Name: "Org 1", CreatedAt: now},
+		{OrgID: "org-2", Name: "Org 2", CreatedAt: now},
 	}
 
 	mockDB.On("GetMembershipsByUser", ctx, userID).Return(memberships, nil)
 	mockDB.On("GetOrganizationsByIDs", ctx, []string{"org-1", "org-2"}).Return(orgs, nil)
+	mockDB.On("GetMembershipsByOrg", ctx, "org-1").Return([]*ydb.Membership{{}, {}}, nil) // 2 members
+	mockDB.On("GetMembershipsByOrg", ctx, "org-2").Return([]*ydb.Membership{{}}, nil)     // 1 member
 
 	resp, err := service.GetUserOrganizations(ctx, userID)
 
@@ -592,9 +600,13 @@ func TestService_GetUserOrganizations_Success(t *testing.T) {
 	assert.Equal(t, "org-1", resp.Organizations[0].OrgID)
 	assert.Equal(t, "Org 1", resp.Organizations[0].Name)
 	assert.Equal(t, "admin", resp.Organizations[0].Role)
+	assert.Equal(t, 2, resp.Organizations[0].MemberCount)
+	assert.Equal(t, now.Unix(), resp.Organizations[0].CreatedAt)
 	assert.Equal(t, "org-2", resp.Organizations[1].OrgID)
 	assert.Equal(t, "Org 2", resp.Organizations[1].Name)
 	assert.Equal(t, "user", resp.Organizations[1].Role)
+	assert.Equal(t, 1, resp.Organizations[1].MemberCount)
+	assert.Equal(t, now.Unix(), resp.Organizations[1].CreatedAt)
 	mockDB.AssertExpectations(t)
 }
 

@@ -26,10 +26,14 @@ tests {
       expect(org).to.have.property('org_id');
       expect(org).to.have.property('name');
       expect(org).to.have.property('role');
+      expect(org).to.have.property('member_count');
+      expect(org).to.have.property('created_at');
 
       expect(org.org_id).to.be.a('string');
       expect(org.name).to.be.a('string');
       expect(org.role).to.be.a('string');
+      expect(org.member_count).to.be.a('number');
+      expect(org.created_at).to.be.a('number');
     }
   });
 }

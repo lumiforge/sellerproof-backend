@@ -24,7 +24,17 @@ tests {
     expect(res.body).to.have.property("refresh_token");
     expect(res.body).to.have.property("user");
     expect(res.body.user.email_verified).to.equal(true);
-    
+
+    // Check organizations structure
+    if (res.body.organizations && res.body.organizations.length > 0) {
+      const org = res.body.organizations[0];
+      expect(org).to.have.property('created_at');
+      expect(org.created_at).to.be.a('number');
+      // member_count is 0 in login response, but field should exist
+      expect(org).to.have.property('member_count');
+      expect(org.member_count).to.be.a('number');
+    }
+
     // Update environment variables with new tokens
     bru.setEnvVar("adminAccessToken", res.body.access_token);
     bru.setEnvVar("adminRefreshToken", res.body.refresh_token);
