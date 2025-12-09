@@ -1,0 +1,17 @@
+meta {
+  name: Get subscription without JWT token
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/subscription
+  body: none
+  auth: none
+}
+
+tests {
+  test('Should return 401 Unauthorized', function() {
+    expect(res.status).to.equal(401);
+  });
+}

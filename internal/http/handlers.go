@@ -2701,3 +2701,31 @@ func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) 
 
 	s.writeJSON(w, http.StatusOK, resp)
 }
+
+// GetSubscription handles getting organization subscription details
+// @Summary		Get subscription details
+// @Description	Get subscription and usage details for the current organization
+// @Tags		organization
+// @Accept		json
+// @Produce		json
+// @Security	BearerAuth
+// @Success	200		{object}	models.GetSubscriptionResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/organization/subscription [get]
+func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	resp, err := s.authService.GetOrganizationSubscription(r.Context(), claims.OrgID)
+	if err != nil {
+		slog.Error("GetSubscription: Failed to get subscription", "error", err.Error(), "org_id", claims.OrgID)
+		s.writeError(w, http.StatusInternalServerError, "Failed to get subscription details")
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}

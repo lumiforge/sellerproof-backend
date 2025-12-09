@@ -700,3 +700,59 @@ func TestService_UpdateOrganizationName_NotAdmin(t *testing.T) {
 	assert.Equal(t, "insufficient permissions", err.Error())
 	mockDB.AssertExpectations(t)
 }
+
+func TestService_GetOrganizationSubscription_Success(t *testing.T) {
+	service, mockDB, _ := setupAuthService()
+	ctx := context.Background()
+
+	orgID := "org-1"
+	ownerID := "owner-1"
+	now := time.Now()
+
+	// 1. Mock GetOrganizationByID
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{
+		OrgID:   orgID,
+		OwnerID: ownerID,
+	}, nil)
+
+	// 2. Mock GetSubscriptionByUser
+	mockDB.On("GetSubscriptionByUser", ctx, ownerID).Return(&ydb.Subscription{
+		SubscriptionID:  "sub-1",
+		PlanID:          "pro",
+		StorageLimitMB:  100,
+		VideoCountLimit: 10,
+		IsActive:        true,
+		TrialEndsAt:     now.Add(time.Hour),
+		StartedAt:       now,
+		ExpiresAt:       now.Add(30 * 24 * time.Hour),
+		BillingCycle:    "monthly",
+	}, nil)
+
+	// 3. Mock GetStorageUsage
+	// Used: 25MB (25 * 1024 * 1024 bytes), 2 videos
+	usedBytes := int64(25 * 1024 * 1024)
+	videoCount := int64(2)
+	mockDB.On("GetStorageUsage", ctx, ownerID).Return(usedBytes, videoCount, nil)
+
+	// Act
+	resp, err := service.GetOrganizationSubscription(ctx, orgID)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// Check Subscription details
+	assert.Equal(t, "sub-1", resp.Subscription.SubscriptionID)
+	assert.Equal(t, int64(100), resp.Subscription.StorageLimitMB)
+
+	// Check Usage calculations
+	assert.Equal(t, int64(25), resp.Usage.StorageUsedMB)
+	assert.Equal(t, int64(75), resp.Usage.StorageAvailableMB) // 100 - 25
+	assert.Equal(t, 25.0, resp.Usage.StoragePercentUsed)      // 25/100 * 100
+
+	assert.Equal(t, int64(2), resp.Usage.VideosCount)
+	assert.Equal(t, int64(8), resp.Usage.VideosAvailable) // 10 - 2
+	assert.Equal(t, 20.0, resp.Usage.VideosPercentUsed)   // 2/10 * 100
+
+	mockDB.AssertExpectations(t)
+}

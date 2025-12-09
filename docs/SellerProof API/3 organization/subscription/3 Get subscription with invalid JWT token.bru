@@ -1,0 +1,21 @@
+meta {
+  name: Get subscription with invalid JWT token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/subscription
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: invalid_token
+}
+
+tests {
+  test('Should return 401 Unauthorized', function() {
+    expect(res.status).to.equal(401);
+  });
+}

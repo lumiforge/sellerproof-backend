@@ -1276,6 +1276,78 @@ func (s *Service) CancelInvitation(ctx context.Context, invitationID string) err
 	return nil
 }
 
+// GetOrganizationSubscription retrieves subscription and usage details for an organization
+func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string) (*models.GetSubscriptionResponse, error) {
+	// 1. Get Organization to find the owner
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetOrganizationInfo
+	}
+
+	// 2. Get Subscription by OwnerID
+	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetSubscription
+	}
+
+	// 3. Get Storage Usage by OwnerID
+	usedBytes, videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetStorageUsage
+	}
+
+	// 4. Calculate Usage Stats
+	usedMB := usedBytes / (1024 * 1024)
+
+	var storageAvailableMB int64
+	var storagePercent float64
+	if sub.StorageLimitMB > 0 {
+		storageAvailableMB = sub.StorageLimitMB - usedMB
+		if storageAvailableMB < 0 {
+			storageAvailableMB = 0
+		}
+		storagePercent = (float64(usedMB) / float64(sub.StorageLimitMB)) * 100
+		if storagePercent > 100 {
+			storagePercent = 100
+		}
+	}
+
+	var videosAvailable int64
+	var videosPercent float64
+	if sub.VideoCountLimit > 0 {
+		videosAvailable = sub.VideoCountLimit - videoCount
+		if videosAvailable < 0 {
+			videosAvailable = 0
+		}
+		videosPercent = (float64(videoCount) / float64(sub.VideoCountLimit)) * 100
+		if videosPercent > 100 {
+			videosPercent = 100
+		}
+	}
+
+	return &models.GetSubscriptionResponse{
+		Subscription: &models.SubscriptionDetails{
+			SubscriptionID:  sub.SubscriptionID,
+			PlanID:          sub.PlanID,
+			StorageLimitMB:  sub.StorageLimitMB,
+			VideoCountLimit: sub.VideoCountLimit,
+			IsActive:        sub.IsActive,
+			TrialEndsAt:     sub.TrialEndsAt.Unix(),
+			StartedAt:       sub.StartedAt.Unix(),
+			ExpiresAt:       sub.ExpiresAt.Unix(),
+			BillingCycle:    sub.BillingCycle,
+		},
+		Usage: &models.StorageUsage{
+			StorageUsedMB:      usedMB,
+			StorageAvailableMB: storageAvailableMB,
+			StoragePercentUsed: storagePercent,
+			VideosCount:        videoCount,
+			VideosAvailable:    videosAvailable,
+			VideosPercentUsed:  videosPercent,
+		},
+	}, nil
+}
+
 // UpdateMemberRole обновляет роль члена организации
 func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUserID, newRole string) error {
 	// TODO: remove this after testing

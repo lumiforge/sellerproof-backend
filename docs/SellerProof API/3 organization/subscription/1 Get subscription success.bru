@@ -1,0 +1,40 @@
+meta {
+  name: Get subscription success
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/organization/subscription
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 200 OK and valid subscription details', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Check top-level objects
+    expect(res.body).to.have.property('subscription');
+    expect(res.body).to.have.property('usage');
+
+    // Check subscription details
+    const sub = res.body.subscription;
+    expect(sub).to.have.property('subscription_id');
+    expect(sub).to.have.property('plan_id');
+    expect(sub).to.have.property('storage_limit_mb');
+    expect(sub).to.have.property('video_count_limit');
+    expect(sub).to.have.property('is_active');
+
+    // Check usage details
+    const usage = res.body.usage;
+    expect(usage).to.have.property('storage_used_mb');
+    expect(usage).to.have.property('storage_available_mb');
+    expect(usage).to.have.property('videos_count');
+  });
+}

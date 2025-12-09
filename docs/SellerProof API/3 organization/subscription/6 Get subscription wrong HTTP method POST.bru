@@ -1,0 +1,21 @@
+meta {
+  name: Get subscription wrong HTTP method POST
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/subscription
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 405 Method Not Allowed', function() {
+    expect(res.status).to.equal(405);
+  });
+}

@@ -463,3 +463,61 @@ func TestHandler_UpdateOrganizationName_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Organization name updated successfully")
 }
+
+func TestHandler_GetSubscription_Success(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	// Generate token
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "admin", "org-1")
+
+	// Mock AuthMiddleware session check
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active"}, nil)
+
+	// Mock Service calls
+	// 1. GetOrganizationByID
+	mockDB.On("GetOrganizationByID", mock.Anything, "org-1").Return(&ydb.Organization{
+		OrgID:   "org-1",
+		OwnerID: "owner-1",
+	}, nil)
+
+	// 2. GetSubscriptionByUser
+	now := time.Now()
+	mockDB.On("GetSubscriptionByUser", mock.Anything, "owner-1").Return(&ydb.Subscription{
+		SubscriptionID:  "sub-1",
+		PlanID:          "free",
+		StorageLimitMB:  1024,
+		VideoCountLimit: 10,
+		IsActive:        true,
+		TrialEndsAt:     now,
+		StartedAt:       now,
+		ExpiresAt:       now.Add(time.Hour),
+		BillingCycle:    "monthly",
+	}, nil)
+
+	// 3. GetStorageUsage
+	// 512MB used, 5 videos
+	usedBytes := int64(512 * 1024 * 1024)
+	videoCount := int64(5)
+	mockDB.On("GetStorageUsage", mock.Anything, "owner-1").Return(usedBytes, videoCount, nil)
+
+	req := httptest.NewRequest("GET", "/api/v1/organization/subscription", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp models.GetSubscriptionResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "sub-1", resp.Subscription.SubscriptionID)
+	assert.Equal(t, int64(512), resp.Usage.StorageUsedMB)
+	assert.Equal(t, int64(512), resp.Usage.StorageAvailableMB) // 1024 - 512
+	assert.Equal(t, 50.0, resp.Usage.StoragePercentUsed)
+	assert.Equal(t, int64(5), resp.Usage.VideosCount)
+	assert.Equal(t, 50.0, resp.Usage.VideosPercentUsed)
+}
