@@ -573,6 +573,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Success	200	{object}	models.InitiateMultipartUploadResponse
 // @Failure	401	{object}	models.ErrorResponse
 // @Failure	400	{object}	models.ErrorResponse
+// @Failure	403	{object}	models.ErrorResponse
 // @Failure	500	{object}	models.ErrorResponse
 // @Router		/video/upload/initiate [post]
 func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request) {
@@ -680,6 +681,16 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	resp, err := s.videoService.InitiateMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, title, req.FileName, req.FileSizeBytes, req.DurationSeconds)
 	if err != nil {
 		slog.Error("InitiateMultipartUpload: Failed to initiate multipart upload", "error", err.Error())
+		if errors.Is(err, app_errors.ErrStorageLimitExceeded) ||
+			errors.Is(err, app_errors.ErrFailedToGetSubscription) ||
+			strings.Contains(err.Error(), "video count limit exceeded") {
+			s.writeError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		if errors.Is(err, app_errors.ErrInvalidFileType) {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		s.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -902,6 +913,16 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 			return
 		} else if strings.Contains(err.Error(), "access denied") {
 			s.writeError(w, http.StatusForbidden, err.Error())
+			return
+		} else if errors.Is(err, app_errors.ErrStorageLimitExceededFileSize) ||
+			errors.Is(err, app_errors.ErrFailedToGetSubscription) ||
+			strings.Contains(err.Error(), "video count limit exceeded") {
+			s.writeError(w, http.StatusForbidden, err.Error())
+			return
+		} else if errors.Is(err, app_errors.ErrInvalidFileContent) ||
+			errors.Is(err, app_errors.ErrFailedToVerifyFileIntegrity) ||
+			errors.Is(err, app_errors.ErrFailedToVerifyUploadIntegrity) {
+			s.writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		s.writeError(w, http.StatusInternalServerError, err.Error())
@@ -2193,6 +2214,9 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(errorMsg, "video not found") {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "access denied") {
+			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else if errors.Is(err, app_errors.ErrStorageLimitExceededPublishing) ||
+			errors.Is(err, app_errors.ErrFailedToGetSubscription) {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)

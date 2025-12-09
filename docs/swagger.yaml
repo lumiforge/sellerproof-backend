@@ -320,6 +320,10 @@ definitions:
   models.OrganizationInfo:
     description: Organization information for user
     properties:
+      created_at:
+        type: integer
+      member_count:
+        type: integer
       name:
         type: string
       org_id:
@@ -1821,6 +1825,10 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/models.ErrorResponse'
         "500":

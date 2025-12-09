@@ -1914,6 +1914,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -2537,6 +2543,12 @@ const docTemplate = `{
             "description": "Organization information for user",
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "member_count": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },

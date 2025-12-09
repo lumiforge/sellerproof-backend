@@ -23,10 +23,10 @@ body:json {
 }
 
 tests {
-  test('Should return 500 Internal Server Error for storage limit exceeded', function() {
-    expect(res.status).to.equal(500);
+  test('Should return 403 Forbidden for storage limit exceeded', function() {
+    expect(res.status).to.equal(403);
     expect(res.body).to.have.property('error');
-    expect(res.body.error).to.equal('Internal Server Error');
+    expect(res.body.error).to.equal('Forbidden');
     expect(res.body.message).to.include('storage limit exceeded');
   });
 }
