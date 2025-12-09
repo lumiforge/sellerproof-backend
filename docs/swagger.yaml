@@ -164,6 +164,13 @@ definitions:
           type: string
         type: array
     type: object
+  models.GetSubscriptionResponse:
+    properties:
+      subscription:
+        $ref: '#/definitions/models.SubscriptionDetails'
+      usage:
+        $ref: '#/definitions/models.StorageUsage'
+    type: object
   models.GetUserOrganizationsResponse:
     description: Response containing list of user organizations
     properties:
@@ -450,6 +457,42 @@ definitions:
         items:
           $ref: '#/definitions/models.Video'
         type: array
+    type: object
+  models.StorageUsage:
+    properties:
+      storage_available_mb:
+        type: integer
+      storage_percent_used:
+        type: number
+      storage_used_mb:
+        type: integer
+      videos_available:
+        type: integer
+      videos_count:
+        type: integer
+      videos_percent_used:
+        type: number
+    type: object
+  models.SubscriptionDetails:
+    properties:
+      billing_cycle:
+        type: string
+      expires_at:
+        type: integer
+      is_active:
+        type: boolean
+      plan_id:
+        type: string
+      started_at:
+        type: integer
+      storage_limit_mb:
+        type: integer
+      subscription_id:
+        type: string
+      trial_ends_at:
+        type: integer
+      video_count_limit:
+        type: integer
     type: object
   models.SwitchOrganizationRequest:
     description: Switch organization request
@@ -1454,6 +1497,31 @@ paths:
       security:
       - BearerAuth: []
       summary: Update organization name
+      tags:
+      - organization
+  /organization/subscription:
+    get:
+      consumes:
+      - application/json
+      description: Get subscription and usage details for the current organization
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetSubscriptionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get subscription details
       tags:
       - organization
   /video:

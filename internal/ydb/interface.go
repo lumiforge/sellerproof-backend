@@ -40,7 +40,7 @@ type Database interface {
 
 	// Подписки
 	CreateSubscription(ctx context.Context, subscription *Subscription) error
-	GetSubscriptionByID(ctx context.Context, subscriptionID string) (*Subscription, error)
+
 	GetSubscriptionByUser(ctx context.Context, userID string) (*Subscription, error)
 	UpdateSubscription(ctx context.Context, subscription *Subscription) error
 	CreateSubscriptionHistory(ctx context.Context, history *SubscriptionHistory) error

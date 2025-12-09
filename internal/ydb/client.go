@@ -1183,7 +1183,7 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 		SELECT subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
 			   is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
 		FROM subscriptions
-		WHERE user_id = $user_id AND is_active = true
+		WHERE user_id = $user_id AND is_active = true AND expires_at > CurrentUtcTimestamp()
 		ORDER BY created_at DESC
 		LIMIT 1
 	`
@@ -2385,63 +2385,6 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 
 	return plans, nil
 }
-
-func (c *YDBClient) GetSubscriptionByID(ctx context.Context, subscriptionID string) (*Subscription, error) {
-	query := `
-		DECLARE $subscription_id AS Text;
-		SELECT subscription_id, user_id, plan_id, storage_limit_mb, video_count_limit,
-			   is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-		FROM subscriptions
-		WHERE subscription_id = $subscription_id
-	`
-
-	var subscription Subscription
-	var found bool
-
-	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
-		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
-			table.NewQueryParameters(
-				table.ValueParam("$subscription_id", types.TextValue(subscriptionID)),
-			),
-		)
-		if err != nil {
-			return err
-		}
-		defer res.Close()
-
-		if res.NextResultSet(ctx) && res.NextRow() {
-			found = true
-			err := res.ScanNamed(
-				named.Required("subscription_id", &subscription.SubscriptionID),
-				named.Required("user_id", &subscription.UserID),
-				named.Required("plan_id", &subscription.PlanID),
-				named.Required("storage_limit_mb", &subscription.StorageLimitMB),
-				named.Required("video_count_limit", &subscription.VideoCountLimit),
-				named.Required("is_active", &subscription.IsActive),
-				named.Required("trial_ends_at", &subscription.TrialEndsAt),
-				named.Required("started_at", &subscription.StartedAt),
-				named.Required("expires_at", &subscription.ExpiresAt),
-				named.Required("billing_cycle", &subscription.BillingCycle),
-				named.Required("created_at", &subscription.CreatedAt),
-				named.Required("updated_at", &subscription.UpdatedAt),
-			)
-			if err != nil {
-				return app_errors.ErrScanFailed
-			}
-		}
-		return res.Err()
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return nil, fmt.Errorf("subscription not found")
-	}
-
-	return &subscription, nil
-}
-
 
 func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscription) error {
 	query := `
