@@ -14,6 +14,7 @@ const (
 	PermissionVideoView     Permission = "video:view"
 	PermissionVideoUpload   Permission = "video:upload"
 	PermissionVideoDelete   Permission = "video:delete"
+	PermissionVideoRestore  Permission = "video:restore"
 	PermissionVideoDownload Permission = "video:download"
 	PermissionVideoShare    Permission = "video:share"
 	PermissionVideoSearch   Permission = "video:search"
@@ -66,6 +67,7 @@ func (r *RBAC) initializeRolePermissions() {
 		PermissionVideoView,
 		PermissionVideoUpload,
 		PermissionVideoDelete,
+		PermissionVideoRestore,
 		PermissionVideoDownload,
 		PermissionVideoShare,
 		PermissionVideoSearch,
@@ -84,6 +86,7 @@ func (r *RBAC) initializeRolePermissions() {
 		PermissionVideoView,
 		PermissionVideoUpload,
 		PermissionVideoDelete,
+		PermissionVideoRestore,
 		PermissionVideoDownload,
 		PermissionVideoShare,
 		PermissionVideoSearch,
@@ -98,6 +101,7 @@ func (r *RBAC) initializeRolePermissions() {
 	r.rolePermissions[RoleUser] = []Permission{
 		PermissionVideoView,
 		PermissionVideoDownload,
+		PermissionVideoRestore,
 		PermissionVideoShare,
 		PermissionVideoSearch,
 		PermissionUserViewProfile,

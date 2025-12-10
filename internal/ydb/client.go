@@ -340,6 +340,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				uploaded_at Optional<Timestamp>,
 				created_at Timestamp NOT NULL,
 				is_deleted Bool DEFAULT false,
+				deleted_at Optional<Timestamp>,
 				public_url Optional<Text>,
 				publish_status Text DEFAULT 'private',
 				published_at Optional<Timestamp>,
@@ -1261,6 +1262,7 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
+		DECLARE $deleted_at AS Optional<Timestamp>;
 		DECLARE $public_url AS Optional<Text>;
 		DECLARE $publish_status AS Text;
 		DECLARE $published_at AS Optional<Timestamp>;
@@ -1269,9 +1271,9 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted, deleted_at,
 			public_url, publish_status, published_at, upload_expires_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at, $upload_expires_at)
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $deleted_at, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1321,6 +1323,12 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
 				func() table.ParameterOption {
+					if video.DeletedAt == nil {
+						return table.ValueParam("$deleted_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$deleted_at", types.OptionalValue(types.TimestampValueFromTime(*video.DeletedAt)))
+				}(),
+				func() table.ParameterOption {
 					if video.PublicURL == nil {
 						return table.ValueParam("$public_url", types.NullValue(types.TypeText))
 					}
@@ -1350,7 +1358,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 	query := `
 		DECLARE $video_id AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted, deleted_at,
 		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos WHERE video_id = $video_id
 	`
@@ -1379,6 +1387,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 			var uploadedAt *time.Time
 			var uploadExpiresAt *time.Time
 			var isDeleted *bool
+			var deletedAt *time.Time
 			var publishStatus *string
 
 			err := res.Scan(
@@ -1400,6 +1409,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				&uploadedAt,
 				&v.CreatedAt,
 				&isDeleted,
+				&deletedAt,
 				&v.PublicURL,
 				&publishStatus,
 				&v.PublishedAt,
@@ -1419,6 +1429,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 			if isDeleted != nil {
 				v.IsDeleted = *isDeleted
 			}
+			v.DeletedAt = deletedAt
 			if publishStatus != nil {
 				v.PublishStatus = *publishStatus
 			}
@@ -1550,6 +1561,7 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
 		DECLARE $is_deleted AS Bool;
+		DECLARE $deleted_at AS Optional<Timestamp>;
 		DECLARE $public_url AS Optional<Text>;
 		DECLARE $publish_status AS Text;
 		DECLARE $published_at AS Optional<Timestamp>;
@@ -1558,9 +1570,9 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted, deleted_at,
 			public_url, publish_status, published_at, upload_expires_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $public_url, $publish_status, $published_at, $upload_expires_at)
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $deleted_at, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1609,6 +1621,12 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(video.CreatedAt)),
 				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
+				func() table.ParameterOption {
+					if video.DeletedAt == nil {
+						return table.ValueParam("$deleted_at", types.NullValue(types.TypeTimestamp))
+					}
+					return table.ValueParam("$deleted_at", types.OptionalValue(types.TimestampValueFromTime(*video.DeletedAt)))
+				}(),
 				func() table.ParameterOption {
 					if video.PublicURL == nil {
 						return table.ValueParam("$public_url", types.NullValue(types.TypeText))

@@ -313,6 +313,24 @@ func (_m *StorageProvider) InitiateMultipartUpload(ctx context.Context, key stri
 	return r0, r1
 }
 
+// RestorePrivateObject provides a mock function with given fields: ctx, key
+func (_m *StorageProvider) RestorePrivateObject(ctx context.Context, key string) error {
+	ret := _m.Called(ctx, key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RestorePrivateObject")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, key)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewStorageProvider creates a new instance of StorageProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewStorageProvider(t interface {

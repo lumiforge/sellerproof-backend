@@ -1508,6 +1508,64 @@ func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// RestoreVideo handles restoring a deleted video
+// @Summary		Restore video
+// @Description	Restore a soft-deleted video from trash
+// @Tags		video
+// @Accept		json
+// @Produce		json
+// @Param		request	body		models.RestoreVideoRequest	true	"Restore video request"
+// @Security	BearerAuth
+// @Success	200		{object}	models.RestoreVideoResponse
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	403		{object}	models.ErrorResponse
+// @Failure	404		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/video/restore [post]
+func (s *Server) RestoreVideo(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		slog.Error("RestoreVideo: User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("RestoreVideo: Invalid Content-Type header", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.RestoreVideoRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("RestoreVideo: Invalid request format", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	if req.VideoID == "" {
+		slog.Error("RestoreVideo: video_id is required")
+		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	}
+
+	resp, err := s.videoService.RestoreVideo(r.Context(), claims.UserID, claims.OrgID, claims.Role, req.VideoID)
+	if err != nil {
+		slog.Error("RestoreVideo: Failed to restore video", "error", err.Error())
+		if strings.Contains(err.Error(), "video not found") {
+			s.writeError(w, http.StatusNotFound, err.Error())
+		} else if strings.Contains(err.Error(), "access denied") {
+			s.writeError(w, http.StatusForbidden, err.Error())
+		} else {
+			s.writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
 // Organization and Membership Handlers
 
 // InviteUser handles user invitation to organization

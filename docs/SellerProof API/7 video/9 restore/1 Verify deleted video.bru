@@ -1,0 +1,22 @@
+meta {
+  name: Verify deleted video (Trash)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video?video_id={{deletedVideoId}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should return 200 for deleted video (in trash)', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.upload_status).to.equal('deleted');
+    expect(res.body.publish_status).to.equal('deleted');
+  });
+}

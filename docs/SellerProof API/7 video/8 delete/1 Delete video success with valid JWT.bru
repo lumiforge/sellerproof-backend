@@ -20,5 +20,8 @@ tests {
     expect(res.body).to.be.an('object');
     expect(res.body.message).to.be.a('string');
     expect(res.body.message.toLowerCase()).to.include('video deleted');
+
+    // Save for restore tests
+    bru.setEnvVar("deletedVideoId", bru.getEnvVar("testVideoId"));
   });
 }

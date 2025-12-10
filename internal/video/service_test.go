@@ -431,3 +431,125 @@ func TestService_GetVideoDirect_Success(t *testing.T) {
 	assert.Equal(t, "published", info.PublishStatus)
 	mockDB.AssertExpectations(t)
 }
+
+func TestService_DeleteVideo_Success(t *testing.T) {
+	service, mockDB, mockStorage := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	videoID := "video-to-delete"
+	storagePath := "videos/org-1/video-to-delete/file.mp4"
+
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID:     videoID,
+		OrgID:       orgID,
+		UploadedBy:  userID,
+		StoragePath: storagePath,
+		IsDeleted:   false,
+	}, nil)
+
+	// Expect DeletePrivateObject to be called (which now moves to trash)
+	mockStorage.On("DeletePrivateObject", ctx, storagePath).Return(nil)
+
+	// Expect UpdateVideo with DeletedAt set
+	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
+		return v.IsDeleted == true && v.UploadStatus == "deleted" && v.DeletedAt != nil
+	})).Return(nil)
+
+	resp, err := service.DeleteVideoDirect(ctx, userID, orgID, "admin", videoID)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "Video deleted", resp.Message)
+
+	mockDB.AssertExpectations(t)
+	mockStorage.AssertExpectations(t)
+}
+
+func TestService_RestoreVideo_Success(t *testing.T) {
+	service, mockDB, mockStorage := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	videoID := "video-deleted"
+	storagePath := "videos/org-1/video-deleted/file.mp4"
+
+	// 1. Get Video (Deleted)
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID:      videoID,
+		OrgID:        orgID,
+		UploadedBy:   userID,
+		StoragePath:  storagePath,
+		IsDeleted:    true,
+		UploadStatus: "deleted",
+	}, nil)
+
+	// 2. Restore from Storage
+	mockStorage.On("RestorePrivateObject", ctx, storagePath).Return(nil)
+
+	// 3. Update Video Record
+	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
+		return v.IsDeleted == false && v.UploadStatus == "completed" && v.DeletedAt == nil
+	})).Return(nil)
+
+	// Act
+	resp, err := service.RestoreVideo(ctx, userID, orgID, "admin", videoID)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "Video restored successfully", resp.Message)
+
+	mockDB.AssertExpectations(t)
+	mockStorage.AssertExpectations(t)
+}
+
+func TestService_RestoreVideo_NotDeleted(t *testing.T) {
+	service, mockDB, _ := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	videoID := "video-active"
+
+	// 1. Get Video (Active)
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID:      videoID,
+		OrgID:        orgID,
+		UploadedBy:   userID,
+		IsDeleted:    false,
+		UploadStatus: "completed",
+	}, nil)
+
+	// Act
+	resp, err := service.RestoreVideo(ctx, userID, orgID, "admin", videoID)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, "video is not deleted", err.Error())
+}
+
+func TestService_RestoreVideo_AccessDenied_UserNotOwner(t *testing.T) {
+	service, mockDB, _ := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-attacker"
+	orgID := "org-1"
+	videoID := "video-victim"
+
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID:    videoID,
+		OrgID:      orgID,
+		UploadedBy: "user-victim",
+		IsDeleted:  true,
+	}, nil)
+
+	resp, err := service.RestoreVideo(ctx, userID, orgID, "user", videoID)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, "access denied", err.Error())
+}

@@ -140,6 +140,7 @@ type Video struct {
 	UploadID         string     `db:"upload_id"`
 	UploadStatus     string     `db:"upload_status"`
 	IsDeleted        bool       `db:"is_deleted"`
+	DeletedAt        *time.Time `db:"deleted_at"`
 	CreatedAt        time.Time  `db:"created_at"`
 	PartsUploaded    *int32     `db:"parts_uploaded"`
 	TotalParts       *int32     `db:"total_parts"`

@@ -1,11 +1,11 @@
 meta {
-  name: Get deleted video (404)
+  name: Get non-existent video (404)
   type: http
   seq: 18
 }
 
 get {
-  url: {{baseUrl}}/api/v1/video?video_id={{deletedVideoId}}
+  url: {{baseUrl}}/api/v1/video?video_id=00000000-0000-0000-0000-000000000000
   auth: bearer
 }
 
@@ -14,4 +14,7 @@ auth:bearer {
 }
 
 tests {
-  test('Should return 404 for deleted video', function() {
+  test('Should return 404 for non-existent video', function() {
+    expect(res.status).to.equal(404);
+  });
+}

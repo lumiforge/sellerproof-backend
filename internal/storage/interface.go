@@ -23,6 +23,7 @@ type StorageProvider interface {
 	DeleteObject(ctx context.Context, bucket, key string) error
 	CopyObject(ctx context.Context, srcBucket, srcKey, dstBucket, dstKey string) error
 	CopyToPublicBucket(ctx context.Context, sourceKey, destKey string) (string, error)
+	RestorePrivateObject(ctx context.Context, key string) error
 
 	// Служебные методы
 	GetObjectSize(ctx context.Context, key string) (int64, error)

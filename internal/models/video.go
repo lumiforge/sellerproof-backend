@@ -196,3 +196,15 @@ type RevokeVideoResponse struct {
 	VideoID string `json:"video_id"`
 	Status  string `json:"status"`
 }
+
+// RestoreVideoRequest represents a request to restore a deleted video
+// @Description	Restore video request
+type RestoreVideoRequest struct {
+	VideoID string `json:"video_id"`
+}
+
+// RestoreVideoResponse represents the response for a video restoration
+// @Description	Restore video response
+type RestoreVideoResponse struct {
+	Message string `json:"message"`
+}

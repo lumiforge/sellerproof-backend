@@ -110,12 +110,52 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 	video.PublicURL = nil
 	video.PublicShareToken = nil
 	video.ShareExpiresAt = nil
+	now := time.Now()
+	video.DeletedAt = &now
 
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
 		return nil, app_errors.ErrFailedToUpdateVideoRecord
 	}
 
 	return &DeleteVideoResult{Message: "Video deleted"}, nil
+}
+
+// RestoreVideo restores a deleted video from trash
+func (s *Service) RestoreVideo(ctx context.Context, userID, orgID, role, videoID string) (*models.RestoreVideoResponse, error) {
+	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoRestore) {
+		return nil, app_errors.ErrAccessDenied
+	}
+
+	video, err := s.db.GetVideo(ctx, videoID)
+	if err != nil {
+		return nil, app_errors.ErrVideoNotFound
+	}
+
+	if video.OrgID != orgID {
+		return nil, app_errors.ErrAccessDenied
+	}
+
+	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+		return nil, app_errors.ErrAccessDenied
+	}
+
+	if !video.IsDeleted {
+		return nil, fmt.Errorf("video is not deleted")
+	}
+
+	if err := s.storage.RestorePrivateObject(ctx, video.StoragePath); err != nil {
+		return nil, fmt.Errorf("failed to restore video from storage: %w", err)
+	}
+
+	video.IsDeleted = false
+	video.UploadStatus = "completed"
+	video.DeletedAt = nil
+
+	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		return nil, app_errors.ErrFailedToUpdateVideoRecord
+	}
+
+	return &models.RestoreVideoResponse{Message: "Video restored successfully"}, nil
 }
 
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters

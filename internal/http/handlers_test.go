@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupTestRouter() (http.Handler, *ydbmocks.Database, *jwtmocks.TokenManager) {
+func setupTestRouter() (http.Handler, *ydbmocks.Database, *storagemocks.StorageProvider, *jwtmocks.TokenManager) {
 	mockDB := new(ydbmocks.Database)
 	mockStorage := new(storagemocks.StorageProvider)
 	mockJWT := new(jwtmocks.TokenManager)
@@ -49,11 +49,11 @@ func setupTestRouter() (http.Handler, *ydbmocks.Database, *jwtmocks.TokenManager
 	server := NewServer(authService, videoService, realJWTForStruct, auditService)
 	router := SetupRouter(server, realJWTForStruct)
 
-	return router, mockDB, mockJWT
+	return router, mockDB, mockStorage, mockJWT
 }
 
 func TestHandler_Register_InvalidJSON(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	jsonBody := `{"email": "test@example.com", "password": "123"`
 	req := httptest.NewRequest("POST", "/api/v1/auth/register", strings.NewReader(jsonBody))
@@ -67,7 +67,7 @@ func TestHandler_Register_InvalidJSON(t *testing.T) {
 }
 
 func TestHandler_Register_InvalidContentType(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	jsonBody := `{"email": "test@example.com", "password": "123"}`
 	req := httptest.NewRequest("POST", "/api/v1/auth/register", strings.NewReader(jsonBody))
@@ -80,7 +80,7 @@ func TestHandler_Register_InvalidContentType(t *testing.T) {
 }
 
 func TestHandler_MethodNotAllowed(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	req := httptest.NewRequest("GET", "/api/v1/auth/register", nil)
 	w := httptest.NewRecorder()
@@ -91,7 +91,7 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 }
 
 func TestHandler_Register_UserExists_Mapping(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	reqBody := &models.RegisterRequest{
 		Email:            "existing@example.com",
@@ -125,7 +125,7 @@ func TestHandler_Register_UserExists_Mapping(t *testing.T) {
 }
 
 func TestHandler_Register_UserExists_Unverified_Mapping(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	reqBody := &models.RegisterRequest{
 		Email:            "unverified@example.com",
@@ -163,7 +163,7 @@ func TestHandler_Register_UserExists_Unverified_Mapping(t *testing.T) {
 }
 
 func TestHandler_Register_ValidationError_Mapping(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	reqBody := &models.RegisterRequest{
 		Email:            "", // Empty email -> Validation Error
@@ -184,7 +184,7 @@ func TestHandler_Register_ValidationError_Mapping(t *testing.T) {
 }
 
 func TestHandler_Register_InternalError_Mapping(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	reqBody := &models.RegisterRequest{
 		Email:            "test@example.com",
@@ -220,7 +220,7 @@ func TestHandler_Register_InternalError_Mapping(t *testing.T) {
 }
 
 func TestHandler_Login_ValidationError(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	// Empty email and password
 	reqBody := &models.LoginRequest{
@@ -240,7 +240,7 @@ func TestHandler_Login_ValidationError(t *testing.T) {
 }
 
 func TestMiddleware_MissingAuthHeader(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	// Access protected route without header
 	req := httptest.NewRequest("GET", "/api/v1/auth/profile", nil)
@@ -253,7 +253,7 @@ func TestMiddleware_MissingAuthHeader(t *testing.T) {
 }
 
 func TestMiddleware_InvalidToken(t *testing.T) {
-	router, _, _ := setupTestRouter()
+	router, _, _, _ := setupTestRouter()
 
 	// Access protected route with invalid token
 	req := httptest.NewRequest("GET", "/api/v1/auth/profile", nil)
@@ -266,7 +266,7 @@ func TestMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestHandler_InitiateMultipartUpload_Validation(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	// 1. Generate a valid token to bypass middleware
 	// Note: setupTestRouter uses "secret" as the key for the real JWT manager used in middleware
@@ -302,7 +302,7 @@ func TestHandler_InitiateMultipartUpload_Validation(t *testing.T) {
 }
 
 func TestHandler_ForgotPassword_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	reqBody := &models.ForgotPasswordRequest{Email: "test@example.com"}
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -324,7 +324,7 @@ func TestHandler_ForgotPassword_Success(t *testing.T) {
 }
 
 func TestHandler_ResetPassword_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	code := "123456"
 	expires := time.Now().Add(time.Hour)
@@ -352,7 +352,7 @@ func TestHandler_ResetPassword_Success(t *testing.T) {
 }
 
 func TestHandler_GetUserOrganizations_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	// 1. Generate a valid token to bypass middleware
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
@@ -385,7 +385,7 @@ func TestHandler_GetUserOrganizations_Success(t *testing.T) {
 }
 
 func TestHandler_DeleteOrganization_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	// Generate token
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
@@ -410,7 +410,7 @@ func TestHandler_DeleteOrganization_Success(t *testing.T) {
 }
 
 func TestHandler_DeleteOrganization_Forbidden(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
 	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "admin", "550e8400-e29b-41d4-a716-446655440000")
@@ -433,7 +433,7 @@ func TestHandler_DeleteOrganization_Forbidden(t *testing.T) {
 }
 
 func TestHandler_UpdateOrganizationName_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	// Generate token
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
@@ -465,7 +465,7 @@ func TestHandler_UpdateOrganizationName_Success(t *testing.T) {
 }
 
 func TestHandler_GetSubscription_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	// Generate token
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
@@ -523,16 +523,18 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 }
 
 func TestHandler_GetVideo_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
 	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "user", "org-1")
 
+	videoID := "550e8400-e29b-41d4-a716-446655440000"
+
 	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
 	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active", Role: "user"}, nil)
 
-	mockDB.On("GetVideo", mock.Anything, "video-1").Return(&ydb.Video{
-		VideoID:       "video-1",
+	mockDB.On("GetVideo", mock.Anything, videoID).Return(&ydb.Video{
+		VideoID:       videoID,
 		OrgID:         "org-1",
 		UploadedBy:    "user-1",
 		Title:         "Test Video",
@@ -542,7 +544,7 @@ func TestHandler_GetVideo_Success(t *testing.T) {
 		PublishStatus: "published",
 	}, nil)
 
-	req := httptest.NewRequest("GET", "/api/v1/video?video_id=video-1", nil)
+	req := httptest.NewRequest("GET", "/api/v1/video?video_id="+videoID, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 
@@ -553,12 +555,12 @@ func TestHandler_GetVideo_Success(t *testing.T) {
 	var resp models.Video
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, "video-1", resp.VideoID)
+	assert.Equal(t, videoID, resp.VideoID)
 	assert.Equal(t, "published", resp.PublishStatus)
 }
 
 func TestHandler_SearchVideos_Success(t *testing.T) {
-	router, mockDB, _ := setupTestRouter()
+	router, mockDB, _, _ := setupTestRouter()
 
 	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
 	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "user", "org-1")
@@ -590,4 +592,64 @@ func TestHandler_SearchVideos_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, resp.Videos, 1)
 	assert.Equal(t, "published", resp.Videos[0].PublishStatus)
+}
+
+func TestHandler_RestoreVideo_Success(t *testing.T) {
+	router, mockDB, mockStorage, _ := setupTestRouter()
+
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "admin", "org-1")
+
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active", Role: "admin"}, nil)
+
+	videoID := "video-deleted"
+	mockDB.On("GetVideo", mock.Anything, videoID).Return(&ydb.Video{
+		VideoID:      videoID,
+		OrgID:        "org-1",
+		UploadedBy:   "user-1",
+		IsDeleted:    true,
+		StoragePath:  "videos/org-1/video-deleted/file.mp4",
+		UploadStatus: "deleted",
+	}, nil)
+
+	mockStorage.On("RestorePrivateObject", mock.Anything, "videos/org-1/video-deleted/file.mp4").Return(nil)
+
+	mockDB.On("UpdateVideo", mock.Anything, mock.MatchedBy(func(v *ydb.Video) bool {
+		return v.IsDeleted == false && v.UploadStatus == "completed" && v.DeletedAt == nil
+	})).Return(nil)
+
+	reqBody := []byte(`{"video_id": "video-deleted"}`)
+	req := httptest.NewRequest("POST", "/api/v1/video/restore", bytes.NewReader(reqBody))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Video restored successfully")
+}
+
+func TestHandler_RestoreVideo_NotFound(t *testing.T) {
+	router, mockDB, _, _ := setupTestRouter()
+
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "admin", "org-1")
+
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active", Role: "admin"}, nil)
+
+	videoID := "video-unknown"
+	mockDB.On("GetVideo", mock.Anything, videoID).Return(nil, errors.New("video not found"))
+
+	reqBody := []byte(`{"video_id": "video-unknown"}`)
+	req := httptest.NewRequest("POST", "/api/v1/video/restore", bytes.NewReader(reqBody))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
