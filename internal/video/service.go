@@ -54,6 +54,7 @@ type VideoInfo struct {
 	FileSizeBytes   int64  `json:"file_size_bytes"`
 	DurationSeconds int32  `json:"duration_seconds"`
 	UploadStatus    string `json:"upload_status"`
+	PublishStatus   string `json:"publish_status"`
 	UploadedAt      int64  `json:"uploaded_at"`
 }
 
@@ -503,6 +504,7 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 	fileSizeBytes := video.FileSizeBytes
 	durationSeconds := video.DurationSeconds
 	uploadStatus := video.UploadStatus
+	publishStatus := video.PublishStatus
 	return &VideoInfo{
 		VideoID:         video.VideoID,
 		Title:           video.Title,
@@ -510,6 +512,7 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 		FileSizeBytes:   fileSizeBytes,
 		DurationSeconds: durationSeconds,
 		UploadStatus:    uploadStatus,
+		PublishStatus:   publishStatus,
 		UploadedAt:      uploadedAt,
 	}, nil
 }
@@ -671,6 +674,7 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 		fileSizeBytes := v.FileSizeBytes
 		durationSeconds := v.DurationSeconds
 		uploadStatus := v.UploadStatus
+		publishStatus := v.PublishStatus
 		videoInfos[i] = &VideoInfo{
 			VideoID:         v.VideoID,
 			Title:           v.Title,
@@ -678,6 +682,7 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 			FileSizeBytes:   fileSizeBytes,
 			DurationSeconds: durationSeconds,
 			UploadStatus:    uploadStatus,
+			PublishStatus:   publishStatus,
 			UploadedAt:      uploadedAt,
 		}
 	}

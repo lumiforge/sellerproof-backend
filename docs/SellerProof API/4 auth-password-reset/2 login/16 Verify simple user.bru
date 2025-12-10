@@ -1,0 +1,28 @@
+meta {
+  name: Simpl user verify email (manager)
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/verify-email
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "{{simpleUserEmail}}",
+    "code": "{{simpleUserVerCode}}"
+  }
+}
+
+tests {
+  test('Should return 200 for successful verification of manager', function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('verified');
+    
+    console.log('Manager user verified successfully');
+  });
+}

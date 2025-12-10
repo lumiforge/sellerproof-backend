@@ -2995,6 +2995,9 @@ const docTemplate = `{
                 "file_size_bytes": {
                     "type": "integer"
                 },
+                "publish_status": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 },

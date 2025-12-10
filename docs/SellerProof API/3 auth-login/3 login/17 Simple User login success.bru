@@ -1,0 +1,34 @@
+meta {
+  name: Simple User login success (verified email)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "{{simpleUserEmail}}",
+    "password": "{{simpleUserPassword}}"
+  }
+}
+
+tests {
+  test("Should return 200 for successful login with verified email", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("access_token");
+    expect(res.body).to.have.property("refresh_token");
+    expect(res.body).to.have.property("user");
+    expect(res.body.user.email_verified).to.equal(true);
+    
+    // Update environment variables with new tokens
+    bru.setEnvVar("simpleUserAccessToken", res.body.access_token);
+    bru.setEnvVar("simpleUserRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("simpleUserOrgId", res.body.user.org_id);
+    bru.setEnvVar("simpleUserId", res.body.user.user_id);
+  });
+}

@@ -404,3 +404,30 @@ func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Equal(t, "video count limit exceeded", err.Error())
 }
+
+func TestService_GetVideoDirect_Success(t *testing.T) {
+	service, mockDB, _ := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	videoID := "video-1"
+
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID:       videoID,
+		OrgID:         orgID,
+		UploadedBy:    userID,
+		Title:         "Test Video",
+		FileName:      "video.mp4",
+		FileSizeBytes: 1024,
+		UploadStatus:  "completed",
+		PublishStatus: "published",
+	}, nil)
+
+	info, err := service.GetVideoDirect(ctx, userID, orgID, "user", videoID)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, info)
+	assert.Equal(t, "published", info.PublishStatus)
+	mockDB.AssertExpectations(t)
+}

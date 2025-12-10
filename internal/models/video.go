@@ -63,6 +63,7 @@ type Video struct {
 	FileSizeBytes   int64  `json:"file_size_bytes"`
 	DurationSeconds int32  `json:"duration_seconds"`
 	UploadStatus    string `json:"upload_status"`
+	PublishStatus   string `json:"publish_status"`
 	UploadedAt      int64  `json:"uploaded_at"`
 }
 

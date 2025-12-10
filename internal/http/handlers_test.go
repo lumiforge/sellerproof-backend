@@ -521,3 +521,73 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 	assert.Equal(t, int64(5), resp.Usage.VideosCount)
 	assert.Equal(t, 50.0, resp.Usage.VideosPercentUsed)
 }
+
+func TestHandler_GetVideo_Success(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "user", "org-1")
+
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active", Role: "user"}, nil)
+
+	mockDB.On("GetVideo", mock.Anything, "video-1").Return(&ydb.Video{
+		VideoID:       "video-1",
+		OrgID:         "org-1",
+		UploadedBy:    "user-1",
+		Title:         "Test Video",
+		FileName:      "video.mp4",
+		FileSizeBytes: 1024,
+		UploadStatus:  "completed",
+		PublishStatus: "published",
+	}, nil)
+
+	req := httptest.NewRequest("GET", "/api/v1/video?video_id=video-1", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp models.Video
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "video-1", resp.VideoID)
+	assert.Equal(t, "published", resp.PublishStatus)
+}
+
+func TestHandler_SearchVideos_Success(t *testing.T) {
+	router, mockDB, _ := setupTestRouter()
+
+	tokenMgr := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
+	token, _, _ := tokenMgr.GenerateTokenPair("user-1", "test@example.com", "user", "org-1")
+
+	mockDB.On("GetUserByID", mock.Anything, "user-1").Return(&ydb.User{UserID: "user-1", IsActive: true}, nil)
+	mockDB.On("GetMembership", mock.Anything, "user-1", "org-1").Return(&ydb.Membership{Status: "active", Role: "user"}, nil)
+
+	videos := []*ydb.Video{
+		{
+			VideoID:       "video-1",
+			OrgID:         "org-1",
+			UploadedBy:    "user-1",
+			Title:         "Test Video",
+			PublishStatus: "published",
+		},
+	}
+	mockDB.On("SearchVideos", mock.Anything, "org-1", "user-1", "test", 10, 0).Return(videos, int64(1), nil)
+
+	req := httptest.NewRequest("GET", "/api/v1/video/search?query=test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp models.SearchVideosResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Len(t, resp.Videos, 1)
+	assert.Equal(t, "published", resp.Videos[0].PublishStatus)
+}

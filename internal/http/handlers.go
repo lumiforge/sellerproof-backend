@@ -1022,6 +1022,7 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 		FileSizeBytes:   resp.FileSizeBytes,
 		DurationSeconds: resp.DurationSeconds,
 		UploadStatus:    resp.UploadStatus,
+		PublishStatus:   resp.PublishStatus,
 		UploadedAt:      resp.UploadedAt,
 	}
 
@@ -1108,6 +1109,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 			FileSizeBytes:   v.FileSizeBytes,
 			DurationSeconds: v.DurationSeconds,
 			UploadStatus:    v.UploadStatus,
+			PublishStatus:   v.PublishStatus,
 			UploadedAt:      v.UploadedAt,
 		}
 	}

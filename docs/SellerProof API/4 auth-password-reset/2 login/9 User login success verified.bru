@@ -1,0 +1,44 @@
+meta {
+  name: User login success (verified email)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+tests {
+  test("Should return 200 for successful login with verified email", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("access_token");
+    expect(res.body).to.have.property("refresh_token");
+    expect(res.body).to.have.property("user");
+    expect(res.body.user.email_verified).to.equal(true);
+
+    // Check organizations structure
+    if (res.body.organizations && res.body.organizations.length > 0) {
+      const org = res.body.organizations[0];
+      expect(org).to.have.property('created_at');
+      expect(org.created_at).to.be.a('number');
+      // member_count is 0 in login response, but field should exist
+      expect(org).to.have.property('member_count');
+      expect(org.member_count).to.be.a('number');
+    }
+
+    // Update environment variables with new tokens
+    bru.setEnvVar("adminAccessToken", res.body.access_token);
+    bru.setEnvVar("adminRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("adminOrgId", res.body.user.org_id);
+    bru.setEnvVar("adminId", res.body.user.user_id);
+  });
+}
