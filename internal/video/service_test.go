@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	storagemocks "github.com/lumiforge/sellerproof-backend/internal/storage/mocks"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
@@ -129,10 +131,8 @@ func TestService_CompleteMultipartUpload_MaliciousFile(t *testing.T) {
 	// 4. Ожидаем удаление файла из S3
 	mockStorage.On("DeletePrivateObject", ctx, storagePath).Return(nil)
 
-	// 5. Ожидаем обновление статуса видео на failed/deleted
-	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
-		return v.UploadStatus == "failed" && v.IsDeleted == true
-	})).Return(nil)
+	// 5. Ожидаем перемещение в корзину
+	mockDB.On("MoveVideoToTrash", ctx, videoID).Return(nil)
 
 	// Act
 	parts := []CompletedPart{{PartNumber: 1, ETag: "etag1"}}
@@ -192,9 +192,7 @@ func TestService_CompleteMultipartUpload_QuotaExceededPostUpload(t *testing.T) {
 
 	// 7. Ожидаем удаление и пометку failed, т.к. 100 > 50
 	mockStorage.On("DeletePrivateObject", ctx, storagePath).Return(nil)
-	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
-		return v.UploadStatus == "failed"
-	})).Return(nil)
+	mockDB.On("MoveVideoToTrash", ctx, videoID).Return(nil)
 
 	// Act
 	parts := []CompletedPart{{PartNumber: 1, ETag: "etag1"}}
@@ -446,16 +444,13 @@ func TestService_DeleteVideo_Success(t *testing.T) {
 		OrgID:       orgID,
 		UploadedBy:  userID,
 		StoragePath: storagePath,
-		IsDeleted:   false,
 	}, nil)
 
 	// Expect DeletePrivateObject to be called (which now moves to trash)
 	mockStorage.On("DeletePrivateObject", ctx, storagePath).Return(nil)
 
-	// Expect UpdateVideo with DeletedAt set
-	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
-		return v.IsDeleted == true && v.UploadStatus == "deleted" && v.DeletedAt != nil
-	})).Return(nil)
+	// Expect MoveVideoToTrash
+	mockDB.On("MoveVideoToTrash", ctx, videoID).Return(nil)
 
 	resp, err := service.DeleteVideoDirect(ctx, userID, orgID, "admin", videoID)
 
@@ -476,23 +471,20 @@ func TestService_RestoreVideo_Success(t *testing.T) {
 	videoID := "video-deleted"
 	storagePath := "videos/org-1/video-deleted/file.mp4"
 
-	// 1. Get Video (Deleted)
-	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+	// 1. Get Trash Video
+	mockDB.On("GetTrashVideo", ctx, videoID).Return(&ydb.TrashVideo{
 		VideoID:      videoID,
 		OrgID:        orgID,
 		UploadedBy:   userID,
 		StoragePath:  storagePath,
-		IsDeleted:    true,
 		UploadStatus: "deleted",
 	}, nil)
 
 	// 2. Restore from Storage
 	mockStorage.On("RestorePrivateObject", ctx, storagePath).Return(nil)
 
-	// 3. Update Video Record
-	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
-		return v.IsDeleted == false && v.UploadStatus == "completed" && v.DeletedAt == nil
-	})).Return(nil)
+	// 3. Restore Video Record
+	mockDB.On("RestoreVideoFromTrash", ctx, videoID).Return(nil)
 
 	// Act
 	resp, err := service.RestoreVideo(ctx, userID, orgID, "admin", videoID)
@@ -506,32 +498,6 @@ func TestService_RestoreVideo_Success(t *testing.T) {
 	mockStorage.AssertExpectations(t)
 }
 
-func TestService_RestoreVideo_NotDeleted(t *testing.T) {
-	service, mockDB, _ := setupVideoService()
-	ctx := context.Background()
-
-	userID := "user-1"
-	orgID := "org-1"
-	videoID := "video-active"
-
-	// 1. Get Video (Active)
-	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
-		VideoID:      videoID,
-		OrgID:        orgID,
-		UploadedBy:   userID,
-		IsDeleted:    false,
-		UploadStatus: "completed",
-	}, nil)
-
-	// Act
-	resp, err := service.RestoreVideo(ctx, userID, orgID, "admin", videoID)
-
-	// Assert
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Equal(t, "video is not deleted", err.Error())
-}
-
 func TestService_RestoreVideo_AccessDenied_UserNotOwner(t *testing.T) {
 	service, mockDB, _ := setupVideoService()
 	ctx := context.Background()
@@ -540,11 +506,10 @@ func TestService_RestoreVideo_AccessDenied_UserNotOwner(t *testing.T) {
 	orgID := "org-1"
 	videoID := "video-victim"
 
-	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+	mockDB.On("GetTrashVideo", ctx, videoID).Return(&ydb.TrashVideo{
 		VideoID:    videoID,
 		OrgID:      orgID,
 		UploadedBy: "user-victim",
-		IsDeleted:  true,
 	}, nil)
 
 	resp, err := service.RestoreVideo(ctx, userID, orgID, "user", videoID)
@@ -552,4 +517,106 @@ func TestService_RestoreVideo_AccessDenied_UserNotOwner(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Equal(t, "access denied", err.Error())
+}
+
+func TestService_GetTrashVideos_Success(t *testing.T) {
+	service, mockDB, _ := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+
+	mockDB.On("GetTrashVideos", ctx, orgID, 10, 0).Return([]*ydb.TrashVideo{
+		{
+			VideoID: "v1",
+			Title:   "Deleted Video",
+		},
+	}, int64(1), nil)
+
+	resp, err := service.GetTrashVideos(ctx, userID, orgID, "admin", 1, 10)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Videos, 1)
+	assert.Equal(t, int64(1), resp.TotalCount)
+	assert.Equal(t, "v1", resp.Videos[0].VideoID)
+	mockDB.AssertExpectations(t)
+}
+
+func TestService_InitiateReplacementUpload_Success(t *testing.T) {
+	service, mockDB, mockStorage := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	videoID := "video-1"
+	role := "admin"
+
+	req := &models.ReplaceVideoRequest{
+		VideoID:         videoID,
+		FileName:        "new_video.mp4",
+		FileSizeBytes:   1024,
+		DurationSeconds: 60,
+	}
+
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID:     videoID,
+		OrgID:       orgID,
+		StoragePath: "videos/org-1/video-1/old.mp4",
+		PublicURL:   aws.String("http://public"),
+		FileName:    "old.mp4",
+	}, nil)
+
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
+	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{StorageLimitMB: 100}, nil)
+	mockDB.On("GetStorageUsage", ctx, userID).Return(int64(0), int64(0), nil)
+
+	mockStorage.On("DeletePublicObject", ctx, "public/org-1/video-1/old.mp4").Return(nil)
+	mockStorage.On("InitiateMultipartUpload", ctx, "videos/org-1/video-1/old.mp4", "video/mp4").Return("upload-id-new", nil)
+
+	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
+		return v.VideoID == videoID &&
+			v.UploadStatus == "uploading" &&
+			v.PublishStatus == "private" &&
+			v.UploadID == "upload-id-new" &&
+			v.FileName == "new_video.mp4"
+	})).Return(nil)
+
+	resp, err := service.InitiateReplacementUpload(ctx, userID, orgID, role, req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "upload-id-new", resp.UploadID)
+	mockDB.AssertExpectations(t)
+	mockStorage.AssertExpectations(t)
+}
+
+func TestService_InitiateReplacementUpload_QuotaExceeded(t *testing.T) {
+	service, mockDB, _ := setupVideoService()
+	ctx := context.Background()
+
+	userID := "user-1"
+	orgID := "org-1"
+	videoID := "video-1"
+
+	req := &models.ReplaceVideoRequest{
+		VideoID:       videoID,
+		FileName:      "new.mp4",
+		FileSizeBytes: 20 * 1024 * 1024, // 20 MB
+	}
+
+	mockDB.On("GetVideo", ctx, videoID).Return(&ydb.Video{
+		VideoID: videoID,
+		OrgID:   orgID,
+	}, nil)
+
+	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
+	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{StorageLimitMB: 100}, nil)
+	// Used 90MB. 90 + 20 = 110 > 100
+	mockDB.On("GetStorageUsage", ctx, userID).Return(int64(90*1024*1024), int64(5), nil)
+
+	resp, err := service.InitiateReplacementUpload(ctx, userID, orgID, "admin", req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, "storage limit exceeded", err.Error())
 }

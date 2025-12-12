@@ -1,0 +1,22 @@
+meta {
+  name: Upload part 2
+  type: http
+  seq: 27
+}
+
+put {
+  url: {{outOfOrderPartUrl2}}
+  body: file
+  auth: none
+}
+
+body:file {
+  file: @file(6 video-upload/complete/test-video.mp4) @contentType(video/mp4)
+}
+
+tests {
+  test("S3 should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+    bru.setEnvVar("outOfOrderEtag2", res.headers.etag.replace(/"/g, ''));
+  });
+}

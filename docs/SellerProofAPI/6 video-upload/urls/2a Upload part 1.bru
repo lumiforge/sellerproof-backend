@@ -1,0 +1,22 @@
+meta {
+  name: Upload part 1
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{partUrl1}}
+  body: file
+  auth: none
+}
+
+body:file {
+  file: @file(6 video-upload/complete/test-video.mp4) @contentType(video/mp4)
+}
+
+tests {
+  test("S3 should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+    bru.setEnvVar("headerEtag1", res.headers.etag.replace(/"/g, ''));
+  });
+}

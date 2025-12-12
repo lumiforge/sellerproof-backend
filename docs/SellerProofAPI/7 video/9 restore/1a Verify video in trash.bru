@@ -1,0 +1,24 @@
+meta {
+  name: Verify video in trash
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/video/trash
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+tests {
+  test('Should find deleted video in trash', function() {
+    expect(res.status).to.equal(200);
+    const deletedId = bru.getEnvVar("deletedVideoId");
+    const video = res.body.videos.find(v => v.video_id === deletedId);
+    expect(video).to.exist;
+    expect(video.upload_status).to.equal('deleted'); // or whatever status is set in trash
+  });
+}

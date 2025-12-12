@@ -1,0 +1,32 @@
+meta {
+  name: Replace video non-existent video ID
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/replace
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "video_id": "non-existent-video-id",
+    "file_name": "new-video.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test('Should return 404 Not Found for non-existent video ID', function() {
+    expect(res.status).to.equal(404);
+    expect(res.body).to.have.property('error');
+    expect(res.body.error).to.include('Not Found');
+  });
+}

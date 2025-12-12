@@ -1,0 +1,38 @@
+meta {
+  name: Complete upload wrong Content-Type
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+headers {
+  Content-Type: text/plain
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "parts": [
+      {
+        "part_number": 1,
+        "etag": "{{headerEtag1}}"
+      }
+    ]
+  }
+}
+
+tests {
+  test('Should return 415 for wrong Content-Type', function() {
+    expect(res.status).to.equal(415);
+
+  });
+}

@@ -339,8 +339,6 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				share_expires_at Optional<Timestamp>,
 				uploaded_at Optional<Timestamp>,
 				created_at Timestamp NOT NULL,
-				is_deleted Bool DEFAULT false,
-				deleted_at Optional<Timestamp>,
 				public_url Optional<Text>,
 				publish_status Text DEFAULT 'private',
 				published_at Optional<Timestamp>,
@@ -348,7 +346,6 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				PRIMARY KEY (video_id),
 				INDEX org_idx GLOBAL ON (org_id),
 				INDEX org_user_idx GLOBAL ON (org_id, uploaded_by),
-				INDEX org_deleted_idx GLOBAL ON (org_id, is_deleted),
 				INDEX share_token_idx GLOBAL ON (public_share_token),
 				INDEX publish_status_idx GLOBAL ON (publish_status),
 				INDEX org_filename_idx GLOBAL ON (org_id, file_name_search)
@@ -363,6 +360,48 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		}
 	} else {
 		log.Println("Table videos already exists, skipping creation")
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Таблица корзины видео
+	log.Println("Creating table: trash_videos")
+	if exists, err := c.tableExists(ctx, "trash_videos"); err != nil {
+		return fmt.Errorf("failed to check trash_videos table existence: %w", err)
+	} else if !exists {
+		query := `
+			CREATE TABLE trash_videos (
+				video_id Text NOT NULL,
+				org_id Text NOT NULL,
+				uploaded_by Text NOT NULL,
+				title Text NOT NULL,
+				file_name Text NOT NULL,
+				file_name_search Text NOT NULL,
+				file_size_bytes Int64 NOT NULL,
+				storage_path Text NOT NULL,
+				duration_seconds Int32 NOT NULL,
+				upload_id Text NOT NULL,
+				upload_status Text NOT NULL,
+				parts_uploaded Optional<Int32>,
+				total_parts Optional<Int32>,
+				created_at Timestamp NOT NULL,
+				uploaded_at Optional<Timestamp>,
+				deleted_at Timestamp NOT NULL,
+				publish_status Text,
+				PRIMARY KEY (video_id),
+				INDEX org_idx GLOBAL ON (org_id),
+				INDEX deleted_at_idx GLOBAL ON (deleted_at)
+			)
+			WITH (
+				TTL = Interval("P30D") ON deleted_at
+			)
+		`
+		err := c.executeSchemeQuery(ctx, query)
+		if err != nil {
+			return fmt.Errorf("failed to create trash_videos table: %w", err)
+		}
+	} else {
+		log.Println("Table trash_videos already exists, skipping creation")
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -1261,8 +1300,6 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		DECLARE $share_expires_at AS Optional<Timestamp>;
 		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
-		DECLARE $is_deleted AS Bool;
-		DECLARE $deleted_at AS Optional<Timestamp>;
 		DECLARE $public_url AS Optional<Text>;
 		DECLARE $publish_status AS Text;
 		DECLARE $published_at AS Optional<Timestamp>;
@@ -1271,9 +1308,9 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted, deleted_at,
+			public_share_token, share_expires_at, uploaded_at, created_at,
 			public_url, publish_status, published_at, upload_expires_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $deleted_at, $public_url, $publish_status, $published_at, $upload_expires_at)
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1321,13 +1358,6 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
 					return table.ValueParam("$uploaded_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadedAt)))
 				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(time.Now())),
-				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
-				func() table.ParameterOption {
-					if video.DeletedAt == nil {
-						return table.ValueParam("$deleted_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$deleted_at", types.OptionalValue(types.TimestampValueFromTime(*video.DeletedAt)))
-				}(),
 				func() table.ParameterOption {
 					if video.PublicURL == nil {
 						return table.ValueParam("$public_url", types.NullValue(types.TypeText))
@@ -1358,7 +1388,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 	query := `
 		DECLARE $video_id AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted, deleted_at,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at,
 		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos WHERE video_id = $video_id
 	`
@@ -1386,8 +1416,6 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 			var shareExpiresAt *time.Time
 			var uploadedAt *time.Time
 			var uploadExpiresAt *time.Time
-			var isDeleted *bool
-			var deletedAt *time.Time
 			var publishStatus *string
 
 			err := res.Scan(
@@ -1408,8 +1436,6 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 				&shareExpiresAt,
 				&uploadedAt,
 				&v.CreatedAt,
-				&isDeleted,
-				&deletedAt,
 				&v.PublicURL,
 				&publishStatus,
 				&v.PublishedAt,
@@ -1426,10 +1452,6 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
 			v.ShareExpiresAt = shareExpiresAt
 			v.UploadedAt = uploadedAt
 			v.UploadExpiresAt = uploadExpiresAt
-			if isDeleted != nil {
-				v.IsDeleted = *isDeleted
-			}
-			v.DeletedAt = deletedAt
 			if publishStatus != nil {
 				v.PublishStatus = *publishStatus
 			}
@@ -1453,7 +1475,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 		DECLARE $video_id AS Text;
 		DECLARE $org_id AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at,
 		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos
 		WHERE video_id = $video_id AND org_id = $org_id
@@ -1483,7 +1505,6 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 			var shareExpiresAt *time.Time
 			var uploadedAt *time.Time
 			var uploadExpiresAt *time.Time
-			var isDeleted *bool
 			var publishStatus *string
 
 			err := res.Scan(
@@ -1504,7 +1525,6 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 				&shareExpiresAt,
 				&uploadedAt,
 				&v.CreatedAt,
-				&isDeleted,
 				&v.PublicURL,
 				&publishStatus,
 				&v.PublishedAt,
@@ -1521,9 +1541,6 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
 			v.ShareExpiresAt = shareExpiresAt
 			v.UploadedAt = uploadedAt
 			v.UploadExpiresAt = uploadExpiresAt
-			if isDeleted != nil {
-				v.IsDeleted = *isDeleted
-			}
 			if publishStatus != nil {
 				v.PublishStatus = *publishStatus
 			}
@@ -1560,8 +1577,6 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		DECLARE $share_expires_at AS Optional<Timestamp>;
 		DECLARE $uploaded_at AS Optional<Timestamp>;
 		DECLARE $created_at AS Timestamp;
-		DECLARE $is_deleted AS Bool;
-		DECLARE $deleted_at AS Optional<Timestamp>;
 		DECLARE $public_url AS Optional<Text>;
 		DECLARE $publish_status AS Text;
 		DECLARE $published_at AS Optional<Timestamp>;
@@ -1570,9 +1585,9 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 		REPLACE INTO videos (
 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-			public_share_token, share_expires_at, uploaded_at, created_at, is_deleted, deleted_at,
+			public_share_token, share_expires_at, uploaded_at, created_at,
 			public_url, publish_status, published_at, upload_expires_at
-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $is_deleted, $deleted_at, $public_url, $publish_status, $published_at, $upload_expires_at)
+		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $public_url, $publish_status, $published_at, $upload_expires_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -1620,13 +1635,6 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 					return table.ValueParam("$uploaded_at", types.OptionalValue(types.TimestampValueFromTime(*video.UploadedAt)))
 				}(),
 				table.ValueParam("$created_at", types.TimestampValueFromTime(video.CreatedAt)),
-				table.ValueParam("$is_deleted", types.BoolValue(video.IsDeleted)),
-				func() table.ParameterOption {
-					if video.DeletedAt == nil {
-						return table.ValueParam("$deleted_at", types.NullValue(types.TypeTimestamp))
-					}
-					return table.ValueParam("$deleted_at", types.OptionalValue(types.TimestampValueFromTime(*video.DeletedAt)))
-				}(),
 				func() table.ParameterOption {
 					if video.PublicURL == nil {
 						return table.ValueParam("$public_url", types.NullValue(types.TypeText))
@@ -1657,12 +1665,18 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, ownerID string) (int64,
 	query := `
 		DECLARE $owner_id AS Text;
 
+		$active_size = (SELECT COALESCE(SUM(v.file_size_bytes + CASE WHEN v.publish_status = 'published' THEN v.file_size_bytes ELSE 0 END), 0)
+			FROM videos AS v INNER JOIN organizations AS o ON v.org_id = o.org_id WHERE o.owner_id = $owner_id AND v.upload_status != 'failed');
+
+		$trash_size = (SELECT COALESCE(SUM(t.file_size_bytes), 0)
+			FROM trash_videos AS t INNER JOIN organizations AS o ON t.org_id = o.org_id WHERE o.owner_id = $owner_id);
+
+		$active_count = (SELECT COUNT(*) FROM videos AS v INNER JOIN organizations AS o ON v.org_id = o.org_id WHERE o.owner_id = $owner_id AND v.upload_status != 'failed');
+		$trash_count = (SELECT COUNT(*) FROM trash_videos AS t INNER JOIN organizations AS o ON t.org_id = o.org_id WHERE o.owner_id = $owner_id);
+
 		SELECT
-			COALESCE(SUM(v.file_size_bytes + CASE WHEN v.publish_status = 'published' THEN v.file_size_bytes ELSE 0 END), 0) as size,
-			COUNT(*) as count
-		FROM videos AS v
-		INNER JOIN organizations AS o ON v.org_id = o.org_id
-		WHERE o.owner_id = $owner_id AND v.is_deleted = false AND v.upload_status != 'failed'
+			($active_size + $trash_size) as size,
+			($active_count + $trash_count) as count;
 	`
 
 	var usage int64
@@ -1771,10 +1785,10 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 	query := `
 		DECLARE $token AS Text;
 		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
-		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at,
 		       public_url, publish_status, published_at, upload_expires_at
 		FROM videos
-		WHERE public_share_token = $token AND is_deleted = false
+		WHERE public_share_token = $token
 	`
 
 	var v Video
@@ -1800,7 +1814,6 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			var shareExpiresAt *time.Time
 			var uploadedAt *time.Time
 			var uploadExpiresAt *time.Time
-			var isDeleted *bool
 			var publishStatus *string
 
 			err := res.Scan(
@@ -1821,7 +1834,6 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 				&shareExpiresAt,
 				&uploadedAt,
 				&v.CreatedAt,
-				&isDeleted,
 				&v.PublicURL,
 				&publishStatus,
 				&v.PublishedAt,
@@ -1838,9 +1850,6 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
 			v.ShareExpiresAt = shareExpiresAt
 			v.UploadedAt = uploadedAt
 			v.UploadExpiresAt = uploadExpiresAt
-			if isDeleted != nil {
-				v.IsDeleted = *isDeleted
-			}
 			if publishStatus != nil {
 				v.PublishStatus = *publishStatus
 			}
@@ -1864,7 +1873,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	var countParams, dataParams *table.QueryParameters
 
 	// Базовая часть WHERE clause
-	whereClause := `WHERE org_id = $org_id AND is_deleted = false`
+	whereClause := `WHERE org_id = $org_id`
 
 	// Определяем, какие параметры нужны
 	hasUserFilter := userID != ""
@@ -1951,7 +1960,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	dataQuery = declares + `
 	SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
 	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
-	       public_share_token, share_expires_at, uploaded_at, created_at, is_deleted,
+	       public_share_token, share_expires_at, uploaded_at, created_at,
 	       public_url, publish_status, published_at, upload_expires_at
 	FROM videos ` + whereClause + `
 	ORDER BY uploaded_at DESC
@@ -1996,7 +2005,6 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				var shareExpiresAt *time.Time
 				var uploadedAt *time.Time
 				var uploadExpiresAt *time.Time
-				var isDeleted *bool
 				var publishStatus *string
 
 				if err := res.Scan(
@@ -2017,7 +2025,6 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 					&shareExpiresAt,
 					&uploadedAt,
 					&v.CreatedAt,
-					&isDeleted,
 					&v.PublicURL,
 					&publishStatus,
 					&v.PublishedAt,
@@ -2031,9 +2038,6 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 				v.ShareExpiresAt = shareExpiresAt
 				v.UploadedAt = uploadedAt
 				v.UploadExpiresAt = uploadExpiresAt
-				if isDeleted != nil {
-					v.IsDeleted = *isDeleted
-				}
 				if publishStatus != nil {
 					v.PublishStatus = *publishStatus
 				}
@@ -2049,6 +2053,229 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
 	}
 
 	return videos, int64(total), nil
+}
+
+// MoveVideoToTrash перемещает видео в корзину
+func (c *YDBClient) MoveVideoToTrash(ctx context.Context, videoID string) error {
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		query := `
+			DECLARE $video_id AS Text;
+			DECLARE $deleted_at AS Timestamp;
+			DECLARE $upload_status AS Text;
+
+			REPLACE INTO trash_videos (
+				video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
+				storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+				created_at, uploaded_at, deleted_at, publish_status
+			)
+			SELECT
+				video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
+				storage_path, duration_seconds, upload_id, $upload_status, parts_uploaded, total_parts,
+				created_at, uploaded_at, $deleted_at, publish_status
+			FROM videos
+			WHERE video_id = $video_id;
+
+			DELETE FROM videos WHERE video_id = $video_id;
+		`
+		_, _, err := session.Execute(
+			ctx,
+			table.TxControl(table.BeginTx(table.WithSerializableReadWrite()), table.CommitTx()),
+			query,
+			table.NewQueryParameters(
+				table.ValueParam("$video_id", types.TextValue(videoID)),
+				table.ValueParam("$deleted_at", types.TimestampValueFromTime(time.Now())),
+				table.ValueParam("$upload_status", types.TextValue("deleted")),
+			),
+		)
+		return err
+	})
+}
+
+// RestoreVideoFromTrash восстанавливает видео из корзины
+func (c *YDBClient) RestoreVideoFromTrash(ctx context.Context, videoID string) error {
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		query := `
+			DECLARE $video_id AS Text;
+			DECLARE $upload_status AS Text;
+			DECLARE $publish_status AS Text;
+
+			REPLACE INTO videos (
+				video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
+				storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+				created_at, uploaded_at, publish_status
+			)
+			SELECT
+				video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
+				storage_path, duration_seconds, upload_id, $upload_status, parts_uploaded, total_parts,
+				created_at, uploaded_at, $publish_status
+			FROM trash_videos
+			WHERE video_id = $video_id;
+
+			DELETE FROM trash_videos WHERE video_id = $video_id;
+		`
+		_, _, err := session.Execute(
+			ctx,
+			table.TxControl(table.BeginTx(table.WithSerializableReadWrite()), table.CommitTx()),
+			query,
+			table.NewQueryParameters(
+				table.ValueParam("$video_id", types.TextValue(videoID)),
+				table.ValueParam("$upload_status", types.TextValue("completed")),
+				table.ValueParam("$publish_status", types.TextValue("private")),
+			),
+		)
+		return err
+	})
+}
+
+// GetTrashVideos получает список видео в корзине
+func (c *YDBClient) GetTrashVideos(ctx context.Context, orgID string, limit, offset int) ([]*TrashVideo, int64, error) {
+	countQuery := `
+		DECLARE $org_id AS Text;
+		SELECT COUNT(*) as total FROM trash_videos WHERE org_id = $org_id
+	`
+	var total uint64
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), countQuery, table.NewQueryParameters(
+			table.ValueParam("$org_id", types.TextValue(orgID)),
+		))
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+		if res.NextResultSet(ctx) && res.NextRow() {
+			return res.ScanNamed(named.Required("total", &total))
+		}
+		return res.Err()
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	dataQuery := `
+		DECLARE $org_id AS Text;
+		DECLARE $limit AS Uint64;
+		DECLARE $offset AS Uint64;
+		SELECT video_id, title, file_name, file_size_bytes, duration_seconds, upload_status, publish_status, uploaded_at, deleted_at
+		FROM trash_videos
+		WHERE org_id = $org_id
+		ORDER BY deleted_at DESC
+		LIMIT $limit OFFSET $offset
+	`
+	var videos []*TrashVideo
+	err = c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), dataQuery, table.NewQueryParameters(
+			table.ValueParam("$org_id", types.TextValue(orgID)),
+			table.ValueParam("$limit", types.Uint64Value(uint64(limit))),
+			table.ValueParam("$offset", types.Uint64Value(uint64(offset))),
+		))
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+		for res.NextResultSet(ctx) {
+			for res.NextRow() {
+				var v TrashVideo
+				var uploadedAt *time.Time
+				var publishStatus *string
+				if err := res.ScanNamed(
+					named.Required("video_id", &v.VideoID),
+					named.Required("title", &v.Title),
+					named.Required("file_name", &v.FileName),
+					named.Required("file_size_bytes", &v.FileSizeBytes),
+					named.Required("duration_seconds", &v.DurationSeconds),
+					named.Required("upload_status", &v.UploadStatus),
+					named.Optional("publish_status", &publishStatus),
+					named.Optional("uploaded_at", &uploadedAt),
+					named.Required("deleted_at", &v.DeletedAt),
+				); err != nil {
+					return err
+				}
+				if uploadedAt != nil {
+					v.UploadedAt = *uploadedAt
+				}
+				if publishStatus != nil {
+					v.PublishStatus = *publishStatus
+				}
+				videos = append(videos, &v)
+			}
+		}
+		return res.Err()
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	return videos, int64(total), nil
+}
+
+// GetTrashVideo получает видео из корзины по ID
+func (c *YDBClient) GetTrashVideo(ctx context.Context, videoID string) (*TrashVideo, error) {
+	query := `
+		DECLARE $video_id AS Text;
+		SELECT video_id, org_id, uploaded_by, title, file_name, file_size_bytes, storage_path, duration_seconds, upload_status, publish_status, uploaded_at, deleted_at
+		FROM trash_videos WHERE video_id = $video_id
+	`
+	// FIX: Replaced file_name_bytes with file_size_bytes in SQL query above
+
+	var v TrashVideo
+	var found bool
+	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query, table.NewQueryParameters(
+			table.ValueParam("$video_id", types.TextValue(videoID)),
+		))
+		if err != nil {
+			return err
+		}
+		defer res.Close()
+		if res.NextResultSet(ctx) && res.NextRow() {
+			found = true
+			var uploadedAt *time.Time
+			var publishStatus *string
+			if err := res.ScanNamed(
+				named.Required("video_id", &v.VideoID),
+				named.Required("org_id", &v.OrgID),
+				named.Required("uploaded_by", &v.UploadedBy),
+				named.Required("title", &v.Title),
+				named.Required("file_name", &v.FileName),
+				named.Required("file_size_bytes", &v.FileSizeBytes),
+				named.Required("storage_path", &v.StoragePath),
+				named.Required("duration_seconds", &v.DurationSeconds),
+				named.Required("upload_status", &v.UploadStatus),
+				named.Optional("publish_status", &publishStatus),
+				named.Optional("uploaded_at", &uploadedAt),
+				named.Required("deleted_at", &v.DeletedAt),
+			); err != nil {
+				return err
+			}
+			if uploadedAt != nil {
+				v.UploadedAt = *uploadedAt
+			}
+			if publishStatus != nil {
+				v.PublishStatus = *publishStatus
+			}
+		}
+		return res.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("video not found in trash")
+	}
+	return &v, nil
+}
+
+// DeleteTrashVideo удаляет видео из корзины (физическое удаление записи)
+func (c *YDBClient) DeleteTrashVideo(ctx context.Context, videoID string) error {
+	query := `
+		DECLARE $video_id AS Text;
+		DELETE FROM trash_videos WHERE video_id = $video_id
+	`
+	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+		_, _, err := session.Execute(ctx, table.DefaultTxControl(), query, table.NewQueryParameters(
+			table.ValueParam("$video_id", types.TextValue(videoID)),
+		))
+		return err
+	})
 }
 
 // Реализация оставшихся методов интерфейса

@@ -208,6 +208,10 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/video/upload/complete", chainMiddleware(server.CompleteMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
+
+	mux.HandleFunc("/api/v1/video/upload/replace", chainMiddleware(server.ReplaceVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, server.authService, next)
+	}))
 	mux.HandleFunc("/api/v1/video", chainMiddleware(server.GetVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
@@ -243,6 +247,9 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	mux.HandleFunc("/api/v1/video/restore", chainMiddleware(server.RestoreVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+		return AuthMiddleware(jwtManager, server.authService, next)
+	}))
+	mux.HandleFunc("/api/v1/video/trash", chainMiddleware(server.GetTrashVideos, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	mux.HandleFunc("/api/v1/video/download", chainMiddleware(server.DownloadVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {

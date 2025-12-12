@@ -1566,6 +1566,54 @@ func (s *Server) RestoreVideo(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// GetTrashVideos handles listing videos in trash
+// @Summary		List trash videos
+// @Description	List videos in trash with pagination
+// @Tags		video
+// @Accept		json
+// @Produce		json
+// @Param		page		query		int		false	"Page number"	default(1)
+// @Param		page_size	query		int		false	"Page size"	default(10)
+// @Security	BearerAuth
+// @Success	200		{object}	models.GetTrashVideosResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/video/trash [get]
+func (s *Server) GetTrashVideos(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		slog.Error("GetTrashVideos: User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("page_size")
+
+	page := int32(1)
+	pageSize := int32(10)
+
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil {
+			page = int32(p)
+		}
+	}
+	if pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil {
+			pageSize = int32(ps)
+		}
+	}
+
+	resp, err := s.videoService.GetTrashVideos(r.Context(), claims.UserID, claims.OrgID, claims.Role, page, pageSize)
+	if err != nil {
+		slog.Error("GetTrashVideos: Failed to list trash videos", "error", err.Error())
+		s.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
 // Organization and Membership Handlers
 
 // InviteUser handles user invitation to organization
@@ -2278,6 +2326,9 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 		} else if errors.Is(err, app_errors.ErrStorageLimitExceededPublishing) ||
 			errors.Is(err, app_errors.ErrFailedToGetSubscription) {
 			s.writeError(w, http.StatusForbidden, errorMsg)
+		} else if errors.Is(err, app_errors.ErrVideoUploadNotCompleted) || strings.Contains(errorMsg, "video upload not completed") {
+			// FIX: Added explicit string check for "video upload not completed" to ensure 400 is returned
+			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, errorMsg)
 		}
@@ -2788,4 +2839,83 @@ func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// ReplaceVideo handles initiating video replacement
+// @Summary		Replace video
+// @Description	Replace existing video file with a new one
+// @Tags		video
+// @Accept		json
+// @Produce		json
+// @Param		request	body		models.ReplaceVideoRequest	true	"Video replacement request"
+// @Security	BearerAuth
+// @Success	200		{object}	models.InitiateMultipartUploadResponse
+// @Failure	400		{object}	models.ErrorResponse
+// @Failure	401		{object}	models.ErrorResponse
+// @Failure	403		{object}	models.ErrorResponse
+// @Failure	404		{object}	models.ErrorResponse
+// @Failure	500		{object}	models.ErrorResponse
+// @Router		/video/upload/replace [post]
+func (s *Server) ReplaceVideo(w http.ResponseWriter, r *http.Request) {
+	claims, ok := GetUserClaims(r)
+	if !ok {
+		slog.Error("ReplaceVideo: User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	if err := validation.ValidateContentType(r.Header.Get("Content-Type"), "application/json"); err != nil {
+		slog.Error("ReplaceVideo: Invalid Content-Type header", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var req models.ReplaceVideoRequest
+	if err := s.validateRequest(r, &req); err != nil {
+		slog.Error("ReplaceVideo: Invalid request format", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		return
+	}
+
+	if req.VideoID == "" {
+		slog.Error("ReplaceVideo: video_id is required")
+		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		return
+	}
+	if req.FileName == "" {
+		slog.Error("ReplaceVideo: file_name is required")
+		s.writeError(w, http.StatusBadRequest, "file_name is required")
+		return
+	}
+	if req.FileSizeBytes <= 0 {
+		slog.Error("ReplaceVideo: file_size_bytes must be greater than 0")
+		s.writeError(w, http.StatusBadRequest, "file_size_bytes must be greater than 0")
+		return
+	}
+
+	if err := validation.ValidateFilenameUnicode(req.FileName, "file_name"); err != nil {
+		slog.Error("ReplaceVideo: file_name is invalid", "error", err.Error())
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := s.videoService.InitiateReplacementUpload(r.Context(), claims.UserID, claims.OrgID, claims.Role, &req)
+	if err != nil {
+		slog.Error("ReplaceVideo: Failed to initiate replacement", "error", err.Error())
+		if strings.Contains(err.Error(), "video not found") {
+			s.writeError(w, http.StatusNotFound, err.Error())
+		} else if strings.Contains(err.Error(), "access denied") || strings.Contains(err.Error(), "storage limit exceeded") {
+			s.writeError(w, http.StatusForbidden, err.Error())
+		} else if strings.Contains(err.Error(), "invalid file type") {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+		} else {
+			s.writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	s.writeJSON(w, http.StatusOK, models.InitiateMultipartUploadResponse{
+		VideoID:               resp.VideoID,
+		UploadID:              resp.UploadID,
+		RecommendedPartSizeMB: resp.RecommendedPartSizeMB,
+	})
 }

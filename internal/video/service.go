@@ -91,29 +91,23 @@ func (s *Service) DeleteVideoDirect(ctx context.Context, userID, orgID, role, vi
 		return nil, app_errors.ErrAccessDenied
 	}
 
-	if !video.IsDeleted {
-		if err := s.storage.DeletePrivateObject(ctx, video.StoragePath); err != nil {
-			return nil, app_errors.ErrFailedToDeleteVideoFromStorage
-		}
-
-		if video.PublicURL != nil && *video.PublicURL != "" {
-			publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, video.VideoID, video.FileName)
-			if err := s.storage.DeletePublicObject(ctx, publicKey); err != nil {
-				log.Printf("failed to delete public object for video %s: %v", video.VideoID, err)
-			}
+	// 1. Delete public copy if exists
+	if video.PublicURL != nil && *video.PublicURL != "" {
+		publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, video.VideoID, video.FileName)
+		if err := s.storage.DeletePublicObject(ctx, publicKey); err != nil {
+			log.Printf("failed to delete public object for video %s: %v", video.VideoID, err)
 		}
 	}
 
-	video.IsDeleted = true
-	video.UploadStatus = "deleted"
-	video.PublishStatus = "deleted"
-	video.PublicURL = nil
-	video.PublicShareToken = nil
-	video.ShareExpiresAt = nil
-	now := time.Now()
-	video.DeletedAt = &now
+	// 2. Move private object to trash bucket (S3)
+	// DeletePrivateObject implementation copies to trash then deletes from private
+	if err := s.storage.DeletePrivateObject(ctx, video.StoragePath); err != nil {
+		return nil, app_errors.ErrFailedToDeleteVideoFromStorage
+	}
 
-	if err := s.db.UpdateVideo(ctx, video); err != nil {
+	// 3. Move record to trash_videos table (DB)
+	if err := s.db.MoveVideoToTrash(ctx, videoID); err != nil {
+		slog.Error("Failed to move video to trash in DB", "error", err, "video_id", videoID)
 		return nil, app_errors.ErrFailedToUpdateVideoRecord
 	}
 
@@ -126,32 +120,33 @@ func (s *Service) RestoreVideo(ctx context.Context, userID, orgID, role, videoID
 		return nil, app_errors.ErrAccessDenied
 	}
 
-	video, err := s.db.GetVideo(ctx, videoID)
+	// Get video from trash table
+	trashVideo, err := s.db.GetTrashVideo(ctx, videoID)
 	if err != nil {
 		return nil, app_errors.ErrVideoNotFound
 	}
 
-	if video.OrgID != orgID {
+	if trashVideo.OrgID != orgID {
 		return nil, app_errors.ErrAccessDenied
 	}
 
-	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
+	if rbac.Role(role) == rbac.RoleUser && trashVideo.UploadedBy != userID {
 		return nil, app_errors.ErrAccessDenied
 	}
 
-	if !video.IsDeleted {
-		return nil, fmt.Errorf("video is not deleted")
-	}
-
-	if err := s.storage.RestorePrivateObject(ctx, video.StoragePath); err != nil {
+	// Restore from S3 Trash to Private
+	if err := s.storage.RestorePrivateObject(ctx, trashVideo.StoragePath); err != nil {
+		// If file is missing in S3 (expired by lifecycle), delete from DB
+		if strings.Contains(err.Error(), "NoSuchKey") || strings.Contains(err.Error(), "NotFound") {
+			_ = s.db.DeleteTrashVideo(ctx, videoID)
+			return nil, fmt.Errorf("video not found: file expired or missing in storage")
+		}
 		return nil, fmt.Errorf("failed to restore video from storage: %w", err)
 	}
 
-	video.IsDeleted = false
-	video.UploadStatus = "completed"
-	video.DeletedAt = nil
-
-	if err := s.db.UpdateVideo(ctx, video); err != nil {
+	// Restore record in DB
+	if err := s.db.RestoreVideoFromTrash(ctx, videoID); err != nil {
+		slog.Error("Failed to restore video from trash in DB", "error", err, "video_id", videoID)
 		return nil, app_errors.ErrFailedToUpdateVideoRecord
 	}
 
@@ -226,7 +221,6 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		DurationSeconds: durationSeconds,
 		UploadID:        uploadID,
 		UploadStatus:    uploadStatus,
-		IsDeleted:       false,
 		PublishStatus:   "private",
 		CreatedAt:       createdAt,
 		UploadExpiresAt: &ttl,
@@ -271,10 +265,6 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 		return nil, app_errors.ErrUploaderOnlyCanGenUploadURLs
 	}
 
-	// Fix: Check video status to prevent overwriting completed or deleted videos
-	if video.IsDeleted {
-		return nil, app_errors.ErrVideoIsDeleted
-	}
 	if video.UploadStatus == "completed" {
 		return nil, app_errors.ErrVideoUploadAlreadyCompleted
 	}
@@ -427,8 +417,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 
 		// Помечаем как failed
 		video.UploadStatus = "failed"
-		video.IsDeleted = true
-		_ = s.db.UpdateVideo(ctx, video)
+		_ = s.db.MoveVideoToTrash(ctx, videoID)
 
 		return nil, app_errors.ErrInvalidFileContent
 	}
@@ -479,8 +468,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 
 		// Помечаем видео как failed
 		video.UploadStatus = "failed"
-		video.IsDeleted = true
-		_ = s.db.UpdateVideo(ctx, video)
+		_ = s.db.MoveVideoToTrash(ctx, videoID)
 
 		return nil, app_errors.ErrStorageLimitExceededFileSize
 	}
@@ -1074,4 +1062,134 @@ func (s *Service) RevokePublicShare(ctx context.Context, userID, orgID, role, vi
 
 	// Отзываем все публичные шаринги для этого видео
 	return s.db.RevokePublicVideoShare(ctx, videoID, userID)
+}
+
+// GetTrashVideos retrieves videos from trash
+func (s *Service) GetTrashVideos(ctx context.Context, userID, orgID, role string, page, pageSize int32) (*models.GetTrashVideosResponse, error) {
+	// Check permissions
+	// Assuming same permission as viewing videos or restoring
+	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoRestore) {
+		return nil, app_errors.ErrAccessDenied
+	}
+
+	limit := int(pageSize)
+	if limit <= 0 {
+		limit = 10
+	}
+	offset := (int(page) - 1) * limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	trashVideos, total, err := s.db.GetTrashVideos(ctx, orgID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	videos := make([]*models.TrashVideo, len(trashVideos))
+	for i, v := range trashVideos {
+		videos[i] = &models.TrashVideo{
+			VideoID:         v.VideoID,
+			Title:           v.Title,
+			FileName:        v.FileName,
+			FileSizeBytes:   v.FileSizeBytes,
+			DurationSeconds: v.DurationSeconds,
+			UploadStatus:    v.UploadStatus,
+			PublishStatus:   v.PublishStatus,
+			UploadedAt:      v.UploadedAt.Unix(),
+			DeletedAt:       v.DeletedAt.Unix(),
+		}
+	}
+
+	return &models.GetTrashVideosResponse{Videos: videos, TotalCount: total}, nil
+}
+
+// InitiateReplacementUpload initiates multipart upload for replacing an existing video
+func (s *Service) InitiateReplacementUpload(ctx context.Context, userID, orgID, role string, req *models.ReplaceVideoRequest) (*InitiateMultipartUploadResult, error) {
+	// 1. Check Permissions
+	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoUpload) {
+		return nil, app_errors.ErrAccessDenied
+	}
+
+	// 2. Get Video
+	video, err := s.db.GetVideo(ctx, req.VideoID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, app_errors.ErrVideoNotFound
+		}
+		return nil, err
+	}
+
+	if video.OrgID != orgID {
+		return nil, app_errors.ErrAccessDenied
+	}
+
+	// 3. Check Quota
+	// We require free space for BOTH files (old + new) at the moment of upload.
+	// GetStorageUsage includes the current video's size.
+	org, err := s.db.GetOrganizationByID(ctx, orgID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetOrganizationInfo
+	}
+	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetSubscription
+	}
+	currentUsage, _, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+	if err != nil {
+		return nil, app_errors.ErrFailedToGetStorageUsage
+	}
+
+	limitBytes := sub.StorageLimitMB * 1024 * 1024
+	if sub.StorageLimitMB > 0 {
+		if (currentUsage + req.FileSizeBytes) > limitBytes {
+			return nil, app_errors.ErrStorageLimitExceeded
+		}
+	}
+
+	// 4. Validate Content Type
+	contentType := validation.GetContentTypeFromExtension(req.FileName)
+	if contentType == "" || !validation.IsVideoContentType(contentType) {
+		return nil, app_errors.ErrInvalidFileType
+	}
+
+	// 5. Delete Public Object if exists (Reset to private)
+	if video.PublicURL != nil && *video.PublicURL != "" {
+		publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, video.VideoID, video.FileName)
+		_ = s.storage.DeletePublicObject(ctx, publicKey)
+	}
+
+	// 6. Initiate S3 Multipart (Reuse existing StoragePath)
+	uploadID, err := s.storage.InitiateMultipartUpload(ctx, video.StoragePath, contentType)
+	if err != nil {
+		return nil, app_errors.ErrFailedToInitiateS3Upload
+	}
+
+	// 7. Update DB
+	video.UploadStatus = "uploading"
+	video.PublishStatus = "private"
+	video.PublicURL = nil
+	video.PublicShareToken = nil
+	video.ShareExpiresAt = nil
+	video.UploadedBy = userID // Update uploader to current user
+	video.FileSizeBytes = req.FileSizeBytes
+	video.DurationSeconds = req.DurationSeconds
+	video.FileName = req.FileName
+	video.FileNameSearch = strings.ToLower(req.FileName)
+	video.UploadID = uploadID
+	ttl := time.Now().Add(24 * time.Hour)
+	video.UploadExpiresAt = &ttl
+	parts := int32(0)
+	video.PartsUploaded = &parts
+	video.TotalParts = nil
+
+	if err := s.db.UpdateVideo(ctx, video); err != nil {
+		return nil, app_errors.ErrFailedToUpdateVideoRecord
+	}
+
+	return &InitiateMultipartUploadResult{
+		VideoID:               video.VideoID,
+		UploadID:              uploadID,
+		RecommendedPartSizeMB: 10,
+	}, nil
 }

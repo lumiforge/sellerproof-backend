@@ -1,0 +1,53 @@
+meta {
+  name: Complete upload with Unicode video ID
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminAccessToken}}
+}
+
+body:json {
+  {
+    "video_id": "{{testUnicodeVideoId}}",
+    "parts": [
+      {
+        "part_number": 1,
+        "etag": "{{unicodeEtag1}}"
+      },
+      {
+        "part_number": 2,
+        "etag": "{{unicodeEtag2}}"
+      }
+    ]
+  }
+}
+
+tests {
+  test("Should return 200 for unicode characters in video_id", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('object');
+
+    // Validate all required fields exist
+    expect(res.body).to.have.property('message');
+    expect(res.body).to.have.property('video_url');
+
+    // Validate field types
+    expect(res.body.message).to.be.a('string');
+    expect(res.body.video_url).to.be.a('string');
+
+    // Validate field values are not empty
+    expect(res.body.message).to.not.equal('');
+    expect(res.body.video_url).to.not.equal('');
+
+    // Validate message content
+    expect(res.body.message).to.include('completed');
+  });
+}

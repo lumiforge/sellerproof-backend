@@ -1,0 +1,37 @@
+meta {
+  name: Complete upload with invalid JWT token
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/complete
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: invalid.jwt.token
+}
+
+body:json {
+  {
+    "video_id": "{{testVideoId}}",
+    "parts": [
+      {
+        "part_number": 1,
+        "etag": "{{headerEtag1}}"
+      },
+      {
+        "part_number": 2,
+        "etag": "{{headerEtag2}}"
+      }
+    ]
+  }
+}
+
+tests {
+  test("Should return 401 for invalid JWT token", function() {
+    expect(res.status).to.equal(401);
+  });
+}

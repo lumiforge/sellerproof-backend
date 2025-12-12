@@ -1,0 +1,27 @@
+meta {
+  name: Upload replacement file to S3
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{replacementUploadUrl}}
+  body: file
+  auth: none
+}
+
+body:file {
+  file: @file(6 video-upload/complete/test-video.mp4) @contentType(video/mp4)
+}
+
+tests {
+  test("S3 should return 200 OK", function() {
+    expect(res.status).to.equal(200);
+    
+    var etag = res.headers.etag;
+    if (etag) {
+        etag = etag.replace(/"/g, '');
+        bru.setEnvVar("replacementEtag", etag);
+    }
+  });
+}
