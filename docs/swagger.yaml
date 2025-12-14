@@ -171,6 +171,16 @@ definitions:
       usage:
         $ref: '#/definitions/models.StorageUsage'
     type: object
+  models.GetTrashVideosResponse:
+    description: Get trash videos response
+    properties:
+      total_count:
+        type: integer
+      videos:
+        items:
+          $ref: '#/definitions/models.TrashVideo'
+        type: array
+    type: object
   models.GetUserOrganizationsResponse:
     description: Response containing list of user organizations
     properties:
@@ -416,6 +426,18 @@ definitions:
       user_id:
         type: string
     type: object
+  models.ReplaceVideoRequest:
+    description: Video replacement request
+    properties:
+      duration_seconds:
+        type: integer
+      file_name:
+        type: string
+      file_size_bytes:
+        type: integer
+      video_id:
+        type: string
+    type: object
   models.ResetPasswordRequest:
     description: Reset password request
     properties:
@@ -428,6 +450,18 @@ definitions:
     type: object
   models.ResetPasswordResponse:
     description: Reset password response
+    properties:
+      message:
+        type: string
+    type: object
+  models.RestoreVideoRequest:
+    description: Restore video request
+    properties:
+      video_id:
+        type: string
+    type: object
+  models.RestoreVideoResponse:
+    description: Restore video response
     properties:
       message:
         type: string
@@ -512,6 +546,28 @@ definitions:
       org_id:
         type: string
       refresh_token:
+        type: string
+    type: object
+  models.TrashVideo:
+    description: Trash video information
+    properties:
+      deleted_at:
+        type: integer
+      duration_seconds:
+        type: integer
+      file_name:
+        type: string
+      file_size_bytes:
+        type: integer
+      publish_status:
+        type: string
+      title:
+        type: string
+      upload_status:
+        type: string
+      uploaded_at:
+        type: integer
+      video_id:
         type: string
     type: object
   models.UpdateMemberRoleRequest:
@@ -1738,6 +1794,50 @@ paths:
       summary: Publish video
       tags:
       - video
+  /video/restore:
+    post:
+      consumes:
+      - application/json
+      description: Restore a soft-deleted video from trash
+      parameters:
+      - description: Restore video request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RestoreVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RestoreVideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Restore video
+      tags:
+      - video
   /video/revoke:
     post:
       consumes:
@@ -1826,6 +1926,42 @@ paths:
       summary: Search videos
       tags:
       - video
+  /video/trash:
+    get:
+      consumes:
+      - application/json
+      description: List videos in trash with pagination
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetTrashVideosResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List trash videos
+      tags:
+      - video
   /video/upload/complete:
     post:
       consumes:
@@ -1908,6 +2044,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Initiate multipart upload
+      tags:
+      - video
+  /video/upload/replace:
+    post:
+      consumes:
+      - application/json
+      description: Replace existing video file with a new one
+      parameters:
+      - description: Video replacement request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ReplaceVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.InitiateMultipartUploadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace video
       tags:
       - video
   /video/upload/urls:

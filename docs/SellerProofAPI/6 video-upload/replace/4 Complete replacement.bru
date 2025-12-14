@@ -1,34 +1,34 @@
-meta {
-  name: Complete replacement
-  type: http
-  seq: 4
-}
+// meta {
+//   name: Complete replacement
+//   type: http
+//   seq: 4
+// }
 
-post {
-  url: {{baseUrl}}/api/v1/video/upload/complete
-  body: json
-  auth: bearer
-}
+// post {
+//   url: {{baseUrl}}/api/v1/video/upload/complete
+//   body: json
+//   auth: bearer
+// }
 
-auth:bearer {
-  token: {{adminAccessToken}}
-}
+// auth:bearer {
+//   token: {{adminAccessToken}}
+// }
 
-body:json {
-  {
-    "video_id": "{{testVideoId}}",
-    "parts": [
-      {
-        "part_number": 1,
-        "etag": "{{replacementEtag}}" 
-      }
-    ]
-  }
-}
+// body:json {
+//   {
+//     "video_id": "{{testVideoId}}",
+//     "parts": [
+//       {
+//         "part_number": 1,
+//         "etag": "{{replacementEtag}}" 
+//       }
+//     ]
+//   }
+// }
 
-tests {
-  test("Should return 200 OK", function() {
-    expect(res.status).to.equal(200);
-    expect(res.body.message).to.include("completed");
-  });
-}
+// tests {
+//   test("Should return 200 OK", function() {
+//     expect(res.status).to.equal(200);
+//     expect(res.body.message).to.include("completed");
+//   });
+// }

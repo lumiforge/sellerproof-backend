@@ -21,6 +21,7 @@ tests {
     // Validate all required fields exist
     expect(res.body).to.have.property('video_id');
     expect(res.body).to.have.property('file_name');
+    expect(res.body).to.have.property('author_name');
     expect(res.body).to.have.property('file_size_bytes');
     expect(res.body).to.have.property('duration_seconds');
     expect(res.body).to.have.property('upload_status');
@@ -30,6 +31,7 @@ tests {
     // Validate field types
     expect(res.body.video_id).to.be.a('string');
     expect(res.body.file_name).to.be.a('string');
+    expect(res.body.author_name).to.be.a('string');
     expect(res.body.file_size_bytes).to.be.a('number');
     expect(res.body.duration_seconds).to.be.a('number');
     expect(res.body.upload_status).to.be.a('string');

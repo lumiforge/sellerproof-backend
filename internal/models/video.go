@@ -59,6 +59,7 @@ type CompleteMultipartUploadResponse struct {
 type Video struct {
 	VideoID         string `json:"video_id"`
 	Title           string `json:"title"`
+	AuthorName      string `json:"author_name"`
 	FileName        string `json:"file_name"`
 	FileSizeBytes   int64  `json:"file_size_bytes"`
 	DurationSeconds int32  `json:"duration_seconds"`

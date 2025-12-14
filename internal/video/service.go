@@ -50,6 +50,7 @@ type CompletedPart struct {
 type VideoInfo struct {
 	VideoID         string `json:"video_id"`
 	Title           string `json:"title"`
+	AuthorName      string `json:"author_name"`
 	FileName        string `json:"file_name"`
 	FileSizeBytes   int64  `json:"file_size_bytes"`
 	DurationSeconds int32  `json:"duration_seconds"`
@@ -524,6 +525,12 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 		return nil, app_errors.ErrAccessDenied
 	}
 
+	user, err := s.db.GetUserByID(ctx, video.UploadedBy)
+	authorName := ""
+	if err == nil {
+		authorName = user.FullName
+	}
+
 	var uploadedAt int64
 	if video.UploadedAt != nil {
 		uploadedAt = video.UploadedAt.Unix()
@@ -536,6 +543,7 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 	return &VideoInfo{
 		VideoID:         video.VideoID,
 		Title:           video.Title,
+		AuthorName:      authorName,
 		FileName:        fileName,
 		FileSizeBytes:   fileSizeBytes,
 		DurationSeconds: durationSeconds,
@@ -693,6 +701,7 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 	}
 
 	videoInfos := make([]*VideoInfo, len(videos))
+	userNames := make(map[string]string)
 	for i, v := range videos {
 		var uploadedAt int64
 		if v.UploadedAt != nil {
@@ -703,9 +712,21 @@ func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, q
 		durationSeconds := v.DurationSeconds
 		uploadStatus := v.UploadStatus
 		publishStatus := v.PublishStatus
+
+		authorName := ""
+		if name, ok := userNames[v.UploadedBy]; ok {
+			authorName = name
+		} else {
+			if user, err := s.db.GetUserByID(ctx, v.UploadedBy); err == nil {
+				authorName = user.FullName
+			}
+			userNames[v.UploadedBy] = authorName
+		}
+
 		videoInfos[i] = &VideoInfo{
 			VideoID:         v.VideoID,
 			Title:           v.Title,
+			AuthorName:      authorName,
 			FileName:        fileName,
 			FileSizeBytes:   fileSizeBytes,
 			DurationSeconds: durationSeconds,
@@ -1105,91 +1126,91 @@ func (s *Service) GetTrashVideos(ctx context.Context, userID, orgID, role string
 }
 
 // InitiateReplacementUpload initiates multipart upload for replacing an existing video
-func (s *Service) InitiateReplacementUpload(ctx context.Context, userID, orgID, role string, req *models.ReplaceVideoRequest) (*InitiateMultipartUploadResult, error) {
-	// 1. Check Permissions
-	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoUpload) {
-		return nil, app_errors.ErrAccessDenied
-	}
+// func (s *Service) InitiateReplacementUpload(ctx context.Context, userID, orgID, role string, req *models.ReplaceVideoRequest) (*InitiateMultipartUploadResult, error) {
+// 	// 1. Check Permissions
+// 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoUpload) {
+// 		return nil, app_errors.ErrAccessDenied
+// 	}
 
-	// 2. Get Video
-	video, err := s.db.GetVideo(ctx, req.VideoID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return nil, app_errors.ErrVideoNotFound
-		}
-		return nil, err
-	}
+// 	// 2. Get Video
+// 	video, err := s.db.GetVideo(ctx, req.VideoID)
+// 	if err != nil {
+// 		if strings.Contains(err.Error(), "not found") {
+// 			return nil, app_errors.ErrVideoNotFound
+// 		}
+// 		return nil, err
+// 	}
 
-	if video.OrgID != orgID {
-		return nil, app_errors.ErrAccessDenied
-	}
+// 	if video.OrgID != orgID {
+// 		return nil, app_errors.ErrAccessDenied
+// 	}
 
-	// 3. Check Quota
-	// We require free space for BOTH files (old + new) at the moment of upload.
-	// GetStorageUsage includes the current video's size.
-	org, err := s.db.GetOrganizationByID(ctx, orgID)
-	if err != nil {
-		return nil, app_errors.ErrFailedToGetOrganizationInfo
-	}
-	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
-	if err != nil {
-		return nil, app_errors.ErrFailedToGetSubscription
-	}
-	currentUsage, _, err := s.db.GetStorageUsage(ctx, org.OwnerID)
-	if err != nil {
-		return nil, app_errors.ErrFailedToGetStorageUsage
-	}
+// 	// 3. Check Quota
+// 	// We require free space for BOTH files (old + new) at the moment of upload.
+// 	// GetStorageUsage includes the current video's size.
+// 	org, err := s.db.GetOrganizationByID(ctx, orgID)
+// 	if err != nil {
+// 		return nil, app_errors.ErrFailedToGetOrganizationInfo
+// 	}
+// 	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
+// 	if err != nil {
+// 		return nil, app_errors.ErrFailedToGetSubscription
+// 	}
+// 	currentUsage, _, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+// 	if err != nil {
+// 		return nil, app_errors.ErrFailedToGetStorageUsage
+// 	}
 
-	limitBytes := sub.StorageLimitMB * 1024 * 1024
-	if sub.StorageLimitMB > 0 {
-		if (currentUsage + req.FileSizeBytes) > limitBytes {
-			return nil, app_errors.ErrStorageLimitExceeded
-		}
-	}
+// 	limitBytes := sub.StorageLimitMB * 1024 * 1024
+// 	if sub.StorageLimitMB > 0 {
+// 		if (currentUsage + req.FileSizeBytes) > limitBytes {
+// 			return nil, app_errors.ErrStorageLimitExceeded
+// 		}
+// 	}
 
-	// 4. Validate Content Type
-	contentType := validation.GetContentTypeFromExtension(req.FileName)
-	if contentType == "" || !validation.IsVideoContentType(contentType) {
-		return nil, app_errors.ErrInvalidFileType
-	}
+// 	// 4. Validate Content Type
+// 	contentType := validation.GetContentTypeFromExtension(req.FileName)
+// 	if contentType == "" || !validation.IsVideoContentType(contentType) {
+// 		return nil, app_errors.ErrInvalidFileType
+// 	}
 
-	// 5. Delete Public Object if exists (Reset to private)
-	if video.PublicURL != nil && *video.PublicURL != "" {
-		publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, video.VideoID, video.FileName)
-		_ = s.storage.DeletePublicObject(ctx, publicKey)
-	}
+// 	// 5. Delete Public Object if exists (Reset to private)
+// 	if video.PublicURL != nil && *video.PublicURL != "" {
+// 		publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, video.VideoID, video.FileName)
+// 		_ = s.storage.DeletePublicObject(ctx, publicKey)
+// 	}
 
-	// 6. Initiate S3 Multipart (Reuse existing StoragePath)
-	uploadID, err := s.storage.InitiateMultipartUpload(ctx, video.StoragePath, contentType)
-	if err != nil {
-		return nil, app_errors.ErrFailedToInitiateS3Upload
-	}
+// 	// 6. Initiate S3 Multipart (Reuse existing StoragePath)
+// 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, video.StoragePath, contentType)
+// 	if err != nil {
+// 		return nil, app_errors.ErrFailedToInitiateS3Upload
+// 	}
 
-	// 7. Update DB
-	video.UploadStatus = "uploading"
-	video.PublishStatus = "private"
-	video.PublicURL = nil
-	video.PublicShareToken = nil
-	video.ShareExpiresAt = nil
-	video.UploadedBy = userID // Update uploader to current user
-	video.FileSizeBytes = req.FileSizeBytes
-	video.DurationSeconds = req.DurationSeconds
-	video.FileName = req.FileName
-	video.FileNameSearch = strings.ToLower(req.FileName)
-	video.UploadID = uploadID
-	ttl := time.Now().Add(24 * time.Hour)
-	video.UploadExpiresAt = &ttl
-	parts := int32(0)
-	video.PartsUploaded = &parts
-	video.TotalParts = nil
+// 	// 7. Update DB
+// 	video.UploadStatus = "uploading"
+// 	video.PublishStatus = "private"
+// 	video.PublicURL = nil
+// 	video.PublicShareToken = nil
+// 	video.ShareExpiresAt = nil
+// 	video.UploadedBy = userID // Update uploader to current user
+// 	video.FileSizeBytes = req.FileSizeBytes
+// 	video.DurationSeconds = req.DurationSeconds
+// 	video.FileName = req.FileName
+// 	video.FileNameSearch = strings.ToLower(req.FileName)
+// 	video.UploadID = uploadID
+// 	ttl := time.Now().Add(24 * time.Hour)
+// 	video.UploadExpiresAt = &ttl
+// 	parts := int32(0)
+// 	video.PartsUploaded = &parts
+// 	video.TotalParts = nil
 
-	if err := s.db.UpdateVideo(ctx, video); err != nil {
-		return nil, app_errors.ErrFailedToUpdateVideoRecord
-	}
+// 	if err := s.db.UpdateVideo(ctx, video); err != nil {
+// 		return nil, app_errors.ErrFailedToUpdateVideoRecord
+// 	}
 
-	return &InitiateMultipartUploadResult{
-		VideoID:               video.VideoID,
-		UploadID:              uploadID,
-		RecommendedPartSizeMB: 10,
-	}, nil
-}
+// 	return &InitiateMultipartUploadResult{
+// 		VideoID:               video.VideoID,
+// 		UploadID:              uploadID,
+// 		RecommendedPartSizeMB: 10,
+// 	}, nil
+// }

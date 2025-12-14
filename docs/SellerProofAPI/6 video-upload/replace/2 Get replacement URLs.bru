@@ -1,29 +1,29 @@
-meta {
-  name: Get replacement URLs
-  type: http
-  seq: 2
-}
+// meta {
+//   name: Get replacement URLs
+//   type: http
+//   seq: 2
+// }
 
-post {
-  url: {{baseUrl}}/api/v1/video/upload/urls
-  body: json
-  auth: bearer
-}
+// post {
+//   url: {{baseUrl}}/api/v1/video/upload/urls
+//   body: json
+//   auth: bearer
+// }
 
-auth:bearer {
-  token: {{adminAccessToken}}
-}
+// auth:bearer {
+//   token: {{adminAccessToken}}
+// }
 
-body:json {
-  {
-    "video_id": "{{testVideoId}}",
-    "total_parts": 1
-  }
-}
+// body:json {
+//   {
+//     "video_id": "{{testVideoId}}",
+//     "total_parts": 1
+//   }
+// }
 
-tests {
-  test("Should return upload URLs", function() {
-    expect(res.status).to.equal(200);
-    bru.setEnvVar("replacementUploadUrl", res.body.part_urls[0]);
-  });
-}
+// tests {
+//   test("Should return upload URLs", function() {
+//     expect(res.status).to.equal(200);
+//     bru.setEnvVar("replacementUploadUrl", res.body.part_urls[0]);
+//   });
+// }

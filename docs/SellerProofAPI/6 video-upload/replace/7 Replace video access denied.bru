@@ -1,32 +1,32 @@
-meta {
-  name: Replace video access denied
-  type: http
-  seq: 7
-}
+// meta {
+//   name: Replace video access denied
+//   type: http
+//   seq: 7
+// }
 
-post {
-  url: {{baseUrl}}/api/v1/video/upload/replace
-  body: json
-  auth: bearer
-}
+// post {
+//   url: {{baseUrl}}/api/v1/video/upload/replace
+//   body: json
+//   auth: bearer
+// }
 
-auth:bearer {
-  token: {{simpleUserAccessToken}}
-}
+// auth:bearer {
+//   token: {{simpleUserAccessToken}}
+// }
 
-body:json {
-  {
-    "video_id": "{{adminOrgVideoId}}",
-    "file_name": "new-video.mp4",
-    "file_size_bytes": 1048576,
-    "duration_seconds": 60
-  }
-}
+// body:json {
+//   {
+//     "video_id": "{{adminOrgVideoId}}",
+//     "file_name": "new-video.mp4",
+//     "file_size_bytes": 1048576,
+//     "duration_seconds": 60
+//   }
+// }
 
-tests {
-  test('Should return 403 Forbidden for access denied', function() {
-    expect(res.status).to.equal(403);
-    expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Forbidden');
-  });
-}
+// tests {
+//   test('Should return 403 Forbidden for access denied', function() {
+//     expect(res.status).to.equal(403);
+//     expect(res.body).to.have.property('error');
+//     expect(res.body.error).to.include('Forbidden');
+//   });
+// }

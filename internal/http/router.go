@@ -67,13 +67,14 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 			RequestIDMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				LoggingMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					// Check method first before any auth or content-type validation
-					if r.Method == "GET" {
+					switch r.Method {
+					case "GET":
 						// For GET, apply auth middleware
 						AuthMiddleware(jwtManager, server.authService, http.HandlerFunc(server.GetProfile)).ServeHTTP(w, r)
-					} else if r.Method == "PUT" {
+					case "PUT":
 						// For PUT, apply content-type and auth middleware
 						ContentTypeMiddleware(AuthMiddleware(jwtManager, server.authService, http.HandlerFunc(server.UpdateProfile))).ServeHTTP(w, r)
-					} else {
+					default:
 						// Method not allowed
 						http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 					}
@@ -209,9 +210,9 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 
-	mux.HandleFunc("/api/v1/video/upload/replace", chainMiddleware(server.ReplaceVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
+	// mux.HandleFunc("/api/v1/video/upload/replace", chainMiddleware(server.ReplaceVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	// 	return AuthMiddleware(jwtManager, server.authService, next)
+	// }))
 	mux.HandleFunc("/api/v1/video", chainMiddleware(server.GetVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))

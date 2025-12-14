@@ -131,6 +131,7 @@ type Video struct {
 	VideoID          string     `db:"video_id"`
 	OrgID            string     `db:"org_id"`
 	UploadedBy       string     `db:"uploaded_by"`
+	AuthorName       string     `db:"author_name"`
 	Title            string     `db:"title"`
 	FileName         string     `db:"file_name"`
 	FileNameSearch   string     `db:"file_name_search"`
