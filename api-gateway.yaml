@@ -1,0 +1,22 @@
+openapi: 3.0.0
+info:
+  title: SellerProof API
+  version: 1.0.0
+
+servers:
+- url: https://xxx.xxx.apigw.yandexcloud.net
+paths:
+  /{proxy+}:
+    x-yc-apigateway-any-method:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: xxx
+        service_account_id: xxx
+        http_integration:
+          type: http_trigger
+      parameters:
+        - name: proxy
+          in: path
+          required: false
+          schema:
+            type: string
