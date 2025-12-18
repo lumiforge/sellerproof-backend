@@ -171,19 +171,10 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	}
 
 	// TODO Race Condition при проверке квоты хранилища
-	currentUsage, videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
 
 		return nil, app_errors.ErrFailedToGetStorageUsage
-	}
-
-	var limitBytes int64 = sub.StorageLimitMB * 1024 * 1024
-	// Fix: Check against remaining quota to avoid integer overflow in (currentUsage + fileSizeBytes)
-	if sub.StorageLimitMB > 0 {
-		remainingQuota := limitBytes - currentUsage
-		if fileSizeBytes > remainingQuota {
-			return nil, app_errors.ErrStorageLimitExceeded
-		}
 	}
 
 	if sub.VideoCountLimit > 0 && videoCount >= sub.VideoCountLimit {
@@ -443,35 +434,9 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
-	currentUsage, videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetStorageUsage
-	}
-
-	// video.FileSizeBytes - заявленный размер
-	// Проверяем, если заявленный размер отличается от реального
-	projectedUsage := (currentUsage - video.FileSizeBytes) + actualSize
-	limitBytes := sub.StorageLimitMB * 1024 * 1024
-
-	// Квота превышена реальным размером файла
-	if sub.StorageLimitMB > 0 && projectedUsage > limitBytes {
-
-		slog.Warn("Storage quota exceeded after upload verification",
-			"user_id", userID,
-			"declared_size", video.FileSizeBytes,
-			"actual_size", actualSize,
-			"limit", limitBytes)
-
-		// Удаляем файл из S3
-		if err := s.storage.DeletePrivateObject(ctx, storagePath); err != nil {
-			slog.Error("Failed to delete oversized file", "error", err)
-		}
-
-		// Помечаем видео как failed
-		video.UploadStatus = "failed"
-		_ = s.db.MoveVideoToTrash(ctx, videoID)
-
-		return nil, app_errors.ErrStorageLimitExceededFileSize
 	}
 
 	if sub.VideoCountLimit > 0 && videoCount >= sub.VideoCountLimit {
@@ -874,17 +839,14 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 			return nil, app_errors.ErrFailedToGetSubscription
 		}
 
-		currentUsage, _, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+		// In the new model, we don't check storage size limit for publishing
+		// We only check if the user is allowed to publish (which is covered by RBAC)
+		// and if the video exists and is uploaded.
+		_, err = s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 		if err != nil {
 			return nil, app_errors.ErrFailedToGetStorageUsage
 		}
 
-		// Проверяем, хватит ли места для копии файла
-		// TODO Race Condition
-		limitBytes := sub.StorageLimitMB * 1024 * 1024
-		if sub.StorageLimitMB > 0 && (currentUsage+video.FileSizeBytes) > limitBytes {
-			return nil, app_errors.ErrStorageLimitExceededPublishing
-		}
 	}
 
 	// 3. Копируем видео в публичный bucket (Fix for Data Consistency: S3 first)

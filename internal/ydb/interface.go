@@ -78,7 +78,7 @@ type Database interface {
 	GetVideo(ctx context.Context, videoID string) (*Video, error)
 	UpdateVideo(ctx context.Context, video *Video) error
 	UpdateVideoStatus(ctx context.Context, videoID, status, publicURL string) error
-	GetStorageUsage(ctx context.Context, ownerID string) (int64, int64, error)
+	GetStorageUsage(ctx context.Context, ownerID string, subscriptionStartDate time.Time) (int64, error)
 	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
 	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
 

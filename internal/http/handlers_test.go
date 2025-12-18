@@ -497,10 +497,9 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 	}, nil)
 
 	// 3. GetStorageUsage
-	// 512MB used, 5 videos
-	usedBytes := int64(512 * 1024 * 1024)
+	// 5 videos (storage size is no longer tracked in new model)
 	videoCount := int64(5)
-	mockDB.On("GetStorageUsage", mock.Anything, "owner-1").Return(usedBytes, videoCount, nil)
+	mockDB.On("GetStorageUsage", mock.Anything, "owner-1", now).Return(videoCount, nil)
 
 	req := httptest.NewRequest("GET", "/api/v1/organization/subscription", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -515,9 +514,9 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "sub-1", resp.Subscription.SubscriptionID)
-	assert.Equal(t, int64(512), resp.Usage.StorageUsedMB)
-	assert.Equal(t, int64(512), resp.Usage.StorageAvailableMB) // 1024 - 512
-	assert.Equal(t, 50.0, resp.Usage.StoragePercentUsed)
+	assert.Equal(t, int64(0), resp.Usage.StorageUsedMB)         // Storage size is no longer tracked
+	assert.Equal(t, int64(1024), resp.Usage.StorageAvailableMB) // Full limit available
+	assert.Equal(t, 0.0, resp.Usage.StoragePercentUsed)
 	assert.Equal(t, int64(5), resp.Usage.VideosCount)
 	assert.Equal(t, 50.0, resp.Usage.VideosPercentUsed)
 }

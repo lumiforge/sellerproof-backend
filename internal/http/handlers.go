@@ -2828,18 +2828,25 @@ func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) 
 // @Router		/organization/subscription [get]
 func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
+	// TODO: remove this after testing
+	log.Println("GetSubscription: orgID", claims.OrgID)
 	if !ok {
+		// TODO: remove this after testing
+		log.Println("GetSubscription: User not authenticated")
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	resp, err := s.authService.GetOrganizationSubscription(r.Context(), claims.OrgID)
 	if err != nil {
+		// TODO: remove this after testing
+		log.Println("GetSubscription: Failed to get subscription", "error", err.Error())
 		slog.Error("GetSubscription: Failed to get subscription", "error", err.Error(), "org_id", claims.OrgID)
 		s.writeError(w, http.StatusInternalServerError, "Failed to get subscription details")
 		return
 	}
-
+	// TODO: remove this after testing
+	log.Println("GetSubscription: resp", resp)
 	s.writeJSON(w, http.StatusOK, resp)
 }
 

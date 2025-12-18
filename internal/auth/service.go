@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/lumiforge/sellerproof-backend/internal/config"
-	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/email"
+	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	jwtmanager "github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
@@ -1281,23 +1281,29 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 	// 1. Get Organization to find the owner
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
 	if err != nil {
+		// TODO: remove this after testing
+		log.Println("GetOrganizationSubscription: Failed to get organization", "error", err.Error())
 		return nil, app_errors.ErrFailedToGetOrganizationInfo
 	}
 
 	// 2. Get Subscription by OwnerID
 	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 	if err != nil {
+		// TODO: remove this after testing
+		log.Println("GetOrganizationSubscription: Failed to get subscription", "error", err.Error())
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
 	// 3. Get Storage Usage by OwnerID
-	usedBytes, videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID)
+	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
+		// TODO: remove this after testing
+		log.Println("GetOrganizationSubscription: Failed to get storage usage", "error", err.Error())
 		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
 	// 4. Calculate Usage Stats
-	usedMB := usedBytes / (1024 * 1024)
+	usedMB := int64(0) // Storage size is no longer tracked in the new model
 
 	var storageAvailableMB int64
 	var storagePercent float64

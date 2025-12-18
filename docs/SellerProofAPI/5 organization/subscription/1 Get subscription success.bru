@@ -36,5 +36,8 @@ tests {
     expect(usage).to.have.property('storage_used_mb');
     expect(usage).to.have.property('storage_available_mb');
     expect(usage).to.have.property('videos_count');
+
+    // In the new model, storage size is not tracked, so used should be 0
+    expect(usage.storage_used_mb).to.equal(0);
   });
 }

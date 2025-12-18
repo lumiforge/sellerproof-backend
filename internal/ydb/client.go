@@ -348,7 +348,8 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				INDEX org_user_idx GLOBAL ON (org_id, uploaded_by),
 				INDEX share_token_idx GLOBAL ON (public_share_token),
 				INDEX publish_status_idx GLOBAL ON (publish_status),
-				INDEX org_filename_idx GLOBAL ON (org_id, file_name_search)
+				INDEX org_filename_idx GLOBAL ON (org_id, file_name_search),
+				INDEX org_uploaded_at_idx GLOBAL ON (org_id, uploaded_at)
 			)
 			WITH (
 				TTL = Interval("PT0S") ON upload_expires_at
@@ -1661,31 +1662,46 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
 }
 
 // GetStorageUsage возвращает использованный объем хранилища
-func (c *YDBClient) GetStorageUsage(ctx context.Context, ownerID string) (int64, int64, error) {
+func (c *YDBClient) GetStorageUsage(ctx context.Context, ownerID string, subscriptionStartDate time.Time) (int64, error) {
+	// Calculate period start
+	now := time.Now().UTC()
+	subscriptionStartDate = subscriptionStartDate.UTC()
+
+	// Logic to find the start of the current monthly cycle
+	periodStart := subscriptionStartDate
+	if now.After(subscriptionStartDate) {
+		// Calculate months passed
+		years := now.Year() - subscriptionStartDate.Year()
+		months := int(now.Month()) - int(subscriptionStartDate.Month())
+		totalMonths := years*12 + months
+
+		// Check if adding totalMonths keeps us <= now
+		candidate := subscriptionStartDate.AddDate(0, totalMonths, 0)
+		if candidate.After(now) {
+			totalMonths--
+			candidate = subscriptionStartDate.AddDate(0, totalMonths, 0)
+		}
+		periodStart = candidate
+	}
+
 	query := `
 		DECLARE $owner_id AS Text;
-
-		$active_size = (SELECT COALESCE(SUM(v.file_size_bytes + CASE WHEN v.publish_status = 'published' THEN v.file_size_bytes ELSE 0 END), 0)
-			FROM videos AS v INNER JOIN organizations AS o ON v.org_id = o.org_id WHERE o.owner_id = $owner_id AND v.upload_status != 'failed');
-
-		$trash_size = (SELECT COALESCE(SUM(t.file_size_bytes), 0)
-			FROM trash_videos AS t INNER JOIN organizations AS o ON t.org_id = o.org_id WHERE o.owner_id = $owner_id);
-
-		$active_count = (SELECT COUNT(*) FROM videos AS v INNER JOIN organizations AS o ON v.org_id = o.org_id WHERE o.owner_id = $owner_id AND v.upload_status != 'failed');
-		$trash_count = (SELECT COUNT(*) FROM trash_videos AS t INNER JOIN organizations AS o ON t.org_id = o.org_id WHERE o.owner_id = $owner_id);
-
-		SELECT
-			($active_size + $trash_size) as size,
-			($active_count + $trash_count) as count;
+		DECLARE $period_start AS Timestamp;
+		SELECT COUNT(*) as count
+		FROM videos AS v 
+		INNER JOIN organizations AS o ON v.org_id = o.org_id 
+		WHERE o.owner_id = $owner_id 
+		AND v.upload_status != 'failed'
+		AND v.uploaded_at >= $period_start;
 	`
 
-	var usage int64
 	var count uint64
 
 	err := c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
 		_, res, err := session.Execute(ctx, table.DefaultTxControl(), query,
 			table.NewQueryParameters(
 				table.ValueParam("$owner_id", types.TextValue(ownerID)),
+				table.ValueParam("$period_start", types.TimestampValueFromTime(periodStart)),
 			),
 		)
 		if err != nil {
@@ -1695,7 +1711,6 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, ownerID string) (int64,
 
 		if res.NextResultSet(ctx) && res.NextRow() {
 			err := res.ScanNamed(
-				named.Required("size", &usage),
 				named.Required("count", &count),
 			)
 			if err != nil {
@@ -1706,9 +1721,9 @@ func (c *YDBClient) GetStorageUsage(ctx context.Context, ownerID string) (int64,
 	})
 
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
-	return usage, int64(count), nil
+	return int64(count), nil
 }
 
 // PublishVideoTx выполняет публикацию видео в одной транзакции:

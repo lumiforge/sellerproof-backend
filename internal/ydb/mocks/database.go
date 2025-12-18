@@ -939,38 +939,31 @@ func (_m *Database) GetRefreshTokensByUser(ctx context.Context, userID string) (
 }
 
 // GetStorageUsage provides a mock function with given fields: ctx, ownerID
-func (_m *Database) GetStorageUsage(ctx context.Context, ownerID string) (int64, int64, error) {
-	ret := _m.Called(ctx, ownerID)
+func (_m *Database) GetStorageUsage(ctx context.Context, ownerID string, subscriptionStartDate time.Time) (int64, error) {
+	ret := _m.Called(ctx, ownerID, subscriptionStartDate)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetStorageUsage")
 	}
 
 	var r0 int64
-	var r1 int64
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (int64, int64, error)); ok {
-		return rf(ctx, ownerID)
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) (int64, error)); ok {
+		return rf(ctx, ownerID, subscriptionStartDate)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) int64); ok {
-		r0 = rf(ctx, ownerID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) int64); ok {
+		r0 = rf(ctx, ownerID, subscriptionStartDate)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) int64); ok {
-		r1 = rf(ctx, ownerID)
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
+		r1 = rf(ctx, ownerID, subscriptionStartDate)
 	} else {
-		r1 = ret.Get(1).(int64)
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
-		r2 = rf(ctx, ownerID)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0, r1
 }
 
 // GetSubscriptionByID provides a mock function with given fields: ctx, subscriptionID

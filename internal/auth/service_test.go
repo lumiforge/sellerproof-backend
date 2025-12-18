@@ -66,7 +66,7 @@ func TestService_Register_Success(t *testing.T) {
 		mock.MatchedBy(func(o *ydb.Organization) bool { return o.Name == "Test Org" }),  // Org
 		mock.AnythingOfType("*ydb.Membership"),                                          // Membership
 		mock.MatchedBy(func(s *ydb.Subscription) bool { return s.UserID != "" }),        // Subscription
-		"",                                                                              // InvitationID (empty)
+		"", // InvitationID (empty)
 	).Return(nil)
 
 	// Act
@@ -729,10 +729,9 @@ func TestService_GetOrganizationSubscription_Success(t *testing.T) {
 	}, nil)
 
 	// 3. Mock GetStorageUsage
-	// Used: 25MB (25 * 1024 * 1024 bytes), 2 videos
-	usedBytes := int64(25 * 1024 * 1024)
+	// 2 videos in current period
 	videoCount := int64(2)
-	mockDB.On("GetStorageUsage", ctx, ownerID).Return(usedBytes, videoCount, nil)
+	mockDB.On("GetStorageUsage", ctx, ownerID, now).Return(videoCount, nil)
 
 	// Act
 	resp, err := service.GetOrganizationSubscription(ctx, orgID)
@@ -746,10 +745,9 @@ func TestService_GetOrganizationSubscription_Success(t *testing.T) {
 	assert.Equal(t, int64(100), resp.Subscription.StorageLimitMB)
 
 	// Check Usage calculations
-	assert.Equal(t, int64(25), resp.Usage.StorageUsedMB)
-	assert.Equal(t, int64(75), resp.Usage.StorageAvailableMB) // 100 - 25
-	assert.Equal(t, 25.0, resp.Usage.StoragePercentUsed)      // 25/100 * 100
-
+	assert.Equal(t, int64(0), resp.Usage.StorageUsedMB)
+	assert.Equal(t, int64(100), resp.Usage.StorageAvailableMB) // 100 - 0
+	assert.Equal(t, 0.0, resp.Usage.StoragePercentUsed)        // 0/100 * 100
 	assert.Equal(t, int64(2), resp.Usage.VideosCount)
 	assert.Equal(t, int64(8), resp.Usage.VideosAvailable) // 10 - 2
 	assert.Equal(t, 20.0, resp.Usage.VideosPercentUsed)   // 2/10 * 100
