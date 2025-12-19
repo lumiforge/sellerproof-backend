@@ -37,9 +37,9 @@ type Config struct {
 	SPYDBAutoCreateTables int
 
 	// Plan configuration
-	StorageLimitFree          int64
-	StorageLimitPro           int64
-	StorageLimitEnterprise    int64
+	VideoLimitMBFree          int64
+	VideoLimitMBPro           int64
+	VideoLimitMBEnterprise    int64
 	VideoCountLimitFree       int64
 	VideoCountLimitPro        int64
 	VideoCountLimitEnterprise int64
@@ -98,9 +98,9 @@ func Load() *Config {
 		APIBaseURL:         getEnv("SP_API_BASE_URL", "https://api.sellerproof.ru"),
 
 		// Plan configuration
-		StorageLimitFree:          int64(getEnvInt("storage_limit_free", 1024, 0, 1024)),
-		StorageLimitPro:           int64(getEnvInt("storage_limit_pro", 102400, 0, 102400)),
-		StorageLimitEnterprise:    int64(getEnvInt("storage_limit_enterprise", 1024000, 0, 1024000)),
+		VideoLimitMBFree:          int64(getEnvInt("video_limit_mb_free", 512, 0, 10240)),
+		VideoLimitMBPro:           int64(getEnvInt("video_limit_mb_pro", 2048, 0, 102400)),
+		VideoLimitMBEnterprise:    int64(getEnvInt("video_limit_mb_enterprise", 10240, 0, 1024000)),
 		VideoCountLimitFree:       int64(getEnvInt("video_count_limit_free", 10, 0, 10)),
 		VideoCountLimitPro:        int64(getEnvInt("video_count_limit_pro", 1000, 0, 1000)),
 		VideoCountLimitEnterprise: int64(getEnvInt("video_count_limit_enterprise", 10000, 0, 10000)),

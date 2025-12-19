@@ -85,7 +85,11 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
-
+	// Check VideoLimitMB
+	limitBytes := sub.VideoLimitMB * 1024 * 1024
+	if fileSizeBytes > limitBytes {
+		return nil, app_errors.ErrVideoSizeLimitExceeded
+	}
 	// TODO Race Condition при проверке квоты хранилища
 	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
@@ -347,6 +351,14 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetSubscription
+	}
+
+	// Check VideoLimitMB
+	limitBytes := sub.VideoLimitMB * 1024 * 1024
+	if actualSize > limitBytes {
+		slog.Error("Video size limit exceeded", "user_id", userID, "video_id", videoID, "size", actualSize, "limit", limitBytes)
+		_ = s.storage.CleanupObject(ctx, storagePath)
+		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
 
 	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)

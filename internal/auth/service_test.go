@@ -54,7 +54,7 @@ func TestService_Register_Success(t *testing.T) {
 	// 2. Mock: Получение тарифного плана (для создания подписки)
 	mockDB.On("GetPlanByID", ctx, "free").Return(&ydb.Plan{
 		PlanID:          "free",
-		StorageLimitMB:  1024,
+		VideoLimitMB:    512,
 		VideoCountLimit: 10,
 	}, nil)
 
@@ -719,7 +719,7 @@ func TestService_GetOrganizationSubscription_Success(t *testing.T) {
 	mockDB.On("GetSubscriptionByUser", ctx, ownerID).Return(&ydb.Subscription{
 		SubscriptionID:  "sub-1",
 		PlanID:          "pro",
-		StorageLimitMB:  100,
+		VideoLimitMB:    2048,
 		VideoCountLimit: 10,
 		IsActive:        true,
 		TrialEndsAt:     now.Add(time.Hour),
@@ -742,12 +742,8 @@ func TestService_GetOrganizationSubscription_Success(t *testing.T) {
 
 	// Check Subscription details
 	assert.Equal(t, "sub-1", resp.Subscription.SubscriptionID)
-	assert.Equal(t, int64(100), resp.Subscription.StorageLimitMB)
+	assert.Equal(t, int64(2048), resp.Subscription.VideoLimitMB)
 
-	// Check Usage calculations
-	assert.Equal(t, int64(0), resp.Usage.StorageUsedMB)
-	assert.Equal(t, int64(100), resp.Usage.StorageAvailableMB) // 100 - 0
-	assert.Equal(t, 0.0, resp.Usage.StoragePercentUsed)        // 0/100 * 100
 	assert.Equal(t, int64(2), resp.Usage.VideosCount)
 	assert.Equal(t, int64(8), resp.Usage.VideosAvailable) // 10 - 2
 	assert.Equal(t, 20.0, resp.Usage.VideosPercentUsed)   // 2/10 * 100

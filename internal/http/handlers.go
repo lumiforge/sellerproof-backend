@@ -681,7 +681,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	resp, err := s.videoService.InitiateMultipartUploadDirect(r.Context(), claims.UserID, claims.OrgID, title, req.FileName, req.FileSizeBytes, req.DurationSeconds)
 	if err != nil {
 		slog.Error("InitiateMultipartUpload: Failed to initiate multipart upload", "error", err.Error())
-		if errors.Is(err, app_errors.ErrStorageLimitExceeded) ||
+		if errors.Is(err, app_errors.ErrVideoSizeLimitExceeded) ||
 			errors.Is(err, app_errors.ErrFailedToGetSubscription) ||
 			strings.Contains(err.Error(), "video count limit exceeded") {
 			s.writeError(w, http.StatusForbidden, err.Error())
@@ -914,7 +914,7 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 		} else if strings.Contains(err.Error(), "access denied") {
 			s.writeError(w, http.StatusForbidden, err.Error())
 			return
-		} else if errors.Is(err, app_errors.ErrStorageLimitExceededFileSize) ||
+		} else if errors.Is(err, app_errors.ErrVideoSizeLimitExceeded) ||
 			errors.Is(err, app_errors.ErrFailedToGetSubscription) ||
 			strings.Contains(err.Error(), "video count limit exceeded") {
 			s.writeError(w, http.StatusForbidden, err.Error())
@@ -2140,8 +2140,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusNotFound, errorMsg)
 		} else if strings.Contains(errorMsg, "access denied") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
-		} else if errors.Is(err, app_errors.ErrStorageLimitExceededPublishing) ||
-			errors.Is(err, app_errors.ErrFailedToGetSubscription) {
+		} else if errors.Is(err, app_errors.ErrFailedToGetSubscription) {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else if errors.Is(err, app_errors.ErrVideoUploadNotCompleted) || strings.Contains(errorMsg, "video upload not completed") {
 			// FIX: Added explicit string check for "video upload not completed" to ensure 400 is returned

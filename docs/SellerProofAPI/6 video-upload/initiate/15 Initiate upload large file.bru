@@ -1,5 +1,5 @@
 meta {
-  name: Initiate upload large file (storage limit removed)
+  name: Initiate upload exceeding video size limit
   type: http
   seq: 15
 }
@@ -23,11 +23,9 @@ body:json {
 }
 
 tests {
-  test('Should return 200 OK as storage limit is removed', function() {
-    expect(res.status).to.equal(200);
-    expect(res.body).to.have.property('video_id');
-    expect(res.body).to.have.property('upload_id');
-
-    bru.setEnvVar("largeVideoId", res.body.video_id);
+  test('Should return 403 Forbidden because file size exceeds video limit', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body).to.have.property('error');
+    expect(res.body.message).to.include('video size limit exceeded');
   });
 }

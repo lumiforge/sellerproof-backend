@@ -283,7 +283,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			UserID:          user.UserID,
 			OrgID:           org.OrgID,
 			PlanID:          freePlan.PlanID,
-			StorageLimitMB:  freePlan.StorageLimitMB,
+			VideoLimitMB:    freePlan.VideoLimitMB,
 			VideoCountLimit: freePlan.VideoCountLimit,
 			IsActive:        true,
 			TrialEndsAt:     now.Add(7 * 24 * time.Hour),
@@ -1303,21 +1303,6 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 	}
 
 	// 4. Calculate Usage Stats
-	usedMB := int64(0) // Storage size is no longer tracked in the new model
-
-	var storageAvailableMB int64
-	var storagePercent float64
-	if sub.StorageLimitMB > 0 {
-		storageAvailableMB = sub.StorageLimitMB - usedMB
-		if storageAvailableMB < 0 {
-			storageAvailableMB = 0
-		}
-		storagePercent = (float64(usedMB) / float64(sub.StorageLimitMB)) * 100
-		if storagePercent > 100 {
-			storagePercent = 100
-		}
-	}
-
 	var videosAvailable int64
 	var videosPercent float64
 	if sub.VideoCountLimit > 0 {
@@ -1335,7 +1320,7 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 		Subscription: &models.SubscriptionDetails{
 			SubscriptionID:  sub.SubscriptionID,
 			PlanID:          sub.PlanID,
-			StorageLimitMB:  sub.StorageLimitMB,
+			VideoLimitMB:    sub.VideoLimitMB,
 			VideoCountLimit: sub.VideoCountLimit,
 			IsActive:        sub.IsActive,
 			TrialEndsAt:     sub.TrialEndsAt.Unix(),
@@ -1344,12 +1329,10 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 			BillingCycle:    sub.BillingCycle,
 		},
 		Usage: &models.StorageUsage{
-			StorageUsedMB:      usedMB,
-			StorageAvailableMB: storageAvailableMB,
-			StoragePercentUsed: storagePercent,
-			VideosCount:        videoCount,
-			VideosAvailable:    videosAvailable,
-			VideosPercentUsed:  videosPercent,
+
+			VideosCount:       videoCount,
+			VideosAvailable:   videosAvailable,
+			VideosPercentUsed: videosPercent,
 		},
 	}, nil
 }

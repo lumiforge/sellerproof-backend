@@ -200,7 +200,7 @@ func TestHandler_Register_InternalError_Mapping(t *testing.T) {
 	mockDB.On("GetPlanByID", mock.Anything, "free").Return(&ydb.Plan{
 		PlanID:          "free",
 		Name:            "Free",
-		StorageLimitMB:  1024, // 1GB
+		VideoLimitMB:    512,
 		VideoCountLimit: 10,
 		PriceRub:        0,
 		BillingCycle:    "monthly",
@@ -487,7 +487,7 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 	mockDB.On("GetSubscriptionByUser", mock.Anything, "owner-1").Return(&ydb.Subscription{
 		SubscriptionID:  "sub-1",
 		PlanID:          "free",
-		StorageLimitMB:  1024,
+		VideoLimitMB:    512,
 		VideoCountLimit: 10,
 		IsActive:        true,
 		TrialEndsAt:     now,
@@ -514,9 +514,6 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "sub-1", resp.Subscription.SubscriptionID)
-	assert.Equal(t, int64(0), resp.Usage.StorageUsedMB)         // Storage size is no longer tracked
-	assert.Equal(t, int64(1024), resp.Usage.StorageAvailableMB) // Full limit available
-	assert.Equal(t, 0.0, resp.Usage.StoragePercentUsed)
 	assert.Equal(t, int64(5), resp.Usage.VideosCount)
 	assert.Equal(t, 50.0, resp.Usage.VideosPercentUsed)
 }

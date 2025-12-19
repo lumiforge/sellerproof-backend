@@ -27,17 +27,14 @@ tests {
     const sub = res.body.subscription;
     expect(sub).to.have.property('subscription_id');
     expect(sub).to.have.property('plan_id');
-    expect(sub).to.have.property('storage_limit_mb');
+    expect(sub).to.have.property('video_limit_mb');
     expect(sub).to.have.property('video_count_limit');
     expect(sub).to.have.property('is_active');
 
     // Check usage details
     const usage = res.body.usage;
-    expect(usage).to.have.property('storage_used_mb');
-    expect(usage).to.have.property('storage_available_mb');
     expect(usage).to.have.property('videos_count');
-
-    // In the new model, storage size is not tracked, so used should be 0
-    expect(usage.storage_used_mb).to.equal(0);
+    expect(usage).to.have.property('videos_available');
+    expect(usage).to.have.property('videos_percent_used');
   });
 }

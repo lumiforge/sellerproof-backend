@@ -244,7 +244,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			CREATE TABLE plans (
 				plan_id Text NOT NULL,
 				name Text NOT NULL,
-				storage_limit_mb Int64 NOT NULL,
+				video_limit_mb Int64 NOT NULL,
 				video_count_limit Int64 NOT NULL,
 				price_rub Double NOT NULL,
 				billing_cycle Text NOT NULL,
@@ -261,15 +261,15 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 
 		// Вставляем базовые тарифные планы только после создания таблицы
 		plansQuery := fmt.Sprintf(`
-			REPLACE INTO plans (plan_id, name, storage_limit_mb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at)
+			REPLACE INTO plans (plan_id, name, video_limit_mb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at)
 			VALUES
 			('free', 'Free', %d, %d, %.2f, 'monthly', '{"sharing": false, "search": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
 			('pro', 'Pro', %d, %d, %.2f, 'monthly', '{"sharing": true, "search": true, "analytics": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
 			('enterprise', 'Enterprise', %d, %d, %.2f, 'monthly', '{"sharing": true, "search": true, "analytics": true, "api_access": true, "priority_support": true}', CurrentUtcTimestamp(), CurrentUtcTimestamp())
 		`,
-			c.config.StorageLimitFree, c.config.VideoCountLimitFree, c.config.PriceRubFree,
-			c.config.StorageLimitPro, c.config.VideoCountLimitPro, c.config.PriceRubPro,
-			c.config.StorageLimitEnterprise, c.config.VideoCountLimitEnterprise, c.config.PriceRubEnterprise,
+			c.config.VideoLimitMBFree, c.config.VideoCountLimitFree, c.config.PriceRubFree,
+			c.config.VideoLimitMBPro, c.config.VideoCountLimitPro, c.config.PriceRubPro,
+			c.config.VideoLimitMBEnterprise, c.config.VideoCountLimitEnterprise, c.config.PriceRubEnterprise,
 		)
 		if err := c.executeQuery(ctx, plansQuery); err != nil {
 			return fmt.Errorf("failed to insert plans: %w", err)
@@ -291,7 +291,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				user_id Text NOT NULL,
 				org_id Text NOT NULL,
 				plan_id Text NOT NULL,
-				storage_limit_mb Int64 NOT NULL,
+				video_limit_mb Int64 NOT NULL,
 				video_count_limit Int64 NOT NULL,
 				is_active Bool DEFAULT true,
 				trial_ends_at Timestamp NOT NULL,
@@ -375,7 +375,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				history_id Text NOT NULL,
 				subscription_id Text NOT NULL,
 				plan_id Text NOT NULL,
-				storage_limit_mb Int64 NOT NULL,
+				video_limit_mb Int64 NOT NULL,
 				video_count_limit Int64 NOT NULL,
 				event_type Text NOT NULL,
 				changed_at Timestamp NOT NULL,
@@ -1073,7 +1073,7 @@ func (c *YDBClient) CreateEmailLog(ctx context.Context, log *EmailLog) error {
 func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, error) {
 	query := `
 		DECLARE $plan_id AS Text;
-		SELECT plan_id, name, storage_limit_mb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at
+		SELECT plan_id, name, video_limit_mb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at
 		FROM plans
 		WHERE plan_id = $plan_id
 	`
@@ -1097,7 +1097,7 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 			err := res.ScanNamed(
 				named.Required("plan_id", &plan.PlanID),
 				named.Required("name", &plan.Name),
-				named.Required("storage_limit_mb", &plan.StorageLimitMB),
+				named.Required("video_limit_mb", &plan.VideoLimitMB),
 				named.Required("video_count_limit", &plan.VideoCountLimit),
 				named.Required("price_rub", &plan.PriceRub),
 				named.Required("billing_cycle", &plan.BillingCycle),
@@ -1129,7 +1129,7 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_mb AS Int64;
+		DECLARE $video_limit_mb AS Int64;
 		DECLARE $video_count_limit AS Int64;
 		DECLARE $is_active AS Bool;
 		DECLARE $trial_ends_at AS Timestamp;
@@ -1140,9 +1140,9 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $updated_at AS Timestamp;
 
 		REPLACE INTO subscriptions (
-			subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
+			subscription_id, user_id, org_id, plan_id, video_limit_mb, video_count_limit,
 			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $storage_limit_mb, $video_count_limit, $is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
+		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $video_count_limit, $is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
 	`
 
 	now := time.Now()
@@ -1160,7 +1160,7 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-				table.ValueParam("$storage_limit_mb", types.Int64Value(subscription.StorageLimitMB)),
+				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
 				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
 				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
@@ -1179,7 +1179,7 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*Subscription, error) {
 	query := `
 		DECLARE $user_id AS Text;
-		SELECT subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
+		SELECT subscription_id, user_id, org_id, plan_id, video_limit_mb, video_count_limit,
 			   is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
 		FROM subscriptions
 		WHERE user_id = $user_id AND is_active = true AND expires_at > CurrentUtcTimestamp()
@@ -1210,7 +1210,7 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("user_id", &subscription.UserID),
 				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
-				named.Required("storage_limit_mb", &subscription.StorageLimitMB),
+				named.Required("video_limit_mb", &subscription.VideoLimitMB),
 				named.Required("video_count_limit", &subscription.VideoCountLimit),
 				named.Required("trial_ends_at", &subscription.TrialEndsAt),
 				named.Required("started_at", &subscription.StartedAt),
@@ -2337,7 +2337,7 @@ func (c *YDBClient) DeleteMembership(ctx context.Context, membershipID string) e
 
 func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 	query := `
-		SELECT plan_id, name, storage_limit_mb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at
+		SELECT plan_id, name, video_limit_mb, video_count_limit, price_rub, billing_cycle, features, created_at, updated_at
 		FROM plans
 	`
 
@@ -2356,7 +2356,7 @@ func (c *YDBClient) GetAllPlans(ctx context.Context) ([]*Plan, error) {
 				if err := res.ScanNamed(
 					named.Required("plan_id", &plan.PlanID),
 					named.Required("name", &plan.Name),
-					named.Required("storage_limit_mb", &plan.StorageLimitMB),
+					named.Required("video_limit_mb", &plan.VideoLimitMB),
 					named.Required("video_count_limit", &plan.VideoCountLimit),
 					named.Required("price_rub", &plan.PriceRub),
 					named.Required("billing_cycle", &plan.BillingCycle),
@@ -2385,7 +2385,7 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $user_id AS Text;
 		DECLARE $org_id AS Text;
 		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_mb AS Int64;
+		DECLARE $video_limit_mb AS Int64;
 		DECLARE $video_count_limit AS Int64;
 		DECLARE $is_active AS Bool;
 		DECLARE $trial_ends_at AS Timestamp;
@@ -2396,9 +2396,9 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $updated_at AS Timestamp;
 
 		REPLACE INTO subscriptions (
-			subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
+			subscription_id, user_id, org_id, plan_id, video_limit_mb, video_count_limit,
 			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $storage_limit_mb, $video_count_limit, $is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
+		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $video_count_limit, $is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
 	`
 
 	subscription.UpdatedAt = time.Now()
@@ -2410,7 +2410,7 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-				table.ValueParam("$storage_limit_mb", types.Int64Value(subscription.StorageLimitMB)),
+				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
 				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
 				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
@@ -2431,14 +2431,14 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 		DECLARE $history_id AS Text;
 		DECLARE $subscription_id AS Text;
 		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_mb AS Int64;
+		DECLARE $video_limit_mb AS Int64;
 		DECLARE $video_count_limit AS Int64;
 		DECLARE $event_type AS Text;
 		DECLARE $changed_at AS Timestamp;
 
 		REPLACE INTO subscription_history (
-			history_id, subscription_id, plan_id, storage_limit_mb, video_count_limit, event_type, changed_at
-		) VALUES ($history_id, $subscription_id, $plan_id, $storage_limit_mb, $video_count_limit, $event_type, $changed_at)
+					history_id, subscription_id, plan_id, video_limit_mb, video_count_limit, event_type, changed_at
+		) VALUES ($history_id, $subscription_id, $plan_id, $video_limit_mb, $video_count_limit, $event_type, $changed_at)
 	`
 
 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
@@ -2447,7 +2447,7 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 				table.ValueParam("$history_id", types.TextValue(historyID)),
 				table.ValueParam("$subscription_id", types.TextValue(history.SubscriptionID)),
 				table.ValueParam("$plan_id", types.TextValue(history.PlanID)),
-				table.ValueParam("$storage_limit_mb", types.Int64Value(history.StorageLimitMB)),
+				table.ValueParam("$video_limit_mb", types.Int64Value(history.VideoLimitMB)),
 				table.ValueParam("$video_count_limit", types.Int64Value(history.VideoCountLimit)),
 				table.ValueParam("$event_type", types.TextValue(history.EventType)),
 				table.ValueParam("$changed_at", types.TimestampValueFromTime(history.ChangedAt)),
@@ -2460,7 +2460,7 @@ func (c *YDBClient) CreateSubscriptionHistory(ctx context.Context, history *Subs
 func (c *YDBClient) GetSubscriptionHistory(ctx context.Context, subscriptionID string) ([]*SubscriptionHistory, error) {
 	query := `
 		DECLARE $subscription_id AS Text;
-		SELECT history_id, subscription_id, plan_id, storage_limit_mb, video_count_limit, event_type, changed_at
+		SELECT history_id, subscription_id, plan_id, video_limit_mb, video_count_limit, event_type, changed_at
 		FROM subscription_history
 		WHERE subscription_id = $subscription_id
 		ORDER BY changed_at DESC
@@ -2486,7 +2486,7 @@ func (c *YDBClient) GetSubscriptionHistory(ctx context.Context, subscriptionID s
 					named.Required("history_id", &history.HistoryID),
 					named.Required("subscription_id", &history.SubscriptionID),
 					named.Required("plan_id", &history.PlanID),
-					named.Required("storage_limit_mb", &history.StorageLimitMB),
+					named.Required("video_limit_mb", &history.VideoLimitMB),
 					named.Required("video_count_limit", &history.VideoCountLimit),
 					named.Required("event_type", &history.EventType),
 					named.Required("changed_at", &history.ChangedAt),
@@ -3624,7 +3624,7 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		DECLARE $sub_user_id AS Text;
 		DECLARE $sub_org_id AS Text;
 		DECLARE $plan_id AS Text;
-		DECLARE $storage_limit_mb AS Int64;
+		DECLARE $video_limit_mb AS Int64;
 		DECLARE $video_count_limit AS Int64;
 		DECLARE $sub_is_active AS Bool;
 		DECLARE $trial_ends_at AS Timestamp;
@@ -3640,7 +3640,7 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 				table.ValueParam("$sub_user_id", types.TextValue(subscription.UserID)),
 				table.ValueParam("$sub_org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
-				table.ValueParam("$storage_limit_mb", types.Int64Value(subscription.StorageLimitMB)),
+				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$video_count_limit", types.Int64Value(subscription.VideoCountLimit)),
 				table.ValueParam("$sub_is_active", types.BoolValue(subscription.IsActive)),
 				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
@@ -3701,10 +3701,10 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		if subscription != nil {
 			statements.WriteString(`
 		INSERT INTO subscriptions (
-			subscription_id, user_id, org_id, plan_id, storage_limit_mb, video_count_limit,
+			subscription_id, user_id, org_id, plan_id, video_limit_mb, video_count_limit,
 			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
 		) VALUES (
-			$subscription_id, $sub_user_id, $sub_org_id, $plan_id, $storage_limit_mb, $video_count_limit,
+			$subscription_id, $sub_user_id, $sub_org_id, $plan_id, $video_limit_mb, $video_count_limit,
 			$sub_is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $sub_created_at, $sub_updated_at
 		);
 `)

@@ -48,7 +48,7 @@ type Membership struct {
 type Plan struct {
 	PlanID          string    `db:"plan_id"`
 	Name            string    `db:"name"`
-	StorageLimitMB  int64     `db:"storage_limit_mb"`
+	VideoLimitMB    int64     `db:"video_limit_mb"`
 	VideoCountLimit int64     `db:"video_count_limit"`
 	PriceRub        float64   `db:"price_rub"`
 	BillingCycle    string    `db:"billing_cycle"`
@@ -63,7 +63,7 @@ type Subscription struct {
 	UserID          string    `db:"user_id"`
 	OrgID           string    `db:"org_id"`
 	PlanID          string    `db:"plan_id"`
-	StorageLimitMB  int64     `db:"storage_limit_mb"`
+	VideoLimitMB    int64     `db:"video_limit_mb"`
 	VideoCountLimit int64     `db:"video_count_limit"`
 	IsActive        bool      `db:"is_active"`
 	TrialEndsAt     time.Time `db:"trial_ends_at"`
@@ -79,7 +79,7 @@ type SubscriptionHistory struct {
 	HistoryID       string    `db:"history_id"`
 	SubscriptionID  string    `db:"subscription_id"`
 	PlanID          string    `db:"plan_id"`
-	StorageLimitMB  int64     `db:"storage_limit_mb"`
+	VideoLimitMB    int64     `db:"video_limit_mb"`
 	VideoCountLimit int64     `db:"video_count_limit"`
 	EventType       string    `db:"event_type"`
 	ChangedAt       time.Time `db:"changed_at"`
