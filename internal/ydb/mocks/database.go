@@ -72,24 +72,6 @@ func (_m *Database) CreateEmailLog(ctx context.Context, log *ydb.EmailLog) error
 	return r0
 }
 
-// DeleteTrashVideo provides a mock function with given fields: ctx, videoID
-func (_m *Database) DeleteTrashVideo(ctx context.Context, videoID string) error {
-	ret := _m.Called(ctx, videoID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteTrashVideo")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, videoID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // CreateInvitation provides a mock function with given fields: ctx, invitation
 func (_m *Database) CreateInvitation(ctx context.Context, invitation *ydb.Invitation) error {
 	ret := _m.Called(ctx, invitation)
@@ -304,73 +286,6 @@ func (_m *Database) DeleteUser(ctx context.Context, userID string) error {
 	}
 
 	return r0
-}
-
-// GetTrashVideo provides a mock function with given fields: ctx, videoID
-func (_m *Database) GetTrashVideo(ctx context.Context, videoID string) (*ydb.TrashVideo, error) {
-	ret := _m.Called(ctx, videoID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetTrashVideo")
-	}
-
-	var r0 *ydb.TrashVideo
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*ydb.TrashVideo, error)); ok {
-		return rf(ctx, videoID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *ydb.TrashVideo); ok {
-		r0 = rf(ctx, videoID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ydb.TrashVideo)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, videoID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetTrashVideos provides a mock function with given fields: ctx, orgID, limit, offset
-func (_m *Database) GetTrashVideos(ctx context.Context, orgID string, limit int, offset int) ([]*ydb.TrashVideo, int64, error) {
-	ret := _m.Called(ctx, orgID, limit, offset)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetTrashVideos")
-	}
-
-	var r0 []*ydb.TrashVideo
-	var r1 int64
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) ([]*ydb.TrashVideo, int64, error)); ok {
-		return rf(ctx, orgID, limit, offset)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) []*ydb.TrashVideo); ok {
-		r0 = rf(ctx, orgID, limit, offset)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*ydb.TrashVideo)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, int, int) int64); ok {
-		r1 = rf(ctx, orgID, limit, offset)
-	} else {
-		r1 = ret.Get(1).(int64)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, string, int, int) error); ok {
-		r2 = rf(ctx, orgID, limit, offset)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
 }
 
 // DeleteOrganizationTx provides a mock function with given fields: ctx, orgID
@@ -1259,42 +1174,6 @@ func (_m *Database) RegisterUserTx(ctx context.Context, user *ydb.User, org *ydb
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *ydb.User, *ydb.Organization, *ydb.Membership, *ydb.Subscription, string) error); ok {
 		r0 = rf(ctx, user, org, membership, subscription, invitationID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MoveVideoToTrash provides a mock function with given fields: ctx, videoID
-func (_m *Database) MoveVideoToTrash(ctx context.Context, videoID string) error {
-	ret := _m.Called(ctx, videoID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for MoveVideoToTrash")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, videoID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// RestoreVideoFromTrash provides a mock function with given fields: ctx, videoID
-func (_m *Database) RestoreVideoFromTrash(ctx context.Context, videoID string) error {
-	ret := _m.Called(ctx, videoID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RestoreVideoFromTrash")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, videoID)
 	} else {
 		r0 = ret.Error(0)
 	}

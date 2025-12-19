@@ -140,8 +140,6 @@ type Video struct {
 	DurationSeconds  int32      `db:"duration_seconds"`
 	UploadID         string     `db:"upload_id"`
 	UploadStatus     string     `db:"upload_status"`
-	IsDeleted        bool       `db:"is_deleted"`
-	DeletedAt        *time.Time `db:"deleted_at"`
 	CreatedAt        time.Time  `db:"created_at"`
 	PartsUploaded    *int32     `db:"parts_uploaded"`
 	TotalParts       *int32     `db:"total_parts"`
@@ -152,27 +150,6 @@ type Video struct {
 	PublishStatus    string     `db:"publish_status"`
 	PublishedAt      *time.Time `db:"published_at"`
 	UploadExpiresAt  *time.Time `db:"upload_expires_at"`
-}
-
-// TrashVideo представляет видео в корзине
-type TrashVideo struct {
-	VideoID         string    `db:"video_id"`
-	OrgID           string    `db:"org_id"`
-	UploadedBy      string    `db:"uploaded_by"`
-	Title           string    `db:"title"`
-	FileName        string    `db:"file_name"`
-	FileNameSearch  string    `db:"file_name_search"`
-	FileSizeBytes   int64     `db:"file_size_bytes"`
-	StoragePath     string    `db:"storage_path"`
-	DurationSeconds int32     `db:"duration_seconds"`
-	UploadID        string    `db:"upload_id"`
-	UploadStatus    string    `db:"upload_status"`
-	PartsUploaded   *int32    `db:"parts_uploaded"`
-	TotalParts      *int32    `db:"total_parts"`
-	CreatedAt       time.Time `db:"created_at"`
-	UploadedAt      time.Time `db:"uploaded_at"`
-	DeletedAt       time.Time `db:"deleted_at"`
-	PublishStatus   string    `db:"publish_status"`
 }
 
 // PublicVideoShare представляет публичный шаринг видео

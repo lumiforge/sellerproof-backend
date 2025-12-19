@@ -19,19 +19,16 @@ func TestRBAC_CheckPermissionWithRole(t *testing.T) {
 		{"Admin can view logs", RoleAdmin, PermissionAdminViewLogs, true},
 		{"Admin can manage org", RoleAdmin, PermissionOrgManage, true},
 		{"Admin can view video", RoleAdmin, PermissionVideoView, true},
-		{"Admin can restore video", RoleAdmin, PermissionVideoRestore, true},
 
 		// Manager permissions
 		{"Manager can manage users", RoleManager, PermissionOrgUserManage, true},
 		{"Manager can view video", RoleManager, PermissionVideoView, true},
-		{"Manager can restore video", RoleManager, PermissionVideoRestore, true},
 		{"Manager CANNOT view admin logs", RoleManager, PermissionAdminViewLogs, false},
 		{"Manager CANNOT manage org settings", RoleManager, PermissionOrgManage, false},
 
 		// User permissions
 		{"User can view video", RoleUser, PermissionVideoView, true},
 		{"User can edit own profile", RoleUser, PermissionUserEditProfile, true},
-		{"User can restore video", RoleUser, PermissionVideoRestore, true},
 		{"User CANNOT manage users", RoleUser, PermissionOrgUserManage, false},
 		{"User CANNOT manage org", RoleUser, PermissionOrgManage, false},
 		{"User CANNOT view admin logs", RoleUser, PermissionAdminViewLogs, false},

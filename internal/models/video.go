@@ -68,20 +68,6 @@ type Video struct {
 	UploadedAt      int64  `json:"uploaded_at"`
 }
 
-// TrashVideo represents a video in trash
-// @Description	Trash video information
-type TrashVideo struct {
-	VideoID         string `json:"video_id"`
-	Title           string `json:"title"`
-	FileName        string `json:"file_name"`
-	FileSizeBytes   int64  `json:"file_size_bytes"`
-	DurationSeconds int32  `json:"duration_seconds"`
-	UploadStatus    string `json:"upload_status"`
-	PublishStatus   string `json:"publish_status"`
-	UploadedAt      int64  `json:"uploaded_at"`
-	DeletedAt       int64  `json:"deleted_at"`
-}
-
 // GetVideoRequest represents a request to get video information
 // @Description	Get video information request
 type GetVideoRequest struct {
@@ -186,18 +172,6 @@ type PublishVideoResult struct {
 	Message     string `json:"message"`
 }
 
-// DeleteVideoRequest represents a request to delete a video
-// @Description	Delete video request
-type DeleteVideoRequest struct {
-	VideoID string `json:"video_id"`
-}
-
-// DeleteVideoResponse represents the response for a video deletion
-// @Description	Delete video response
-type DeleteVideoResponse struct {
-	Message string `json:"message"`
-}
-
 // RevokeVideoRequest represents a request to revoke public access to a video
 // @Description	Revoke video public access request
 type RevokeVideoRequest struct {
@@ -210,25 +184,6 @@ type RevokeVideoResponse struct {
 	Message string `json:"message"`
 	VideoID string `json:"video_id"`
 	Status  string `json:"status"`
-}
-
-// RestoreVideoRequest represents a request to restore a deleted video
-// @Description	Restore video request
-type RestoreVideoRequest struct {
-	VideoID string `json:"video_id"`
-}
-
-// RestoreVideoResponse represents the response for a video restoration
-// @Description	Restore video response
-type RestoreVideoResponse struct {
-	Message string `json:"message"`
-}
-
-// GetTrashVideosResponse represents a response with trash videos list
-// @Description	Get trash videos response
-type GetTrashVideosResponse struct {
-	Videos     []*TrashVideo `json:"videos"`
-	TotalCount int64         `json:"total_count"`
 }
 
 // ReplaceVideoRequest represents a request to replace an existing video

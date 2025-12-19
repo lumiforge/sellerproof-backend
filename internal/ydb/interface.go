@@ -82,13 +82,6 @@ type Database interface {
 	GetVideoByShareToken(ctx context.Context, token string) (*Video, error)
 	SearchVideos(ctx context.Context, orgID, userID, query string, limit, offset int) ([]*Video, int64, error)
 
-	// Корзина
-	MoveVideoToTrash(ctx context.Context, videoID string) error
-	RestoreVideoFromTrash(ctx context.Context, videoID string) error
-	GetTrashVideos(ctx context.Context, orgID string, limit, offset int) ([]*TrashVideo, int64, error)
-	GetTrashVideo(ctx context.Context, videoID string) (*TrashVideo, error)
-	DeleteTrashVideo(ctx context.Context, videoID string) error
-
 	// Публичные шаринги видео
 	CreatePublicVideoShare(ctx context.Context, share *PublicVideoShare) error
 	GetPublicVideoShareByToken(ctx context.Context, token string) (*PublicVideoShare, error)

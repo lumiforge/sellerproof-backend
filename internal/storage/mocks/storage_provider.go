@@ -17,6 +17,24 @@ type StorageProvider struct {
 	mock.Mock
 }
 
+// CleanupObject provides a mock function with given fields: ctx, key
+func (_m *StorageProvider) CleanupObject(ctx context.Context, key string) error {
+	ret := _m.Called(ctx, key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CleanupObject")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, key)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CompleteMultipartUpload provides a mock function with given fields: ctx, key, uploadID, parts
 func (_m *StorageProvider) CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []types.CompletedPart) error {
 	ret := _m.Called(ctx, key, uploadID, parts)
@@ -92,24 +110,6 @@ func (_m *StorageProvider) DeleteObject(ctx context.Context, bucket string, key 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
 		r0 = rf(ctx, bucket, key)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// DeletePrivateObject provides a mock function with given fields: ctx, key
-func (_m *StorageProvider) DeletePrivateObject(ctx context.Context, key string) error {
-	ret := _m.Called(ctx, key)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeletePrivateObject")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, key)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -311,24 +311,6 @@ func (_m *StorageProvider) InitiateMultipartUpload(ctx context.Context, key stri
 	}
 
 	return r0, r1
-}
-
-// RestorePrivateObject provides a mock function with given fields: ctx, key
-func (_m *StorageProvider) RestorePrivateObject(ctx context.Context, key string) error {
-	ret := _m.Called(ctx, key)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RestorePrivateObject")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, key)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // NewStorageProvider creates a new instance of StorageProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

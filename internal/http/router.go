@@ -217,27 +217,6 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 
-	// DELETE /api/v1/video/{id} - manual path parsing
-	mux.HandleFunc("/api/v1/video/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		path := strings.TrimPrefix(r.URL.Path, "/api/v1/video/")
-		if path == "" || strings.Contains(path, "/") {
-			http.Error(w, "Invalid path", http.StatusNotFound)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), "path_id", path)
-		r = r.WithContext(ctx)
-
-		handler := chainMiddleware(server.DeleteVideo, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-			return AuthMiddleware(jwtManager, server.authService, next)
-		})
-		handler(w, r)
-	})
 	mux.HandleFunc("/api/v1/video/search", chainMiddleware(server.SearchVideos, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
@@ -247,12 +226,7 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.HandleFunc("/api/v1/video/revoke", chainMiddleware(server.RevokeVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
-	mux.HandleFunc("/api/v1/video/restore", chainMiddleware(server.RestoreVideo, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
-	mux.HandleFunc("/api/v1/video/trash", chainMiddleware(server.GetTrashVideos, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
+
 	mux.HandleFunc("/api/v1/video/download", chainMiddleware(server.DownloadVideo, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))

@@ -14,7 +14,6 @@ type Config struct {
 	AWSSecretAccessKey      string
 	SPObjStorePrivateBucket string
 	SPObjStorePublicBucket  string
-	SPObjStoreTrashBucket   string
 
 	// YDB configuration
 	SPYDBEndpoint     string
@@ -77,7 +76,6 @@ func Load() *Config {
 		AWSSecretAccessKey:      getEnv("SP_SA_KEY", ""),
 		SPObjStorePrivateBucket: getEnv("SP_OBJSTORE_PRIVATE_BUCKET", "sellerproof-private"),
 		SPObjStorePublicBucket:  getEnv("SP_OBJSTORE_PUBLIC_BUCKET", "sellerproof-public"),
-		SPObjStoreTrashBucket:   getEnv("SP_OBJSTORE_TRASH_BUCKET", "sellerproof-trash"),
 
 		// YDB configuration
 		SPYDBEndpoint:     getEnv("SP_YDB_ENDPOINT", ""),

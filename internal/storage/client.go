@@ -24,22 +24,15 @@ type Client struct {
 	bucketName    string
 	privateBucket string
 	publicBucket  string
-	trashBucket   string
 	endpoint      string
 }
 
-// DeletePrivateObject moves object from private bucket to trash bucket and then deletes it from private
-func (c *Client) DeletePrivateObject(ctx context.Context, key string) error {
+// CleanupObject deletes object from private bucket (used for system cleanup)
+func (c *Client) CleanupObject(ctx context.Context, key string) error {
 	if key == "" {
 		return app_errors.ErrObjectKeyRequired
 	}
 
-	// 1. Copy to Trash
-	if err := c.CopyObject(ctx, c.privateBucket, key, c.trashBucket, key); err != nil {
-		return fmt.Errorf("failed to move object to trash: %w", err)
-	}
-
-	// 2. Delete from Private
 	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(c.privateBucket),
 		Key:    aws.String(key),
@@ -66,11 +59,10 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	secretKey := cfg.AWSSecretAccessKey
 	privateBucket := cfg.SPObjStorePrivateBucket
 	publicBucket := cfg.SPObjStorePublicBucket
-	trashBucket := cfg.SPObjStoreTrashBucket
 	endpoint := cfg.S3Endpoint
 	region := cfg.SESRegion
 
-	if accessKey == "" || secretKey == "" || privateBucket == "" || publicBucket == "" || trashBucket == "" {
+	if accessKey == "" || secretKey == "" || privateBucket == "" || publicBucket == "" {
 		return nil, app_errors.ErrAWSCredsOrBucketNamesNotSet
 	}
 
@@ -93,7 +85,6 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 		bucketName:    privateBucket,
 		privateBucket: privateBucket,
 		publicBucket:  publicBucket,
-		trashBucket:   trashBucket,
 		endpoint:      endpoint,
 	}, nil
 }
@@ -262,23 +253,4 @@ func (c *Client) GetObjectHeader(ctx context.Context, key string) ([]byte, error
 	defer resp.Body.Close()
 
 	return io.ReadAll(resp.Body)
-}
-
-// RestorePrivateObject moves object from trash bucket back to private bucket
-func (c *Client) RestorePrivateObject(ctx context.Context, key string) error {
-	if key == "" {
-		return app_errors.ErrObjectKeyRequired
-	}
-
-	// 1. Copy from Trash to Private
-	if err := c.CopyObject(ctx, c.trashBucket, key, c.privateBucket, key); err != nil {
-		return fmt.Errorf("failed to restore object from trash: %w", err)
-	}
-
-	// 2. Delete from Trash
-	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(c.trashBucket),
-		Key:    aws.String(key),
-	})
-	return err
 }
