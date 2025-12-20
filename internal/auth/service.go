@@ -274,8 +274,10 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		// Subscription (free)
 		freePlan, err := s.db.GetPlanByID(ctx, "free")
 		if err != nil {
+			log.Println("Failed to fetch free plan", "error", err)
 			return nil, app_errors.ErrFailedToFetchFreePlan
 		}
+		maxDate := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
 		subscription = &ydb.Subscription{
 			SubscriptionID:      uuid.New().String(),
@@ -286,7 +288,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			OrdersPerMonthLimit: freePlan.OrdersPerMonthLimit,
 			IsActive:            true,
 			StartedAt:           now,
-			ExpiresAt:           now.AddDate(100, 0, 0),
+			ExpiresAt:           maxDate,
 			BillingCycle:        "infinite",
 			CreatedAt:           now,
 			UpdatedAt:           now,
@@ -299,7 +301,9 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate") {
 			return nil, app_errors.ErrEmailAlreadyExists
 		}
+
 		return nil, app_errors.ErrRegistrationFailed
+
 	}
 
 	// ПОСТ-ТРАНЗАКЦИОННЫЕ ДЕЙСТВИЯ (Side Effects)
