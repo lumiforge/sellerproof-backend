@@ -263,6 +263,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 		plansQuery := fmt.Sprintf(`
 			REPLACE INTO plans (plan_id, name, video_limit_mb, orders_per_month_limit, price_rub, billing_cycle, features, created_at, updated_at)
 			VALUES
+			('free', 'FREE', 0, 0, 0.0, 'infinite', '{"retention_months": 0}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
 			('start', 'START', %d, %d, %.2f, 'monthly', '{"retention_months": 12}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
 			('pro', 'PRO', %d, %d, %.2f, 'monthly', '{"retention_months": 24}', CurrentUtcTimestamp(), CurrentUtcTimestamp()),
 			('business', 'BUSINESS', %d, %d, %.2f, 'monthly', '{"retention_months": 36}', CurrentUtcTimestamp(), CurrentUtcTimestamp())

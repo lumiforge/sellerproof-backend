@@ -52,10 +52,10 @@ func TestService_Register_Success(t *testing.T) {
 	mockDB.On("GetUserByEmail", ctx, "test@example.com").Return(nil, errors.New("not found"))
 
 	// 2. Mock: Получение тарифного плана (для создания подписки)
-	mockDB.On("GetPlanByID", ctx, "start").Return(&ydb.Plan{
-		PlanID:              "start",
-		VideoLimitMB:        512,
-		OrdersPerMonthLimit: 10,
+	mockDB.On("GetPlanByID", ctx, "free").Return(&ydb.Plan{
+		PlanID:              "free",
+		VideoLimitMB:        0,
+		OrdersPerMonthLimit: 0,
 	}, nil)
 
 	// 3. Mock: Транзакция регистрации

@@ -197,13 +197,13 @@ func TestHandler_Register_InternalError_Mapping(t *testing.T) {
 	// Имитируем падение БД
 	mockDB.On("GetUserByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("db connection failed"))
 	// Добавляем мок для GetPlanByID, который вызывается в сервисе
-	mockDB.On("GetPlanByID", mock.Anything, "start").Return(&ydb.Plan{
-		PlanID:              "start",
-		Name:                "Start",
-		VideoLimitMB:        512,
-		OrdersPerMonthLimit: 10,
+	mockDB.On("GetPlanByID", mock.Anything, "free").Return(&ydb.Plan{
+		PlanID:              "free",
+		Name:                "FREE",
+		VideoLimitMB:        0,
+		OrdersPerMonthLimit: 0,
 		PriceRub:            0,
-		BillingCycle:        "monthly",
+		BillingCycle:        "infinite",
 		Features:            "{}",
 	}, nil)
 	// Добавляем мок для RegisterUserTx, который вызывается в сервисе

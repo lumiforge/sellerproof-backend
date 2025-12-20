@@ -271,9 +271,8 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
-
-		// Subscription (trial)
-		startPlan, err := s.db.GetPlanByID(ctx, "start")
+		// Subscription (free)
+		freePlan, err := s.db.GetPlanByID(ctx, "free")
 		if err != nil {
 			return nil, app_errors.ErrFailedToFetchFreePlan
 		}
@@ -282,13 +281,13 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 			SubscriptionID:      uuid.New().String(),
 			UserID:              user.UserID,
 			OrgID:               org.OrgID,
-			PlanID:              startPlan.PlanID,
-			VideoLimitMB:        startPlan.VideoLimitMB,
-			OrdersPerMonthLimit: startPlan.OrdersPerMonthLimit,
-			IsActive:            false,
+			PlanID:              freePlan.PlanID,
+			VideoLimitMB:        freePlan.VideoLimitMB,
+			OrdersPerMonthLimit: freePlan.OrdersPerMonthLimit,
+			IsActive:            true,
 			StartedAt:           now,
-			ExpiresAt:           now,
-			BillingCycle:        "monthly",
+			ExpiresAt:           now.AddDate(100, 0, 0),
+			BillingCycle:        "infinite",
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}
