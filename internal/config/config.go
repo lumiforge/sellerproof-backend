@@ -49,7 +49,7 @@ type Config struct {
 	PriceRubBusiness            float64
 
 	RecommendedPartSizeMB int32
-
+	MaxVideoFileSizeMB    int64
 	// HTTP configuration
 	HTTPPort string
 }
@@ -113,6 +113,7 @@ func Load() *Config {
 		PriceRubBusiness:            float64(getEnvInt("price_rub_business", 6990, 0, 10000)),
 
 		RecommendedPartSizeMB: int32(getEnvInt("recommended_part_size_mb", 200, 1, 1000)),
+		MaxVideoFileSizeMB:    int64(getEnvInt("max_video_file_size_mb", 2000, 1, 100000)),
 		// HTTP configuration
 		HTTPPort: getEnv("SP_HTTP_PORT", "8080"),
 	}

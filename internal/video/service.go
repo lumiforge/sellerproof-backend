@@ -91,6 +91,12 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	if fileSizeBytes > limitBytes {
 		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
+
+	maxFileSizeBytes := s.config.MaxVideoFileSizeMB * 1024 * 1024
+	if fileSizeBytes >= maxFileSizeBytes {
+		return nil, app_errors.ErrVideoSizeLimitExceeded
+	}
+
 	// TODO Race Condition при проверке квоты хранилища
 	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
