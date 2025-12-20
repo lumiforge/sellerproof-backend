@@ -722,7 +722,6 @@ func TestService_GetOrganizationSubscription_Success(t *testing.T) {
 		VideoLimitMB:        2048,
 		OrdersPerMonthLimit: 10,
 		IsActive:            true,
-		TrialEndsAt:         now.Add(time.Hour),
 		StartedAt:           now,
 		ExpiresAt:           now.Add(30 * 24 * time.Hour),
 		BillingCycle:        "monthly",

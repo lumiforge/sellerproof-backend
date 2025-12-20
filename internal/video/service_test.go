@@ -22,6 +22,7 @@ func setupVideoService() (*Service, *ydbmocks.Database, *storagemocks.StoragePro
 		APIBaseURL:            "https://api.test.com",
 		SPObjStoreBucketStart: "free-bucket",
 		SPObjStoreBucketPro:   "pro-bucket",
+		MaxVideoFileSizeMB:    2000,
 	}
 
 	service := NewService(mockDB, mockStorage, realRBAC, cfg)

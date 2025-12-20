@@ -490,10 +490,10 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 		VideoLimitMB:        512,
 		OrdersPerMonthLimit: 10,
 		IsActive:            true,
-		TrialEndsAt:         now,
-		StartedAt:           now,
-		ExpiresAt:           now.Add(time.Hour),
-		BillingCycle:        "monthly",
+
+		StartedAt:    now,
+		ExpiresAt:    now.Add(time.Hour),
+		BillingCycle: "monthly",
 	}, nil)
 
 	// 3. GetStorageUsage

@@ -294,7 +294,6 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				video_limit_mb Int64 NOT NULL,
 				orders_per_month_limit Int64 NOT NULL,
 				is_active Bool DEFAULT true,
-				trial_ends_at Timestamp NOT NULL,
 				started_at Timestamp NOT NULL,
 				expires_at Timestamp NOT NULL,
 				billing_cycle Text NOT NULL,
@@ -1133,7 +1132,6 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $video_limit_mb AS Int64;
 		DECLARE $orders_per_month_limit AS Int64;
 		DECLARE $is_active AS Bool;
-		DECLARE $trial_ends_at AS Timestamp;
 		DECLARE $started_at AS Timestamp;
 		DECLARE $expires_at AS Timestamp;
 		DECLARE $billing_cycle AS Text;
@@ -1142,8 +1140,8 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 
 		REPLACE INTO subscriptions (
 			subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
-			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
+			is_active, started_at, expires_at, billing_cycle, created_at, updated_at
+		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
 	`
 
 	now := time.Now()
@@ -1164,7 +1162,6 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$orders_per_month_limit", types.Int64Value(subscription.OrdersPerMonthLimit)),
 				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
-				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				table.ValueParam("$expires_at", types.TimestampValueFromTime(subscription.ExpiresAt)),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
@@ -1181,7 +1178,7 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 	query := `
 		DECLARE $user_id AS Text;
 		SELECT subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
-			   is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
+			   is_active, started_at, expires_at, billing_cycle, created_at, updated_at
 		FROM subscriptions
 		WHERE user_id = $user_id AND is_active = true AND expires_at > CurrentUtcTimestamp()
 		ORDER BY created_at DESC
@@ -1213,7 +1210,6 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("plan_id", &subscription.PlanID),
 				named.Required("video_limit_mb", &subscription.VideoLimitMB),
 				named.Required("orders_per_month_limit", &subscription.OrdersPerMonthLimit),
-				named.Required("trial_ends_at", &subscription.TrialEndsAt),
 				named.Required("started_at", &subscription.StartedAt),
 				named.Required("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
@@ -2397,7 +2393,6 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $video_limit_mb AS Int64;
 		DECLARE $orders_per_month_limit AS Int64;
 		DECLARE $is_active AS Bool;
-		DECLARE $trial_ends_at AS Timestamp;
 		DECLARE $started_at AS Timestamp;
 		DECLARE $expires_at AS Timestamp;
 		DECLARE $billing_cycle AS Text;
@@ -2406,8 +2401,8 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 
 		REPLACE INTO subscriptions (
 			subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
-			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
-		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
+			is_active, started_at, expires_at, billing_cycle, created_at, updated_at
+		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
 	`
 
 	subscription.UpdatedAt = time.Now()
@@ -2422,7 +2417,6 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$orders_per_month_limit", types.Int64Value(subscription.OrdersPerMonthLimit)),
 				table.ValueParam("$is_active", types.BoolValue(subscription.IsActive)),
-				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				table.ValueParam("$expires_at", types.TimestampValueFromTime(subscription.ExpiresAt)),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
@@ -3636,7 +3630,6 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		DECLARE $video_limit_mb AS Int64;
 		DECLARE $orders_per_month_limit AS Int64;
 		DECLARE $sub_is_active AS Bool;
-		DECLARE $trial_ends_at AS Timestamp;
 		DECLARE $started_at AS Timestamp;
 		DECLARE $expires_at AS Timestamp;
 		DECLARE $billing_cycle AS Text;
@@ -3652,7 +3645,6 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$orders_per_month_limit", types.Int64Value(subscription.OrdersPerMonthLimit)),
 				table.ValueParam("$sub_is_active", types.BoolValue(subscription.IsActive)),
-				table.ValueParam("$trial_ends_at", types.TimestampValueFromTime(subscription.TrialEndsAt)),
 				table.ValueParam("$started_at", types.TimestampValueFromTime(subscription.StartedAt)),
 				table.ValueParam("$expires_at", types.TimestampValueFromTime(subscription.ExpiresAt)),
 				table.ValueParam("$billing_cycle", types.TextValue(subscription.BillingCycle)),
@@ -3711,10 +3703,10 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			statements.WriteString(`
 		INSERT INTO subscriptions (
 			subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
-			is_active, trial_ends_at, started_at, expires_at, billing_cycle, created_at, updated_at
+			is_active, started_at, expires_at, billing_cycle, created_at, updated_at
 		) VALUES (
 			$subscription_id, $sub_user_id, $sub_org_id, $plan_id, $video_limit_mb, $orders_per_month_limit,
-			$sub_is_active, $trial_ends_at, $started_at, $expires_at, $billing_cycle, $sub_created_at, $sub_updated_at
+			$sub_is_active, $started_at, $expires_at, $billing_cycle, $sub_created_at, $sub_updated_at
 		);
 `)
 		}

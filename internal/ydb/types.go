@@ -66,7 +66,6 @@ type Subscription struct {
 	VideoLimitMB        int64     `db:"video_limit_mb"`
 	OrdersPerMonthLimit int64     `db:"orders_per_month_limit"`
 	IsActive            bool      `db:"is_active"`
-	TrialEndsAt         time.Time `db:"trial_ends_at"`
 	StartedAt           time.Time `db:"started_at"`
 	ExpiresAt           time.Time `db:"expires_at"`
 	BillingCycle        string    `db:"billing_cycle"`
