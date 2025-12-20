@@ -2,15 +2,15 @@ package models
 
 // SubscriptionDetails represents subscription information
 type SubscriptionDetails struct {
-	SubscriptionID  string `json:"subscription_id"`
-	PlanID          string `json:"plan_id"`
-	VideoLimitMB    int64  `json:"video_limit_mb"`
-	VideoCountLimit int64  `json:"video_count_limit"`
-	IsActive        bool   `json:"is_active"`
-	TrialEndsAt     int64  `json:"trial_ends_at"`
-	StartedAt       int64  `json:"started_at"`
-	ExpiresAt       int64  `json:"expires_at"`
-	BillingCycle    string `json:"billing_cycle"`
+	SubscriptionID      string `json:"subscription_id"`
+	PlanID              string `json:"plan_id"`
+	VideoLimitMB        int64  `json:"video_limit_mb"`
+	OrdersPerMonthLimit int64  `json:"orders_per_month_limit"`
+	IsActive            bool   `json:"is_active"`
+	TrialEndsAt         int64  `json:"trial_ends_at"`
+	StartedAt           int64  `json:"started_at"`
+	ExpiresAt           int64  `json:"expires_at"`
+	BillingCycle        string `json:"billing_cycle"`
 }
 
 // StorageUsage represents storage and video usage statistics

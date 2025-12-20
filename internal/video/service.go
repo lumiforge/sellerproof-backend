@@ -98,7 +98,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
-	if sub.VideoCountLimit > 0 && videoCount >= sub.VideoCountLimit {
+	if sub.OrdersPerMonthLimit > 0 && videoCount >= sub.OrdersPerMonthLimit {
 		return nil, fmt.Errorf("video count limit exceeded")
 	}
 
@@ -112,14 +112,14 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	}
 
 	// Determine bucket based on plan
-	bucket := s.config.SPObjStoreBucketFree // Default fallback
+	bucket := s.config.SPObjStoreBucketStart // Default fallback
 	switch sub.PlanID {
 	case "pro":
 		bucket = s.config.SPObjStoreBucketPro
-	case "enterprise":
-		bucket = s.config.SPObjStoreBucketEnterprise
-	case "free":
-		bucket = s.config.SPObjStoreBucketFree
+	case "business":
+		bucket = s.config.SPObjStoreBucketBusiness
+	case "start":
+		bucket = s.config.SPObjStoreBucketStart
 	}
 
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, bucket, objectKey, contentType)
@@ -159,7 +159,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 	return &InitiateMultipartUploadResult{
 		VideoID:               videoID,
 		UploadID:              uploadID,
-		RecommendedPartSizeMB: 10,
+		RecommendedPartSizeMB: s.config.RecommendedPartSizeMB,
 	}, nil
 }
 
@@ -379,7 +379,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
-	if sub.VideoCountLimit > 0 && videoCount >= sub.VideoCountLimit {
+	if sub.OrdersPerMonthLimit > 0 && videoCount >= sub.OrdersPerMonthLimit {
 		return nil, fmt.Errorf("video count limit exceeded")
 	}
 

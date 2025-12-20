@@ -1,0 +1,29 @@
+meta {
+  name: Login unpaid user
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{unpaidUserEmail}}",
+    "password": "{{unpaidUserPassword}}"
+  }
+}
+
+tests {
+  test("Should return 200 for successful login", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("access_token");
+
+    bru.setEnvVar("unpaidUserAccessToken", res.body.access_token);
+    bru.setEnvVar("unpaidUserRefreshToken", res.body.refresh_token);
+    bru.setEnvVar("unpaidUserOrgId", res.body.user.org_id);
+  });
+}

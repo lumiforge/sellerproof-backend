@@ -273,25 +273,25 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		}
 
 		// Subscription (trial)
-		freePlan, err := s.db.GetPlanByID(ctx, "free")
+		startPlan, err := s.db.GetPlanByID(ctx, "start")
 		if err != nil {
 			return nil, app_errors.ErrFailedToFetchFreePlan
 		}
 
 		subscription = &ydb.Subscription{
-			SubscriptionID:  uuid.New().String(),
-			UserID:          user.UserID,
-			OrgID:           org.OrgID,
-			PlanID:          freePlan.PlanID,
-			VideoLimitMB:    freePlan.VideoLimitMB,
-			VideoCountLimit: freePlan.VideoCountLimit,
-			IsActive:        true,
-			TrialEndsAt:     now.Add(7 * 24 * time.Hour),
-			StartedAt:       now,
-			ExpiresAt:       now.Add(30 * 24 * time.Hour),
-			BillingCycle:    "monthly",
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			SubscriptionID:      uuid.New().String(),
+			UserID:              user.UserID,
+			OrgID:               org.OrgID,
+			PlanID:              startPlan.PlanID,
+			VideoLimitMB:        startPlan.VideoLimitMB,
+			OrdersPerMonthLimit: startPlan.OrdersPerMonthLimit,
+			IsActive:            false,
+			TrialEndsAt:         now,
+			StartedAt:           now,
+			ExpiresAt:           now,
+			BillingCycle:        "monthly",
+			CreatedAt:           now,
+			UpdatedAt:           now,
 		}
 	}
 
@@ -1305,12 +1305,12 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 	// 4. Calculate Usage Stats
 	var videosAvailable int64
 	var videosPercent float64
-	if sub.VideoCountLimit > 0 {
-		videosAvailable = sub.VideoCountLimit - videoCount
+	if sub.OrdersPerMonthLimit > 0 {
+		videosAvailable = sub.OrdersPerMonthLimit - videoCount
 		if videosAvailable < 0 {
 			videosAvailable = 0
 		}
-		videosPercent = (float64(videoCount) / float64(sub.VideoCountLimit)) * 100
+		videosPercent = (float64(videoCount) / float64(sub.OrdersPerMonthLimit)) * 100
 		if videosPercent > 100 {
 			videosPercent = 100
 		}
@@ -1318,15 +1318,15 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 
 	return &models.GetSubscriptionResponse{
 		Subscription: &models.SubscriptionDetails{
-			SubscriptionID:  sub.SubscriptionID,
-			PlanID:          sub.PlanID,
-			VideoLimitMB:    sub.VideoLimitMB,
-			VideoCountLimit: sub.VideoCountLimit,
-			IsActive:        sub.IsActive,
-			TrialEndsAt:     sub.TrialEndsAt.Unix(),
-			StartedAt:       sub.StartedAt.Unix(),
-			ExpiresAt:       sub.ExpiresAt.Unix(),
-			BillingCycle:    sub.BillingCycle,
+			SubscriptionID:      sub.SubscriptionID,
+			PlanID:              sub.PlanID,
+			VideoLimitMB:        sub.VideoLimitMB,
+			OrdersPerMonthLimit: sub.OrdersPerMonthLimit,
+			IsActive:            sub.IsActive,
+			TrialEndsAt:         sub.TrialEndsAt.Unix(),
+			StartedAt:           sub.StartedAt.Unix(),
+			ExpiresAt:           sub.ExpiresAt.Unix(),
+			BillingCycle:        sub.BillingCycle,
 		},
 		Usage: &models.StorageUsage{
 

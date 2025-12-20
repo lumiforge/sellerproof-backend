@@ -28,7 +28,7 @@ tests {
     expect(sub).to.have.property('subscription_id');
     expect(sub).to.have.property('plan_id');
     expect(sub).to.have.property('video_limit_mb');
-    expect(sub).to.have.property('video_count_limit');
+    expect(sub).to.have.property('orders_per_month_limit');
     expect(sub).to.have.property('is_active');
 
     // Check usage details
@@ -36,5 +36,8 @@ tests {
     expect(usage).to.have.property('videos_count');
     expect(usage).to.have.property('videos_available');
     expect(usage).to.have.property('videos_percent_used');
+
+    // is_active should be true
+    expect(sub.is_active).to.equal(true);
   });
 }

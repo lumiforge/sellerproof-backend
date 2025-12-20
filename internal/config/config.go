@@ -9,12 +9,12 @@ import (
 
 type Config struct {
 	// S3/Storage configuration
-	S3Endpoint              string
-	AWSAccessKeyID          string
-	AWSSecretAccessKey      string
-	SPObjStoreBucketFree       string
-	SPObjStoreBucketPro        string
-	SPObjStoreBucketEnterprise string
+	S3Endpoint               string
+	AWSAccessKeyID           string
+	AWSSecretAccessKey       string
+	SPObjStoreBucketStart    string
+	SPObjStoreBucketPro      string
+	SPObjStoreBucketBusiness string
 
 	// YDB configuration
 	SPYDBEndpoint     string
@@ -38,15 +38,17 @@ type Config struct {
 	SPYDBAutoCreateTables int
 
 	// Plan configuration
-	VideoLimitMBFree          int64
-	VideoLimitMBPro           int64
-	VideoLimitMBEnterprise    int64
-	VideoCountLimitFree       int64
-	VideoCountLimitPro        int64
-	VideoCountLimitEnterprise int64
-	PriceRubFree              float64
-	PriceRubPro               float64
-	PriceRubEnterprise        float64
+	VideoLimitMBStart           int64
+	VideoLimitMBPro             int64
+	VideoLimitMBBusiness        int64
+	OrdersPerMonthLimitStart    int64
+	OrdersPerMonthLimitPro      int64
+	OrdersPerMonthLimitBusiness int64
+	PriceRubStart               float64
+	PriceRubPro                 float64
+	PriceRubBusiness            float64
+
+	RecommendedPartSizeMB int32
 
 	// HTTP configuration
 	HTTPPort string
@@ -71,13 +73,13 @@ func Load() *Config {
 
 	return &Config{
 		// S3/Storage configuration
-		SPYDBAutoCreateTables:   getEnvInt("SP_YDB_AUTO_CREATE_TABLES", 0, 0, 1),
-		S3Endpoint:              s3Endpoint,
-		AWSAccessKeyID:          getEnv("SP_SA_KEY_ID", ""),
-		AWSSecretAccessKey:      getEnv("SP_SA_KEY", ""),
-		SPObjStoreBucketFree:       getEnv("SP_OBJSTORE_BUCKET_FREE", "sub12-ice"),
-		SPObjStoreBucketPro:        getEnv("SP_OBJSTORE_BUCKET_PRO", "sub24-ice"),
-		SPObjStoreBucketEnterprise: getEnv("SP_OBJSTORE_BUCKET_ENTERPRISE", "sub36-ice"),
+		SPYDBAutoCreateTables:    getEnvInt("SP_YDB_AUTO_CREATE_TABLES", 0, 0, 1),
+		S3Endpoint:               s3Endpoint,
+		AWSAccessKeyID:           getEnv("SP_SA_KEY_ID", ""),
+		AWSSecretAccessKey:       getEnv("SP_SA_KEY", ""),
+		SPObjStoreBucketStart:    getEnv("SP_OBJSTORE_BUCKET_START", "sub12-ice"),
+		SPObjStoreBucketPro:      getEnv("SP_OBJSTORE_BUCKET_PRO", "sub24-ice"),
+		SPObjStoreBucketBusiness: getEnv("SP_OBJSTORE_BUCKET_BUSINESS", "sub36-ice"),
 
 		// YDB configuration
 		SPYDBEndpoint:     getEnv("SP_YDB_ENDPOINT", ""),
@@ -100,16 +102,17 @@ func Load() *Config {
 		APIBaseURL:         getEnv("SP_API_BASE_URL", "https://api.sellerproof.ru"),
 
 		// Plan configuration
-		VideoLimitMBFree:          int64(getEnvInt("video_limit_mb_free", 512, 0, 10240)),
-		VideoLimitMBPro:           int64(getEnvInt("video_limit_mb_pro", 2048, 0, 102400)),
-		VideoLimitMBEnterprise:    int64(getEnvInt("video_limit_mb_enterprise", 10240, 0, 1024000)),
-		VideoCountLimitFree:       int64(getEnvInt("video_count_limit_free", 10, 0, 10)),
-		VideoCountLimitPro:        int64(getEnvInt("video_count_limit_pro", 1000, 0, 1000)),
-		VideoCountLimitEnterprise: int64(getEnvInt("video_count_limit_enterprise", 10000, 0, 10000)),
-		PriceRubFree:              float64(getEnvInt("price_rub_free", 0, 0, 1)),
-		PriceRubPro:               float64(getEnvInt("price_rub_pro", 990, 0, 990)),
-		PriceRubEnterprise:        float64(getEnvInt("price_rub_enterprise", 4990, 0, 4990)),
+		VideoLimitMBStart:           int64(getEnvInt("video_limit_mb_start", 614400, 0, 10000000)),     // 600 GB
+		VideoLimitMBPro:             int64(getEnvInt("video_limit_mb_pro", 2048000, 0, 10000000)),      // 2000 GB
+		VideoLimitMBBusiness:        int64(getEnvInt("video_limit_mb_business", 6144000, 0, 10000000)), // 6000 GB
+		OrdersPerMonthLimitStart:    int64(getEnvInt("orders_per_month_limit_start", 300, 0, 10000)),
+		OrdersPerMonthLimitPro:      int64(getEnvInt("orders_per_month_limit_pro", 1000, 0, 10000)),
+		OrdersPerMonthLimitBusiness: int64(getEnvInt("orders_per_month_limit_business", 3000, 0, 10000)),
+		PriceRubStart:               float64(getEnvInt("price_rub_start", 1490, 0, 10000)),
+		PriceRubPro:                 float64(getEnvInt("price_rub_pro", 3490, 0, 10000)),
+		PriceRubBusiness:            float64(getEnvInt("price_rub_business", 6990, 0, 10000)),
 
+		RecommendedPartSizeMB: int32(getEnvInt("recommended_part_size_mb", 200, 1, 1000)),
 		// HTTP configuration
 		HTTPPort: getEnv("SP_HTTP_PORT", "8080"),
 	}

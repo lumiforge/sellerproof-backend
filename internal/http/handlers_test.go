@@ -197,14 +197,14 @@ func TestHandler_Register_InternalError_Mapping(t *testing.T) {
 	// Имитируем падение БД
 	mockDB.On("GetUserByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("db connection failed"))
 	// Добавляем мок для GetPlanByID, который вызывается в сервисе
-	mockDB.On("GetPlanByID", mock.Anything, "free").Return(&ydb.Plan{
-		PlanID:          "free",
-		Name:            "Free",
-		VideoLimitMB:    512,
-		VideoCountLimit: 10,
-		PriceRub:        0,
-		BillingCycle:    "monthly",
-		Features:        "{}",
+	mockDB.On("GetPlanByID", mock.Anything, "start").Return(&ydb.Plan{
+		PlanID:              "start",
+		Name:                "Start",
+		VideoLimitMB:        512,
+		OrdersPerMonthLimit: 10,
+		PriceRub:            0,
+		BillingCycle:        "monthly",
+		Features:            "{}",
 	}, nil)
 	// Добавляем мок для RegisterUserTx, который вызывается в сервисе
 	mockDB.On("RegisterUserTx", mock.Anything, mock.AnythingOfType("*ydb.User"), mock.AnythingOfType("*ydb.Organization"), mock.AnythingOfType("*ydb.Membership"), mock.AnythingOfType("*ydb.Subscription"), mock.AnythingOfType("string")).Return(errors.New("db connection failed"))
@@ -485,15 +485,15 @@ func TestHandler_GetSubscription_Success(t *testing.T) {
 	// 2. GetSubscriptionByUser
 	now := time.Now()
 	mockDB.On("GetSubscriptionByUser", mock.Anything, "owner-1").Return(&ydb.Subscription{
-		SubscriptionID:  "sub-1",
-		PlanID:          "free",
-		VideoLimitMB:    512,
-		VideoCountLimit: 10,
-		IsActive:        true,
-		TrialEndsAt:     now,
-		StartedAt:       now,
-		ExpiresAt:       now.Add(time.Hour),
-		BillingCycle:    "monthly",
+		SubscriptionID:      "sub-1",
+		PlanID:              "start",
+		VideoLimitMB:        512,
+		OrdersPerMonthLimit: 10,
+		IsActive:            true,
+		TrialEndsAt:         now,
+		StartedAt:           now,
+		ExpiresAt:           now.Add(time.Hour),
+		BillingCycle:        "monthly",
 	}, nil)
 
 	// 3. GetStorageUsage

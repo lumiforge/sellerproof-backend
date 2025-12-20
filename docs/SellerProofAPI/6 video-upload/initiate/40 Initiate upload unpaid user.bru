@@ -1,0 +1,30 @@
+meta {
+  name: Initiate upload unpaid user
+  type: http
+  seq: 40
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unpaidUserAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "test.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test("Should return 403 Forbidden for unpaid subscription", function() {
+    expect(res.status).to.equal(403);
+    expect(res.body.message).to.include("failed to get subscription");
+  });
+}

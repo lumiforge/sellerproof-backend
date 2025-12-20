@@ -46,43 +46,43 @@ type Membership struct {
 
 // Plan представляет тарифный план
 type Plan struct {
-	PlanID          string    `db:"plan_id"`
-	Name            string    `db:"name"`
-	VideoLimitMB    int64     `db:"video_limit_mb"`
-	VideoCountLimit int64     `db:"video_count_limit"`
-	PriceRub        float64   `db:"price_rub"`
-	BillingCycle    string    `db:"billing_cycle"`
-	Features        string    `db:"features"`
-	CreatedAt       time.Time `db:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at"`
+	PlanID              string    `db:"plan_id"`
+	Name                string    `db:"name"`
+	VideoLimitMB        int64     `db:"video_limit_mb"`
+	OrdersPerMonthLimit int64     `db:"orders_per_month_limit"`
+	PriceRub            float64   `db:"price_rub"`
+	BillingCycle        string    `db:"billing_cycle"`
+	Features            string    `db:"features"`
+	CreatedAt           time.Time `db:"created_at"`
+	UpdatedAt           time.Time `db:"updated_at"`
 }
 
 // Subscription представляет подписку
 type Subscription struct {
-	SubscriptionID  string    `db:"subscription_id"`
-	UserID          string    `db:"user_id"`
-	OrgID           string    `db:"org_id"`
-	PlanID          string    `db:"plan_id"`
-	VideoLimitMB    int64     `db:"video_limit_mb"`
-	VideoCountLimit int64     `db:"video_count_limit"`
-	IsActive        bool      `db:"is_active"`
-	TrialEndsAt     time.Time `db:"trial_ends_at"`
-	StartedAt       time.Time `db:"started_at"`
-	ExpiresAt       time.Time `db:"expires_at"`
-	BillingCycle    string    `db:"billing_cycle"`
-	CreatedAt       time.Time `db:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at"`
+	SubscriptionID      string    `db:"subscription_id"`
+	UserID              string    `db:"user_id"`
+	OrgID               string    `db:"org_id"`
+	PlanID              string    `db:"plan_id"`
+	VideoLimitMB        int64     `db:"video_limit_mb"`
+	OrdersPerMonthLimit int64     `db:"orders_per_month_limit"`
+	IsActive            bool      `db:"is_active"`
+	TrialEndsAt         time.Time `db:"trial_ends_at"`
+	StartedAt           time.Time `db:"started_at"`
+	ExpiresAt           time.Time `db:"expires_at"`
+	BillingCycle        string    `db:"billing_cycle"`
+	CreatedAt           time.Time `db:"created_at"`
+	UpdatedAt           time.Time `db:"updated_at"`
 }
 
 // SubscriptionHistory представляет историю изменений подписок
 type SubscriptionHistory struct {
-	HistoryID       string    `db:"history_id"`
-	SubscriptionID  string    `db:"subscription_id"`
-	PlanID          string    `db:"plan_id"`
-	VideoLimitMB    int64     `db:"video_limit_mb"`
-	VideoCountLimit int64     `db:"video_count_limit"`
-	EventType       string    `db:"event_type"`
-	ChangedAt       time.Time `db:"changed_at"`
+	HistoryID           string    `db:"history_id"`
+	SubscriptionID      string    `db:"subscription_id"`
+	PlanID              string    `db:"plan_id"`
+	VideoLimitMB        int64     `db:"video_limit_mb"`
+	OrdersPerMonthLimit int64     `db:"orders_per_month_limit"`
+	EventType           string    `db:"event_type"`
+	ChangedAt           time.Time `db:"changed_at"`
 }
 
 // EmailLog представляет лог отправленного email

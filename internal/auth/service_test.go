@@ -52,10 +52,10 @@ func TestService_Register_Success(t *testing.T) {
 	mockDB.On("GetUserByEmail", ctx, "test@example.com").Return(nil, errors.New("not found"))
 
 	// 2. Mock: Получение тарифного плана (для создания подписки)
-	mockDB.On("GetPlanByID", ctx, "free").Return(&ydb.Plan{
-		PlanID:          "free",
-		VideoLimitMB:    512,
-		VideoCountLimit: 10,
+	mockDB.On("GetPlanByID", ctx, "start").Return(&ydb.Plan{
+		PlanID:              "start",
+		VideoLimitMB:        512,
+		OrdersPerMonthLimit: 10,
 	}, nil)
 
 	// 3. Mock: Транзакция регистрации
@@ -717,15 +717,15 @@ func TestService_GetOrganizationSubscription_Success(t *testing.T) {
 
 	// 2. Mock GetSubscriptionByUser
 	mockDB.On("GetSubscriptionByUser", ctx, ownerID).Return(&ydb.Subscription{
-		SubscriptionID:  "sub-1",
-		PlanID:          "pro",
-		VideoLimitMB:    2048,
-		VideoCountLimit: 10,
-		IsActive:        true,
-		TrialEndsAt:     now.Add(time.Hour),
-		StartedAt:       now,
-		ExpiresAt:       now.Add(30 * 24 * time.Hour),
-		BillingCycle:    "monthly",
+		SubscriptionID:      "sub-1",
+		PlanID:              "pro",
+		VideoLimitMB:        2048,
+		OrdersPerMonthLimit: 10,
+		IsActive:            true,
+		TrialEndsAt:         now.Add(time.Hour),
+		StartedAt:           now,
+		ExpiresAt:           now.Add(30 * 24 * time.Hour),
+		BillingCycle:        "monthly",
 	}, nil)
 
 	// 3. Mock GetStorageUsage

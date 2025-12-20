@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	storagemocks "github.com/lumiforge/sellerproof-backend/internal/storage/mocks"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
-	"github.com/lumiforge/sellerproof-backend/internal/config"
 	ydbmocks "github.com/lumiforge/sellerproof-backend/internal/ydb/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,9 +19,9 @@ func setupVideoService() (*Service, *ydbmocks.Database, *storagemocks.StoragePro
 	mockStorage := new(storagemocks.StorageProvider)
 	realRBAC := rbac.NewRBAC()
 	cfg := &config.Config{
-		APIBaseURL: "https://api.test.com",
-		SPObjStoreBucketFree: "free-bucket",
-		SPObjStoreBucketPro: "pro-bucket",
+		APIBaseURL:            "https://api.test.com",
+		SPObjStoreBucketStart: "free-bucket",
+		SPObjStoreBucketPro:   "pro-bucket",
 	}
 
 	service := NewService(mockDB, mockStorage, realRBAC, cfg)
@@ -42,10 +42,10 @@ func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
 
 	// 1. Получение подписки (Лимит 5 видео)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
-		VideoLimitMB:    100,
-		VideoCountLimit: 5,
-		PlanID:          "free",
-		StartedAt:       now,
+		VideoLimitMB:        100,
+		OrdersPerMonthLimit: 5,
+		PlanID:              "start",
+		StartedAt:           now,
 	}, nil)
 
 	// 2. Получение текущего использования (Уже 5 видео)

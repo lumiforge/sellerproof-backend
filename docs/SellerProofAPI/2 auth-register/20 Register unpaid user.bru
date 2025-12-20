@@ -1,0 +1,26 @@
+meta {
+  name: Register unpaid user
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{unpaidUserEmail}}",
+    "password": "{{unpaidUserPassword}}",
+    "full_name": "{{unpaidUserFullName}}",
+    "organization_name": "{{unpaidUserOrganizationName}}"
+  }
+}
+
+tests {
+  test("Should return 201 for successful registration", function() {
+    expect(res.status).to.equal(201);
+  });
+}
