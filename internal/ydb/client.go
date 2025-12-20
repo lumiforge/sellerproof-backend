@@ -1210,6 +1210,7 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 				named.Required("plan_id", &subscription.PlanID),
 				named.Required("video_limit_mb", &subscription.VideoLimitMB),
 				named.Required("orders_per_month_limit", &subscription.OrdersPerMonthLimit),
+				named.Required("is_active", &subscription.IsActive),
 				named.Required("started_at", &subscription.StartedAt),
 				named.Required("expires_at", &subscription.ExpiresAt),
 				named.Required("billing_cycle", &subscription.BillingCycle),
