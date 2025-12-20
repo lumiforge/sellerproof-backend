@@ -37,3 +37,6 @@ for i in "${!PART_URLS[@]}"; do
   echo "Для части ${partIndex} получен ETag: $etag"
 
 done
+
+
+

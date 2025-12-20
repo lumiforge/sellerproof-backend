@@ -36,7 +36,7 @@ func setupTestRouter() (http.Handler, *ydbmocks.Database, *storagemocks.StorageP
 	cfg := &config.Config{APIBaseURL: "http://test.local"}
 
 	authService := auth.NewService(mockDB, mockJWT, realRBAC, emailClient, cfg)
-	videoService := video.NewService(mockDB, mockStorage, realRBAC, cfg.APIBaseURL)
+	videoService := video.NewService(mockDB, mockStorage, realRBAC, cfg)
 
 	// Настраиваем мок для InsertAuditLog глобально для всех тестов, использующих этот роутер
 	// Используем .Maybe(), чтобы тест не падал, если метод не вызван

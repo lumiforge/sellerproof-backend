@@ -59,7 +59,7 @@ func Initialize(ctx context.Context) (http.Handler, error) {
 
 	// Инициализация сервисов
 	authService := auth.NewService(db, jwtManager, rbacManager, emailClient, cfg)
-	videoService := video.NewService(db, storageClient, rbacManager, cfg.APIBaseURL)
+	videoService := video.NewService(db, storageClient, rbacManager, cfg)
 
 	auditService := audit.NewService(db)
 

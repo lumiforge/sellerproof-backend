@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
-	"strings"
+
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -21,33 +20,17 @@ import (
 type Client struct {
 	s3Client      *s3.Client
 	presignClient *s3.PresignClient
-	bucketName    string
-	privateBucket string
-	publicBucket  string
 	endpoint      string
 }
 
-// CleanupObject deletes object from private bucket (used for system cleanup)
-func (c *Client) CleanupObject(ctx context.Context, key string) error {
-	if key == "" {
+// CleanupObject deletes object from specified bucket (used for system cleanup)
+func (c *Client) CleanupObject(ctx context.Context, bucket, key string) error {
+	if key == "" || bucket == "" {
 		return app_errors.ErrObjectKeyRequired
 	}
 
 	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(c.privateBucket),
-		Key:    aws.String(key),
-	})
-	return err
-}
-
-// DeletePublicObject removes object from public bucket
-func (c *Client) DeletePublicObject(ctx context.Context, key string) error {
-	if key == "" {
-		return app_errors.ErrObjectKeyRequired
-	}
-
-	_, err := c.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(c.publicBucket),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	return err
@@ -57,12 +40,10 @@ func (c *Client) DeletePublicObject(ctx context.Context, key string) error {
 func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	accessKey := cfg.AWSAccessKeyID
 	secretKey := cfg.AWSSecretAccessKey
-	privateBucket := cfg.SPObjStorePrivateBucket
-	publicBucket := cfg.SPObjStorePublicBucket
 	endpoint := cfg.S3Endpoint
 	region := cfg.SESRegion
 
-	if accessKey == "" || secretKey == "" || privateBucket == "" || publicBucket == "" {
+	if accessKey == "" || secretKey == "" {
 		return nil, app_errors.ErrAWSCredsOrBucketNamesNotSet
 	}
 
@@ -82,17 +63,14 @@ func NewClient(ctx context.Context, cfg *config.Config) (*Client, error) {
 	return &Client{
 		s3Client:      client,
 		presignClient: presignClient,
-		bucketName:    privateBucket,
-		privateBucket: privateBucket,
-		publicBucket:  publicBucket,
 		endpoint:      endpoint,
 	}, nil
 }
 
 // InitiateMultipartUpload начинает загрузку
-func (c *Client) InitiateMultipartUpload(ctx context.Context, key string, contentType string) (string, error) {
+func (c *Client) InitiateMultipartUpload(ctx context.Context, bucket, key string, contentType string) (string, error) {
 	input := &s3.CreateMultipartUploadInput{
-		Bucket:      aws.String(c.bucketName),
+		Bucket:      aws.String(bucket),
 		Key:         aws.String(key),
 		ContentType: aws.String(contentType),
 	}
@@ -106,9 +84,9 @@ func (c *Client) InitiateMultipartUpload(ctx context.Context, key string, conten
 }
 
 // GeneratePresignedPartURL генерирует URL для загрузки части
-func (c *Client) GeneratePresignedPartURL(ctx context.Context, key, uploadID string, partNumber int32, lifetime time.Duration) (string, error) {
+func (c *Client) GeneratePresignedPartURL(ctx context.Context, bucket, key, uploadID string, partNumber int32, lifetime time.Duration) (string, error) {
 	input := &s3.UploadPartInput{
-		Bucket:     aws.String(c.bucketName),
+		Bucket:     aws.String(bucket),
 		Key:        aws.String(key),
 		UploadId:   aws.String(uploadID),
 		PartNumber: aws.Int32(partNumber),
@@ -125,9 +103,9 @@ func (c *Client) GeneratePresignedPartURL(ctx context.Context, key, uploadID str
 }
 
 // CompleteMultipartUpload завершает загрузку
-func (c *Client) CompleteMultipartUpload(ctx context.Context, key, uploadID string, parts []types.CompletedPart) error {
+func (c *Client) CompleteMultipartUpload(ctx context.Context, bucket, key, uploadID string, parts []types.CompletedPart) error {
 	input := &s3.CompleteMultipartUploadInput{
-		Bucket:   aws.String(c.bucketName),
+		Bucket:   aws.String(bucket),
 		Key:      aws.String(key),
 		UploadId: aws.String(uploadID),
 		MultipartUpload: &types.CompletedMultipartUpload{
@@ -140,13 +118,7 @@ func (c *Client) CompleteMultipartUpload(ctx context.Context, key, uploadID stri
 }
 
 // GeneratePresignedDownloadURL генерирует URL для скачивания
-func (c *Client) GeneratePresignedDownloadURL(ctx context.Context, key string, lifetime time.Duration) (string, error) {
-	// Определяем бакет на основе префикса ключа
-	bucket := c.privateBucket
-	if strings.HasPrefix(key, "public/") {
-		bucket = c.publicBucket
-	}
-
+func (c *Client) GeneratePresignedDownloadURL(ctx context.Context, bucket, key string, lifetime time.Duration) (string, error) {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
@@ -156,39 +128,6 @@ func (c *Client) GeneratePresignedDownloadURL(ctx context.Context, key string, l
 		opts.Expires = lifetime
 	})
 	return req.URL, err
-}
-
-// CopyToPublicBucket копирует файл из приватного в публичный bucket
-func (c *Client) CopyToPublicBucket(ctx context.Context, sourceKey, destKey string) (string, error) {
-	// Копирование из приватного в публичный bucket
-	copySource := fmt.Sprintf("%s/%s", c.privateBucket, sourceKey)
-
-	_, err := c.s3Client.CopyObject(ctx, &s3.CopyObjectInput{
-		Bucket:     aws.String(c.publicBucket),
-		CopySource: aws.String(copySource),
-		Key:        aws.String(destKey),
-		ACL:        types.ObjectCannedACLPublicRead, // Публичный доступ
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	// Формируем постоянный публичный URL
-	u, err := url.Parse(c.endpoint)
-	if err != nil {
-		return "", app_errors.ErrFailedToParseEndpointURL
-	}
-
-	// Принудительно ставим HTTPS для публичных ссылок
-	u.Scheme = "https"
-
-	// Формируем Virtual-Hosted Style URL: https://bucket.endpoint/key
-	// u.Host содержит только домен (например, storage.yandexcloud.net), без схемы
-	u.Host = fmt.Sprintf("%s.%s", c.publicBucket, u.Host)
-	u.Path = destKey
-
-	return u.String(), nil
 }
 
 // CopyObject copies object from one bucket to another
@@ -202,16 +141,6 @@ func (c *Client) CopyObject(ctx context.Context, srcBucket, srcKey, dstBucket, d
 	})
 
 	return err
-}
-
-// GetPublicBucket returns the public bucket name
-func (c *Client) GetPublicBucket() string {
-	return c.publicBucket
-}
-
-// GetPrivateBucket returns the private bucket name
-func (c *Client) GetPrivateBucket() string {
-	return c.privateBucket
 }
 
 // DeleteObject deletes object from specified bucket
@@ -228,9 +157,9 @@ func (c *Client) DeleteObject(ctx context.Context, bucket, key string) error {
 }
 
 // GetObjectSize returns the size of the object in bytes
-func (c *Client) GetObjectSize(ctx context.Context, key string) (int64, error) {
+func (c *Client) GetObjectSize(ctx context.Context, bucket, key string) (int64, error) {
 	output, err := c.s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(c.bucketName),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -239,9 +168,9 @@ func (c *Client) GetObjectSize(ctx context.Context, key string) (int64, error) {
 	return *output.ContentLength, nil
 }
 
-func (c *Client) GetObjectHeader(ctx context.Context, key string) ([]byte, error) {
+func (c *Client) GetObjectHeader(ctx context.Context, bucket, key string) ([]byte, error) {
 	input := &s3.GetObjectInput{
-		Bucket: aws.String(c.bucketName),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 		Range:  aws.String("bytes=0-511"), // Читаем только первые 512 байт
 	}

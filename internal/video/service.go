@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
@@ -28,15 +29,15 @@ type Service struct {
 	db      ydb.Database
 	storage storage.StorageProvider
 	rbac    *rbac.RBAC
-	baseURL string
+	config  *config.Config
 }
 
-func NewService(db ydb.Database, storage storage.StorageProvider, rbac *rbac.RBAC, baseURL string) *Service {
+func NewService(db ydb.Database, storage storage.StorageProvider, rbac *rbac.RBAC, cfg *config.Config) *Service {
 	return &Service{
 		db:      db,
 		storage: storage,
 		rbac:    rbac,
-		baseURL: baseURL,
+		config:  cfg,
 	}
 }
 
@@ -110,7 +111,18 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrInvalidFileType
 	}
 
-	uploadID, err := s.storage.InitiateMultipartUpload(ctx, objectKey, contentType)
+	// Determine bucket based on plan
+	bucket := s.config.SPObjStoreBucketFree // Default fallback
+	switch sub.PlanID {
+	case "pro":
+		bucket = s.config.SPObjStoreBucketPro
+	case "enterprise":
+		bucket = s.config.SPObjStoreBucketEnterprise
+	case "free":
+		bucket = s.config.SPObjStoreBucketFree
+	}
+
+	uploadID, err := s.storage.InitiateMultipartUpload(ctx, bucket, objectKey, contentType)
 	if err != nil {
 
 		return nil, app_errors.ErrFailedToInitiateS3Upload
@@ -136,6 +148,7 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		PublishStatus:   "private",
 		CreatedAt:       createdAt,
 		UploadExpiresAt: &ttl,
+		BucketName:      bucket,
 	}
 
 	if err := s.db.CreateVideo(ctx, video); err != nil {
@@ -185,7 +198,7 @@ func (s *Service) GetPartUploadURLsDirect(ctx context.Context, userID, orgID, vi
 	for i := 0; i < int(totalParts); i++ {
 		storagePath := video.StoragePath
 		uploadID := video.UploadID
-		url, err := s.storage.GeneratePresignedPartURL(ctx, storagePath, uploadID, int32(i+1), 1*time.Hour)
+		url, err := s.storage.GeneratePresignedPartURL(ctx, video.BucketName, storagePath, uploadID, int32(i+1), 1*time.Hour)
 		if err != nil {
 			return nil, app_errors.ErrFailedToGenerateURLForPart
 		}
@@ -228,7 +241,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 
 	// Если видео уже загружено, не идем в S3, а возвращаем успех.
 	if video.UploadStatus == "completed" {
-		url, _ := s.storage.GeneratePresignedDownloadURL(ctx, video.StoragePath, 1*time.Hour)
+		url, _ := s.storage.GeneratePresignedDownloadURL(ctx, video.BucketName, video.StoragePath, 1*time.Hour)
 		return &CompleteMultipartUploadResult{
 			Message:  "Upload already completed",
 			VideoURL: url,
@@ -250,10 +263,10 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 
 	storagePath := video.StoragePath
 	uploadID := video.UploadID
-	if err := s.storage.CompleteMultipartUpload(ctx, storagePath, uploadID, s3Parts); err != nil {
+	if err := s.storage.CompleteMultipartUpload(ctx, video.BucketName, storagePath, uploadID, s3Parts); err != nil {
 		return nil, app_errors.ErrFailedToCompleteS3Upload
 	}
-	headerBytes, err := s.storage.GetObjectHeader(ctx, storagePath)
+	headerBytes, err := s.storage.GetObjectHeader(ctx, video.BucketName, storagePath)
 	if err != nil {
 		slog.Error("Failed to get object header for verification", "error", err, "video_id", videoID)
 		// В случае ошибки чтения S3 лучше прервать процесс, чем пропустить потенциально опасный файл
@@ -323,7 +336,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 			"claimed_filename", video.FileName)
 
 		// Удаляем файл из S3
-		if err := s.storage.CleanupObject(ctx, storagePath); err != nil {
+		if err := s.storage.CleanupObject(ctx, video.BucketName, storagePath); err != nil {
 			slog.Error("Failed to delete malicious file", "error", err)
 		}
 
@@ -334,7 +347,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	}
 
 	// Размер файла
-	actualSize, err := s.storage.GetObjectSize(ctx, storagePath)
+	actualSize, err := s.storage.GetObjectSize(ctx, video.BucketName, storagePath)
 
 	if err != nil {
 		slog.Error("Failed to get object size after upload", "error", err, "video_id", videoID)
@@ -357,7 +370,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	limitBytes := sub.VideoLimitMB * 1024 * 1024
 	if actualSize > limitBytes {
 		slog.Error("Video size limit exceeded", "user_id", userID, "video_id", videoID, "size", actualSize, "limit", limitBytes)
-		_ = s.storage.CleanupObject(ctx, storagePath)
+		_ = s.storage.CleanupObject(ctx, video.BucketName, storagePath)
 		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
 
@@ -381,7 +394,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 	video.UploadExpiresAt = nil
 	if err := s.db.UpdateVideo(ctx, video); err != nil {
 		slog.Error("Failed to update video status in DB, rolling back S3 upload", "error", err, "video_id", videoID)
-		if delErr := s.storage.CleanupObject(ctx, storagePath); delErr != nil {
+		if delErr := s.storage.CleanupObject(ctx, video.BucketName, storagePath); delErr != nil {
 			// Если не удалось удалить файл, логируем это как критическую ошибку,
 			// так как теперь у нас есть файл, занимающий место.
 			slog.Error("CRITICAL: Failed to rollback S3 object after DB failure", "error", delErr, "path", storagePath)
@@ -389,7 +402,7 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrFailedToUpdateVideoStatus
 	}
 
-	url, _ := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
+	url, _ := s.storage.GeneratePresignedDownloadURL(ctx, video.BucketName, video.StoragePath, 1*time.Hour)
 
 	return &CompleteMultipartUploadResult{
 		Message:  "Upload completed",
@@ -650,7 +663,7 @@ func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, role
 	}
 
 	// Генерируем временный URL на приватный bucket (1 час)
-	url, err := s.storage.GeneratePresignedDownloadURL(ctx, video.StoragePath, 1*time.Hour)
+	url, err := s.storage.GeneratePresignedDownloadURL(ctx, video.BucketName, video.StoragePath, 1*time.Hour)
 	if err != nil {
 		return nil, err
 	}
@@ -662,49 +675,49 @@ func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, role
 }
 
 // PublishVideoToPublicBucket публикует видео в публичный bucket
-func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
-	// Проверка прав - только admin и manager могут публиковать
-	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
-		return nil, app_errors.ErrOnlyAdminsAndManagersCanPublish
-	}
+// func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
+// 	// Проверка прав - только admin и manager могут публиковать
+// 	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
+// 		return nil, app_errors.ErrOnlyAdminsAndManagersCanPublish
+// 	}
 
-	video, err := s.db.GetVideo(ctx, videoID)
-	if err != nil {
-		return nil, app_errors.ErrVideoNotFound
-	}
+// 	video, err := s.db.GetVideo(ctx, videoID)
+// 	if err != nil {
+// 		return nil, app_errors.ErrVideoNotFound
+// 	}
 
-	if video.OrgID != orgID {
-		return nil, app_errors.ErrAccessDenied
-	}
+// 	if video.OrgID != orgID {
+// 		return nil, app_errors.ErrAccessDenied
+// 	}
 
-	// Проверяем, не опубликован ли уже
-	if video.PublicURL != nil && *video.PublicURL != "" {
-		return &models.PublishVideoResult{
-			PublicURL: *video.PublicURL,
-			Message:   "Video already published",
-		}, nil
-	}
+// 	// Проверяем, не опубликован ли уже
+// 	if video.PublicURL != nil && *video.PublicURL != "" {
+// 		return &models.PublishVideoResult{
+// 			PublicURL: *video.PublicURL,
+// 			Message:   "Video already published",
+// 		}, nil
+// 	}
 
-	// Копируем файл в публичный bucket
-	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
-	publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
-	if err != nil {
-		return nil, app_errors.ErrFailedToPublishVideo
-	}
+// 	// Копируем файл в публичный bucket
+// 	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
+// 	publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
+// 	if err != nil {
+// 		return nil, app_errors.ErrFailedToPublishVideo
+// 	}
 
-	// Сохраняем публичный URL в БД
-	video.PublicURL = &publicURL
-	video.PublishedAt = aws.Time(time.Now())
-	video.PublishStatus = "published"
-	if err := s.db.UpdateVideo(ctx, video); err != nil {
-		return nil, app_errors.ErrFailedToUpdateVideoRecord
-	}
+// 	// Сохраняем публичный URL в БД
+// 	video.PublicURL = &publicURL
+// 	video.PublishedAt = aws.Time(time.Now())
+// 	video.PublishStatus = "published"
+// 	if err := s.db.UpdateVideo(ctx, video); err != nil {
+// 		return nil, app_errors.ErrFailedToUpdateVideoRecord
+// 	}
 
-	return &models.PublishVideoResult{
-		PublicURL: publicURL,
-		Message:   "Video published successfully",
-	}, nil
-}
+// 	return &models.PublishVideoResult{
+// 		PublicURL: publicURL,
+// 		Message:   "Video published successfully",
+// 	}, nil
+// }
 
 // generatePublicToken генерирует криптографически стойкий публичный токен
 func generatePublicToken() (string, error) {
@@ -744,7 +757,7 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 		return nil, app_errors.ErrFailedToCheckActiveShare
 	}
 	if existingShare != nil {
-		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, existingShare.PublicToken)
+		publicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.config.APIBaseURL, existingShare.PublicToken)
 		return &models.PublishVideoResult{
 			PublicURL:   publicURL,
 			PublicToken: existingShare.PublicToken,
@@ -776,22 +789,9 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 
 	}
 
-	// 3. Копируем видео в публичный bucket (Fix for Data Consistency: S3 first)
-	// Формируем ключ для публичного бакета
-	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
-
-	// Выполняем копирование. Если упадет здесь - база данных останется чистой.
-	// TODO Race Condition
-	s3PublicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
-	if err != nil {
-		return nil, app_errors.ErrFailedToCopyVideoToPublic
-	}
-
 	// 4. Подготовка данных для БД
 	publicToken, err := generatePublicToken()
 	if err != nil {
-		// Если генерация токена упала, нужно почистить S3, чтобы не оставлять мусор
-		_ = s.storage.DeletePublicObject(ctx, publicKey)
 		return nil, app_errors.ErrFailedToGeneratePublicToken
 	}
 
@@ -809,19 +809,16 @@ func (s *Service) PublishVideo(ctx context.Context, userID, orgID, role, videoID
 
 	// 5. Транзакционное сохранение в БД (Fix for Data Consistency: Atomic DB update)
 	// TODO Race Condition
-	err = s.db.PublishVideoTx(ctx, publicShare, videoID, s3PublicURL, "published")
+	// We don't have a static S3 public URL anymore, so we pass empty string or API URL.
+	// Let's pass the API URL as public_url for consistency.
+	apiPublicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.config.APIBaseURL, publicToken)
+	err = s.db.PublishVideoTx(ctx, publicShare, videoID, apiPublicURL, "published")
 	if err != nil {
-		// КРИТИЧНО: Если транзакция в БД не прошла, мы должны удалить файл из S3,
-		// иначе он останется там навечно ("сирота"), занимая место и деньги.
-		slog.Error("Failed to commit publish transaction, rolling back S3", "error", err, "video_id", videoID)
-		if delErr := s.storage.DeletePublicObject(ctx, publicKey); delErr != nil {
-			slog.Error("Failed to rollback S3 object after DB failure", "error", delErr, "key", publicKey)
-		}
 		return nil, app_errors.ErrFailedToPublishVideoRecord
 	}
 
 	// Формируем ссылку для ответа API
-	apiPublicURL := fmt.Sprintf("%s/api/v1/video/public?token=%s", s.baseURL, publicToken)
+	apiPublicURL = fmt.Sprintf("%s/api/v1/video/public?token=%s", s.config.APIBaseURL, publicToken)
 
 	return &models.PublishVideoResult{
 		PublicURL:   apiPublicURL,
@@ -897,10 +894,10 @@ func (s *Service) GeneratePublicStreamURL(ctx context.Context, videoID string, e
 	}
 
 	// Генерируем ключ для публичного bucket
-	publicKey := fmt.Sprintf("public/%s/%s/%s", video.OrgID, videoID, video.FileName)
+	// _ := fmt.Sprintf("public/%s/%s/%s", video.OrgID, videoID, video.FileName)
 
 	// Генерируем presigned URL
-	url, err := s.storage.GeneratePresignedDownloadURL(ctx, publicKey, expiration)
+	url, err := s.storage.GeneratePresignedDownloadURL(ctx, video.BucketName, video.StoragePath, expiration)
 	if err != nil {
 		return "", app_errors.ErrFailedToGeneratePresignedURL
 	}
@@ -942,26 +939,6 @@ func (s *Service) RevokePublicShare(ctx context.Context, userID, orgID, role, vi
 	// Проверяем, что видео опубликовано
 	if video.PublishStatus != "published" {
 		return app_errors.ErrVideoNotPublished
-	}
-
-	// Перемещаем видео из публичного bucket в приватный
-	if video.PublicURL != nil && *video.PublicURL != "" {
-		// Формируем ключи для публичного и приватного bucket
-		publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
-		privateKey := video.StoragePath
-
-		// Копируем видео из публичного bucket в приватный (если еще не там)
-		err = s.storage.CopyObject(ctx, s.storage.GetPublicBucket(), publicKey, s.storage.GetPrivateBucket(), privateKey)
-		if err != nil {
-			return app_errors.ErrFailedToCopyVideoToPrivate
-		}
-
-		// Удаляем видео из публичного bucket
-		err = s.storage.DeleteObject(ctx, s.storage.GetPublicBucket(), publicKey)
-		if err != nil {
-			// Логируем ошибку, но продолжаем, так как видео уже скопировано
-			log.Printf("Failed to delete video from public bucket: %v", err)
-		}
 	}
 
 	// Обновляем статус видео в БД

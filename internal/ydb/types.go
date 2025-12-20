@@ -150,6 +150,7 @@ type Video struct {
 	PublishStatus    string     `db:"publish_status"`
 	PublishedAt      *time.Time `db:"published_at"`
 	UploadExpiresAt  *time.Time `db:"upload_expires_at"`
+	BucketName       string     `db:"bucket_name"`
 }
 
 // PublicVideoShare представляет публичный шаринг видео

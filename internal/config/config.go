@@ -12,8 +12,9 @@ type Config struct {
 	S3Endpoint              string
 	AWSAccessKeyID          string
 	AWSSecretAccessKey      string
-	SPObjStorePrivateBucket string
-	SPObjStorePublicBucket  string
+	SPObjStoreBucketFree       string
+	SPObjStoreBucketPro        string
+	SPObjStoreBucketEnterprise string
 
 	// YDB configuration
 	SPYDBEndpoint     string
@@ -74,8 +75,9 @@ func Load() *Config {
 		S3Endpoint:              s3Endpoint,
 		AWSAccessKeyID:          getEnv("SP_SA_KEY_ID", ""),
 		AWSSecretAccessKey:      getEnv("SP_SA_KEY", ""),
-		SPObjStorePrivateBucket: getEnv("SP_OBJSTORE_PRIVATE_BUCKET", "sellerproof-private"),
-		SPObjStorePublicBucket:  getEnv("SP_OBJSTORE_PUBLIC_BUCKET", "sellerproof-public"),
+		SPObjStoreBucketFree:       getEnv("SP_OBJSTORE_BUCKET_FREE", "sub12-ice"),
+		SPObjStoreBucketPro:        getEnv("SP_OBJSTORE_BUCKET_PRO", "sub24-ice"),
+		SPObjStoreBucketEnterprise: getEnv("SP_OBJSTORE_BUCKET_ENTERPRISE", "sub36-ice"),
 
 		// YDB configuration
 		SPYDBEndpoint:     getEnv("SP_YDB_ENDPOINT", ""),

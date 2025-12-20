@@ -1,0 +1,152 @@
+diff --git a/internal/ydb/client.go b/internal/ydb/client.go
+index 1234567..abcdef0 100644
+--- a/internal/ydb/client.go
++++ b/internal/ydb/client.go
+@@ -282,6 +282,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
+ 				file_name Text NOT NULL,
+ 				file_name_search Text NOT NULL,
+ 				file_size_bytes Int64 NOT NULL,
++				bucket_name Text NOT NULL,
+ 				storage_path Text NOT NULL,
+ 				duration_seconds Int32 NOT NULL,
+ 				upload_id Text NOT NULL,
+@@ -428,6 +429,7 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
+ 		DECLARE $title AS Text;
+ 		DECLARE $file_name AS Text;
+ 		DECLARE $file_name_search AS Text;
+ 		DECLARE $file_size_bytes AS Int64;
++		DECLARE $bucket_name AS Text;
+ 		DECLARE $storage_path AS Text;
+ 		DECLARE $duration_seconds AS Int32;
+ 		DECLARE $upload_id AS Text;
+@@ -444,10 +446,10 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
+ 
+ 		REPLACE INTO videos (
+ 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
+-			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
++			bucket_name, storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+ 			public_share_token, share_expires_at, uploaded_at, created_at,
+ 			public_url, publish_status, published_at, upload_expires_at
+-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $public_url, $publish_status, $published_at, $upload_expires_at)
++		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $bucket_name, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $public_url, $publish_status, $published_at, $upload_expires_at)
+ 	`
+ 
+ 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+@@ -460,6 +462,7 @@ func (c *YDBClient) CreateVideo(ctx context.Context, video *Video) error {
+ 				table.ValueParam("$file_name", types.TextValue(video.FileName)),
+ 				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
+ 				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
++				table.ValueParam("$bucket_name", types.TextValue(video.BucketName)),
+ 				table.ValueParam("$storage_path", types.TextValue(video.StoragePath)),
+ 				table.ValueParam("$duration_seconds", types.Int32Value(video.DurationSeconds)),
+ 				table.ValueParam("$upload_id", types.TextValue(video.UploadID)),
+@@ -515,7 +518,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
+ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error) {
+ 	query := `
+ 		DECLARE $video_id AS Text;
+-		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
++		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, bucket_name, storage_path,
+ 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at,
+ 		       public_url, publish_status, published_at, upload_expires_at
+ 		FROM videos WHERE video_id = $video_id
+@@ -553,6 +556,7 @@ func (c *YDBClient) GetVideo(ctx context.Context, videoID string) (*Video, error
+ 				&v.FileName,
+ 				&v.FileNameSearch,
+ 				&v.FileSizeBytes,
++				&v.BucketName,
+ 				&v.StoragePath,
+ 				&v.DurationSeconds,
+ 				&v.UploadID,
+@@ -587,7 +591,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
+ 	query := `
+ 		DECLARE $video_id AS Text;
+ 		DECLARE $org_id AS Text;
+-		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
++		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, bucket_name, storage_path,
+ 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at,
+ 		       public_url, publish_status, published_at, upload_expires_at
+ 		FROM videos
+@@ -627,6 +631,7 @@ func (c *YDBClient) GetVideoByID(ctx context.Context, videoID, orgID string) (*V
+ 				&v.FileName,
+ 				&v.FileNameSearch,
+ 				&v.FileSizeBytes,
++				&v.BucketName,
+ 				&v.StoragePath,
+ 				&v.DurationSeconds,
+ 				&v.UploadID,
+@@ -669,6 +674,7 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
+ 		DECLARE $title AS Text;
+ 		DECLARE $file_name AS Text;
+ 		DECLARE $file_name_search AS Text;
+ 		DECLARE $file_size_bytes AS Int64;
++		DECLARE $bucket_name AS Text;
+ 		DECLARE $storage_path AS Text;
+ 		DECLARE $duration_seconds AS Int32;
+ 		DECLARE $upload_id AS Text;
+@@ -685,10 +691,10 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
+ 
+ 		REPLACE INTO videos (
+ 			video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
+-			storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
++			bucket_name, storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+ 			public_share_token, share_expires_at, uploaded_at, created_at,
+ 			public_url, publish_status, published_at, upload_expires_at
+-		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $public_url, $publish_status, $published_at, $upload_expires_at)
++		) VALUES ($video_id, $org_id, $uploaded_by, $title, $file_name, $file_name_search, $file_size_bytes, $bucket_name, $storage_path, $duration_seconds, $upload_id, $upload_status, $parts_uploaded, $total_parts, $public_share_token, $share_expires_at, $uploaded_at, $created_at, $public_url, $publish_status, $published_at, $upload_expires_at)
+ 	`
+ 
+ 	return c.driver.Table().Do(ctx, func(ctx context.Context, session table.Session) error {
+@@ -701,6 +707,7 @@ func (c *YDBClient) UpdateVideo(ctx context.Context, video *Video) error {
+ 				table.ValueParam("$file_name", types.TextValue(video.FileName)),
+ 				table.ValueParam("$file_name_search", types.TextValue(strings.ToLower(video.FileName))),
+ 				table.ValueParam("$file_size_bytes", types.Int64Value(video.FileSizeBytes)),
++				table.ValueParam("$bucket_name", types.TextValue(video.BucketName)),
+ 				table.ValueParam("$storage_path", types.TextValue(video.StoragePath)),
+ 				table.ValueParam("$duration_seconds", types.Int32Value(video.DurationSeconds)),
+ 				table.ValueParam("$upload_id", types.TextValue(video.UploadID)),
+@@ -849,7 +856,7 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
+ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Video, error) {
+ 	query := `
+ 		DECLARE $token AS Text;
+-		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, storage_path,
++		SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, bucket_name, storage_path,
+ 		       duration_seconds, upload_id, upload_status, parts_uploaded, total_parts, public_share_token, share_expires_at, uploaded_at, created_at,
+ 		       public_url, publish_status, published_at, upload_expires_at
+ 		FROM videos
+@@ -888,6 +895,7 @@ func (c *YDBClient) GetVideoByShareToken(ctx context.Context, token string) (*Vi
+ 				&v.FileName,
+ 				&v.FileNameSearch,
+ 				&v.FileSizeBytes,
++				&v.BucketName,
+ 				&v.StoragePath,
+ 				&v.DurationSeconds,
+ 				&v.UploadID,
+@@ -995,7 +1003,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
+ 	DECLARE $offset AS Uint64;`
+ 
+ 	dataQuery = declares + `
+-	SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes,
++	SELECT video_id, org_id, uploaded_by, title, file_name, file_name_search, file_size_bytes, bucket_name,
+ 	       storage_path, duration_seconds, upload_id, upload_status, parts_uploaded, total_parts,
+ 	       public_share_token, share_expires_at, uploaded_at, created_at,
+ 	       public_url, publish_status, published_at, upload_expires_at
+@@ -1041,6 +1049,7 @@ func (c *YDBClient) SearchVideos(ctx context.Context, orgID, userID, query strin
+ 					&v.FileName,
+ 					&v.FileNameSearch,
+ 					&v.FileSizeBytes,
++					&v.BucketName,
+ 					&v.StoragePath,
+ 					&v.DurationSeconds,
+ 					&v.UploadID,
+diff --git a/internal/ydb/types.go b/internal/ydb/types.go
+index 1234567..abcdef0 100644
+--- a/internal/ydb/types.go
++++ b/internal/ydb/types.go
+@@ -137,6 +137,7 @@ type Video struct {
+ 	FileName         string     `db:"file_name"`
+ 	FileNameSearch   string     `db:"file_name_search"`
+ 	FileSizeBytes    int64      `db:"file_size_bytes"`
++	BucketName       string     `db:"bucket_name"`
+ 	StoragePath      string     `db:"storage_path"`
+ 	DurationSeconds  int32      `db:"duration_seconds"`
+ 	UploadID         string     `db:"upload_id"`

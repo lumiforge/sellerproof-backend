@@ -17,17 +17,17 @@ type StorageProvider struct {
 	mock.Mock
 }
 
-// CleanupObject provides a mock function with given fields: ctx, key
-func (_m *StorageProvider) CleanupObject(ctx context.Context, key string) error {
-	ret := _m.Called(ctx, key)
+// CleanupObject provides a mock function with given fields: ctx, bucket, key
+func (_m *StorageProvider) CleanupObject(ctx context.Context, bucket, key string) error {
+	ret := _m.Called(ctx, bucket, key)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CleanupObject")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, key)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, bucket, key)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -35,17 +35,17 @@ func (_m *StorageProvider) CleanupObject(ctx context.Context, key string) error 
 	return r0
 }
 
-// CompleteMultipartUpload provides a mock function with given fields: ctx, key, uploadID, parts
-func (_m *StorageProvider) CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []types.CompletedPart) error {
-	ret := _m.Called(ctx, key, uploadID, parts)
+// CompleteMultipartUpload provides a mock function with given fields: ctx, bucket, key, uploadID, parts
+func (_m *StorageProvider) CompleteMultipartUpload(ctx context.Context, bucket, key string, uploadID string, parts []types.CompletedPart) error {
+	ret := _m.Called(ctx, bucket, key, uploadID, parts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CompleteMultipartUpload")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []types.CompletedPart) error); ok {
-		r0 = rf(ctx, key, uploadID, parts)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, []types.CompletedPart) error); ok {
+		r0 = rf(ctx, bucket, key, uploadID, parts)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -71,34 +71,6 @@ func (_m *StorageProvider) CopyObject(ctx context.Context, srcBucket string, src
 	return r0
 }
 
-// CopyToPublicBucket provides a mock function with given fields: ctx, sourceKey, destKey
-func (_m *StorageProvider) CopyToPublicBucket(ctx context.Context, sourceKey string, destKey string) (string, error) {
-	ret := _m.Called(ctx, sourceKey, destKey)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CopyToPublicBucket")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
-		return rf(ctx, sourceKey, destKey)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
-		r0 = rf(ctx, sourceKey, destKey)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, sourceKey, destKey)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // DeleteObject provides a mock function with given fields: ctx, bucket, key
 func (_m *StorageProvider) DeleteObject(ctx context.Context, bucket string, key string) error {
 	ret := _m.Called(ctx, bucket, key)
@@ -117,27 +89,9 @@ func (_m *StorageProvider) DeleteObject(ctx context.Context, bucket string, key 
 	return r0
 }
 
-// DeletePublicObject provides a mock function with given fields: ctx, key
-func (_m *StorageProvider) DeletePublicObject(ctx context.Context, key string) error {
-	ret := _m.Called(ctx, key)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeletePublicObject")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, key)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// GeneratePresignedDownloadURL provides a mock function with given fields: ctx, key, lifetime
-func (_m *StorageProvider) GeneratePresignedDownloadURL(ctx context.Context, key string, lifetime time.Duration) (string, error) {
-	ret := _m.Called(ctx, key, lifetime)
+// GeneratePresignedDownloadURL provides a mock function with given fields: ctx, bucket, key, lifetime
+func (_m *StorageProvider) GeneratePresignedDownloadURL(ctx context.Context, bucket, key string, lifetime time.Duration) (string, error) {
+	ret := _m.Called(ctx, bucket, key, lifetime)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GeneratePresignedDownloadURL")
@@ -145,17 +99,17 @@ func (_m *StorageProvider) GeneratePresignedDownloadURL(ctx context.Context, key
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, time.Duration) (string, error)); ok {
-		return rf(ctx, key, lifetime)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) (string, error)); ok {
+		return rf(ctx, bucket, key, lifetime)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, time.Duration) string); ok {
-		r0 = rf(ctx, key, lifetime)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) string); ok {
+		r0 = rf(ctx, bucket, key, lifetime)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, time.Duration) error); ok {
-		r1 = rf(ctx, key, lifetime)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, time.Duration) error); ok {
+		r1 = rf(ctx, bucket, key, lifetime)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -163,9 +117,9 @@ func (_m *StorageProvider) GeneratePresignedDownloadURL(ctx context.Context, key
 	return r0, r1
 }
 
-// GeneratePresignedPartURL provides a mock function with given fields: ctx, key, uploadID, partNumber, lifetime
-func (_m *StorageProvider) GeneratePresignedPartURL(ctx context.Context, key string, uploadID string, partNumber int32, lifetime time.Duration) (string, error) {
-	ret := _m.Called(ctx, key, uploadID, partNumber, lifetime)
+// GeneratePresignedPartURL provides a mock function with given fields: ctx, bucket, key, uploadID, partNumber, lifetime
+func (_m *StorageProvider) GeneratePresignedPartURL(ctx context.Context, bucket, key string, uploadID string, partNumber int32, lifetime time.Duration) (string, error) {
+	ret := _m.Called(ctx, bucket, key, uploadID, partNumber, lifetime)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GeneratePresignedPartURL")
@@ -173,17 +127,17 @@ func (_m *StorageProvider) GeneratePresignedPartURL(ctx context.Context, key str
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, int32, time.Duration) (string, error)); ok {
-		return rf(ctx, key, uploadID, partNumber, lifetime)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, int32, time.Duration) (string, error)); ok {
+		return rf(ctx, bucket, key, uploadID, partNumber, lifetime)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, int32, time.Duration) string); ok {
-		r0 = rf(ctx, key, uploadID, partNumber, lifetime)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, int32, time.Duration) string); ok {
+		r0 = rf(ctx, bucket, key, uploadID, partNumber, lifetime)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, int32, time.Duration) error); ok {
-		r1 = rf(ctx, key, uploadID, partNumber, lifetime)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, int32, time.Duration) error); ok {
+		r1 = rf(ctx, bucket, key, uploadID, partNumber, lifetime)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -191,9 +145,9 @@ func (_m *StorageProvider) GeneratePresignedPartURL(ctx context.Context, key str
 	return r0, r1
 }
 
-// GetObjectHeader provides a mock function with given fields: ctx, key
-func (_m *StorageProvider) GetObjectHeader(ctx context.Context, key string) ([]byte, error) {
-	ret := _m.Called(ctx, key)
+// GetObjectHeader provides a mock function with given fields: ctx, bucket, key
+func (_m *StorageProvider) GetObjectHeader(ctx context.Context, bucket, key string) ([]byte, error) {
+	ret := _m.Called(ctx, bucket, key)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetObjectHeader")
@@ -201,19 +155,19 @@ func (_m *StorageProvider) GetObjectHeader(ctx context.Context, key string) ([]b
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]byte, error)); ok {
-		return rf(ctx, key)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) ([]byte, error)); ok {
+		return rf(ctx, bucket, key)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []byte); ok {
-		r0 = rf(ctx, key)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) []byte); ok {
+		r0 = rf(ctx, bucket, key)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, key)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, bucket, key)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -221,9 +175,9 @@ func (_m *StorageProvider) GetObjectHeader(ctx context.Context, key string) ([]b
 	return r0, r1
 }
 
-// GetObjectSize provides a mock function with given fields: ctx, key
-func (_m *StorageProvider) GetObjectSize(ctx context.Context, key string) (int64, error) {
-	ret := _m.Called(ctx, key)
+// GetObjectSize provides a mock function with given fields: ctx, bucket, key
+func (_m *StorageProvider) GetObjectSize(ctx context.Context, bucket, key string) (int64, error) {
+	ret := _m.Called(ctx, bucket, key)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetObjectSize")
@@ -231,17 +185,17 @@ func (_m *StorageProvider) GetObjectSize(ctx context.Context, key string) (int64
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (int64, error)); ok {
-		return rf(ctx, key)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (int64, error)); ok {
+		return rf(ctx, bucket, key)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) int64); ok {
-		r0 = rf(ctx, key)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) int64); ok {
+		r0 = rf(ctx, bucket, key)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, key)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, bucket, key)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -249,45 +203,9 @@ func (_m *StorageProvider) GetObjectSize(ctx context.Context, key string) (int64
 	return r0, r1
 }
 
-// GetPrivateBucket provides a mock function with no fields
-func (_m *StorageProvider) GetPrivateBucket() string {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetPrivateBucket")
-	}
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// GetPublicBucket provides a mock function with no fields
-func (_m *StorageProvider) GetPublicBucket() string {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetPublicBucket")
-	}
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// InitiateMultipartUpload provides a mock function with given fields: ctx, key, contentType
-func (_m *StorageProvider) InitiateMultipartUpload(ctx context.Context, key string, contentType string) (string, error) {
-	ret := _m.Called(ctx, key, contentType)
+// InitiateMultipartUpload provides a mock function with given fields: ctx, bucket, key, contentType
+func (_m *StorageProvider) InitiateMultipartUpload(ctx context.Context, bucket, key string, contentType string) (string, error) {
+	ret := _m.Called(ctx, bucket, key, contentType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InitiateMultipartUpload")
@@ -295,17 +213,17 @@ func (_m *StorageProvider) InitiateMultipartUpload(ctx context.Context, key stri
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
-		return rf(ctx, key, contentType)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (string, error)); ok {
+		return rf(ctx, bucket, key, contentType)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
-		r0 = rf(ctx, key, contentType)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) string); ok {
+		r0 = rf(ctx, bucket, key, contentType)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, key, contentType)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, bucket, key, contentType)
 	} else {
 		r1 = ret.Error(1)
 	}

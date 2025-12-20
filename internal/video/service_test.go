@@ -8,6 +8,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	storagemocks "github.com/lumiforge/sellerproof-backend/internal/storage/mocks"
 	"github.com/lumiforge/sellerproof-backend/internal/ydb"
+	"github.com/lumiforge/sellerproof-backend/internal/config"
 	ydbmocks "github.com/lumiforge/sellerproof-backend/internal/ydb/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,9 +18,13 @@ func setupVideoService() (*Service, *ydbmocks.Database, *storagemocks.StoragePro
 	mockDB := new(ydbmocks.Database)
 	mockStorage := new(storagemocks.StorageProvider)
 	realRBAC := rbac.NewRBAC()
-	baseURL := "https://api.test.com"
+	cfg := &config.Config{
+		APIBaseURL: "https://api.test.com",
+		SPObjStoreBucketFree: "free-bucket",
+		SPObjStoreBucketPro: "pro-bucket",
+	}
 
-	service := NewService(mockDB, mockStorage, realRBAC, baseURL)
+	service := NewService(mockDB, mockStorage, realRBAC, cfg)
 	return service, mockDB, mockStorage
 }
 
@@ -39,6 +44,7 @@ func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
 		VideoLimitMB:    100,
 		VideoCountLimit: 5,
+		PlanID:          "free",
 		StartedAt:       now,
 	}, nil)
 
@@ -70,14 +76,15 @@ func TestService_GetPartUploadURLs_Success(t *testing.T) {
 		VideoID:      videoID,
 		OrgID:        orgID,
 		UploadedBy:   userID,
+		BucketName:   "free-bucket",
 		StoragePath:  "videos/org-1/video-123/file.mp4",
 		UploadID:     "upload-id-s3",
 		UploadStatus: "pending",
 	}, nil)
 
 	// 2. Генерация ссылок в S3 (вызывается 2 раза для 2 частей)
-	mockStorage.On("GeneratePresignedPartURL", ctx, "videos/org-1/video-123/file.mp4", "upload-id-s3", int32(1), time.Hour).Return("https://s3.com/part1", nil)
-	mockStorage.On("GeneratePresignedPartURL", ctx, "videos/org-1/video-123/file.mp4", "upload-id-s3", int32(2), time.Hour).Return("https://s3.com/part2", nil)
+	mockStorage.On("GeneratePresignedPartURL", ctx, "free-bucket", "videos/org-1/video-123/file.mp4", "upload-id-s3", int32(1), time.Hour).Return("https://s3.com/part1", nil)
+	mockStorage.On("GeneratePresignedPartURL", ctx, "free-bucket", "videos/org-1/video-123/file.mp4", "upload-id-s3", int32(2), time.Hour).Return("https://s3.com/part2", nil)
 
 	// 3. Обновление статуса видео
 	mockDB.On("UpdateVideo", ctx, mock.MatchedBy(func(v *ydb.Video) bool {
@@ -112,6 +119,7 @@ func TestService_CompleteMultipartUpload_MaliciousFile(t *testing.T) {
 		VideoID:      videoID,
 		OrgID:        orgID,
 		UploadedBy:   userID,
+		BucketName:   "free-bucket",
 		StoragePath:  storagePath,
 		UploadID:     "upload-id",
 		UploadStatus: "uploading",
@@ -119,14 +127,14 @@ func TestService_CompleteMultipartUpload_MaliciousFile(t *testing.T) {
 	}, nil)
 
 	// 2. Завершение загрузки в S3 (успешно)
-	mockStorage.On("CompleteMultipartUpload", ctx, storagePath, "upload-id", mock.Anything).Return(nil)
+	mockStorage.On("CompleteMultipartUpload", ctx, "free-bucket", storagePath, "upload-id", mock.Anything).Return(nil)
 
 	// 3. Проверка Magic Bytes: возвращаем заголовок EXE файла (MZ...)
 	maliciousHeader := []byte("MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00")
-	mockStorage.On("GetObjectHeader", ctx, storagePath).Return(maliciousHeader, nil)
+	mockStorage.On("GetObjectHeader", ctx, "free-bucket", storagePath).Return(maliciousHeader, nil)
 
 	// 4. Ожидаем удаление файла из S3
-	mockStorage.On("CleanupObject", ctx, storagePath).Return(nil)
+	mockStorage.On("CleanupObject", ctx, "free-bucket", storagePath).Return(nil)
 
 	// Act
 	parts := []CompletedPart{{PartNumber: 1, ETag: "etag1"}}
@@ -155,6 +163,7 @@ func TestService_CompleteMultipartUpload_Success(t *testing.T) {
 		VideoID:       videoID,
 		OrgID:         orgID,
 		UploadedBy:    userID,
+		BucketName:    "free-bucket",
 		StoragePath:   storagePath,
 		UploadID:      "upload-id",
 		UploadStatus:  "uploading",
@@ -162,10 +171,10 @@ func TestService_CompleteMultipartUpload_Success(t *testing.T) {
 		FileSizeBytes: 1024,
 	}, nil)
 
-	mockStorage.On("CompleteMultipartUpload", ctx, storagePath, "upload-id", mock.Anything).Return(nil)
+	mockStorage.On("CompleteMultipartUpload", ctx, "free-bucket", storagePath, "upload-id", mock.Anything).Return(nil)
 	// Valid MP4
-	mockStorage.On("GetObjectHeader", ctx, storagePath).Return([]byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}, nil)
-	mockStorage.On("GetObjectSize", ctx, storagePath).Return(int64(1024), nil)
+	mockStorage.On("GetObjectHeader", ctx, "free-bucket", storagePath).Return([]byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}, nil)
+	mockStorage.On("GetObjectSize", ctx, "free-bucket", storagePath).Return(int64(1024), nil)
 	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{VideoLimitMB: 100, StartedAt: now}, nil)
 	mockDB.On("GetStorageUsage", ctx, userID, now).Return(int64(0), nil)
@@ -176,7 +185,7 @@ func TestService_CompleteMultipartUpload_Success(t *testing.T) {
 	})).Return(nil)
 
 	// Generate URL
-	mockStorage.On("GeneratePresignedDownloadURL", ctx, storagePath, time.Hour).Return("https://s3/video.mp4", nil)
+	mockStorage.On("GeneratePresignedDownloadURL", ctx, "free-bucket", storagePath, time.Hour).Return("https://s3/video.mp4", nil)
 
 	// Act
 	parts := []CompletedPart{{PartNumber: 1, ETag: "etag1"}}
@@ -246,6 +255,7 @@ func TestService_GetVideoDirect_Success(t *testing.T) {
 		VideoID:       videoID,
 		OrgID:         orgID,
 		UploadedBy:    userID,
+		BucketName:    "free-bucket",
 		Title:         "Test Video",
 		FileName:      "video.mp4",
 		FileSizeBytes: 1024,
