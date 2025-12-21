@@ -1,0 +1,50 @@
+// tests/bruno/Plans/Get All Plans - Verify Data Types.bru
+meta {
+  name: Get All Plans - Verify Data Types
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/api/v1/plans
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("All fields have correct data types", function() {
+    const plans = res.getBody();
+    
+    plans.forEach(plan => {
+      // String fields
+      expect(plan.plan_id).to.be.a('string');
+      expect(plan.name).to.be.a('string');
+      expect(plan.billing_cycle).to.be.a('string');
+      expect(plan.features).to.be.a('string');
+      
+      // Number fields
+      expect(plan.video_limit_mb).to.be.a('number');
+      expect(plan.orders_per_month_limit).to.be.a('number');
+      expect(plan.price_rub).to.be.a('number');
+    });
+  });
+
+  test("No null or undefined values", function() {
+    const plans = res.getBody();
+    
+    plans.forEach(plan => {
+      expect(plan.plan_id).to.not.be.null;
+      expect(plan.plan_id).to.not.be.undefined;
+      expect(plan.name).to.not.be.null;
+      expect(plan.name).to.not.be.undefined;
+    });
+  });
+}
