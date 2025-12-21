@@ -108,19 +108,6 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
 
-	// 7. Проверка доступного места в хранилище
-	// TODO: Race Condition при проверке квоты хранилища
-	usedStorageMB, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
-	if err != nil {
-		return nil, app_errors.ErrFailedToGetStorageUsage
-	}
-
-	fileSizeMB := fileSizeBytes / (1024 * 1024)
-	if usedStorageMB+fileSizeMB > sub.VideoLimitMB {
-
-		return nil, app_errors.ErrVideoSizeLimitExceeded
-	}
-
 	// 8. Проверка лимита количества видео в месяц (если есть)
 	if sub.OrdersPerMonthLimit > 0 {
 		videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
