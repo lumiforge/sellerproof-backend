@@ -1,0 +1,47 @@
+meta {
+  name: Unpaid user accepts invitation to simple user org
+  type: http
+  seq: 42
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organization/invitations/accept
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unpaidUserAccessToken}}
+}
+
+body:json {
+  {
+    "invite_code": "{{unpaidUserInviteCode}}"
+  }
+}
+
+tests {
+  test("Should return 200 OK for successful acceptance", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+    
+    // Validate response structure
+    expect(res.body).to.have.property("membership_id");
+    expect(res.body).to.have.property("org_id");
+    expect(res.body).to.have.property("role");
+    expect(res.body).to.have.property("message");
+    
+    // Validate message content
+    expect(res.body.message.toLowerCase()).to.include("accepted");
+    
+    // Store new tokens if provided
+    if (res.body.access_token) {
+      bru.setEnvVar("unpaidUserAccessToken", res.body.access_token);
+    }
+    if (res.body.refresh_token) {
+      bru.setEnvVar("unpaidUserRefreshToken", res.body.refresh_token);
+    }
+    
+    console.log("Unpaid user accepted invitation to Simple User org");
+  });
+}

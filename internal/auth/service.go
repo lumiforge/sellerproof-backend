@@ -280,9 +280,10 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		maxDate := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
 		subscription = &ydb.Subscription{
-			SubscriptionID:      uuid.New().String(),
-			UserID:              user.UserID,
-			OrgID:               org.OrgID,
+			SubscriptionID: uuid.New().String(),
+			UserID:         user.UserID,
+			// TODO
+			// OrgID:               org.OrgID,
 			PlanID:              freePlan.PlanID,
 			VideoLimitMB:        freePlan.VideoLimitMB,
 			OrdersPerMonthLimit: freePlan.OrdersPerMonthLimit,

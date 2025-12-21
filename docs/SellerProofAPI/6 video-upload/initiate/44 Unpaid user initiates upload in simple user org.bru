@@ -1,0 +1,52 @@
+meta {
+  name: Unpaid user initiates upload in simple user org
+  type: http
+  seq: 44
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unpaidUserAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "unpaid-user-video-in-simple-org.mp4",
+    "file_size_bytes": 10485760,
+    "duration_seconds": 120
+  }
+}
+
+tests {
+  test("Should return 200 OK - unpaid user can upload in Simple User org with active subscription", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+    
+    // Validate all required fields exist
+    expect(res.body).to.have.property("video_id");
+    expect(res.body).to.have.property("upload_id");
+    expect(res.body).to.have.property("recommended_part_size_mb");
+    
+    // Validate field types
+    expect(res.body.video_id).to.be.a("string");
+    expect(res.body.upload_id).to.be.a("string");
+    expect(res.body.recommended_part_size_mb).to.be.a("number");
+    
+    // Validate field values are not empty
+    expect(res.body.video_id).to.not.equal("");
+    expect(res.body.upload_id).to.not.equal("");
+    expect(res.body.recommended_part_size_mb).to.be.at.least(1);
+    
+    // Store values for potential cleanup
+    bru.setEnvVar("unpaidUserVideoIdInSimpleOrg", res.body.video_id);
+    bru.setEnvVar("unpaidUserUploadIdInSimpleOrg", res.body.upload_id);
+    
+    console.log("✅ Unpaid user successfully initiated upload in Simple User org");
+    console.log("Video ID:", res.body.video_id);
+  });
+}

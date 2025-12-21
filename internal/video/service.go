@@ -73,73 +73,89 @@ type DeleteVideoResult struct {
 
 // InitiateMultipartUploadDirect initiates multipart upload with direct parameters
 func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, orgID, title, fileName string, fileSizeBytes int64, durationSeconds int32) (*InitiateMultipartUploadResult, error) {
+	// 1. Валидация типа файла (быстрая проверка)
+	contentType := validation.GetContentTypeFromExtension(fileName)
+	if contentType == "" || !validation.IsVideoContentType(contentType) {
+		return nil, app_errors.ErrInvalidFileType
+	}
 
-	// Получаем организацию для определения владельца
+	// 2. Проверка технического лимита на размер ОДНОГО файла
+	maxFileSizeBytes := s.config.MaxVideoFileSizeMB * 1024 * 1024
+	if fileSizeBytes > maxFileSizeBytes {
+		return nil, app_errors.ErrVideoSizeLimitExceeded
+	}
+
+	// 3. Получаем организацию для определения владельца
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetOrganizationInfo
 	}
 
-	// Проверка квоты
+	// 4. Получаем подписку владельца организации
 	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 	if err != nil {
-
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
-	// check expiration
-	if sub.ExpiresAt.Before(time.Now()) {
+	// 5. Проверка активности и срока действия подписки
+	if !sub.IsActive || sub.ExpiresAt.Before(time.Now()) {
+
 		return nil, app_errors.ErrSubscriptionExpired
 	}
 
-	// Check VideoLimitMB
-	limitBytes := sub.VideoLimitMB * 1024 * 1024
-	if fileSizeBytes > limitBytes {
+	// 6. Проверка лимита хранилища (free plan = 0 MB)
+	if sub.VideoLimitMB == 0 {
 		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
 
-	maxFileSizeBytes := sub.VideoLimitMB * 1024 * 1024
-	if fileSizeBytes >= maxFileSizeBytes {
-		return nil, app_errors.ErrVideoSizeLimitExceeded
-	}
-
-	// TODO Race Condition при проверке квоты хранилища
-	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
+	// 7. Проверка доступного места в хранилище
+	// TODO: Race Condition при проверке квоты хранилища
+	usedStorageMB, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
-
 		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
-	if sub.OrdersPerMonthLimit > 0 && videoCount >= sub.OrdersPerMonthLimit {
-		return nil, fmt.Errorf("video count limit exceeded")
+	fileSizeMB := fileSizeBytes / (1024 * 1024)
+	if usedStorageMB+fileSizeMB > sub.VideoLimitMB {
+
+		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
 
-	videoID := uuid.New().String()
-	objectKey := fmt.Sprintf("videos/%s/%s/%s", orgID, videoID, fileName)
+	// 8. Проверка лимита количества видео в месяц (если есть)
+	if sub.OrdersPerMonthLimit > 0 {
+		videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
+		if err != nil {
+			return nil, app_errors.ErrFailedToGetStorageUsage
+		}
 
-	contentType := validation.GetContentTypeFromExtension(fileName)
-
-	if contentType == "" || !validation.IsVideoContentType(contentType) {
-		return nil, app_errors.ErrInvalidFileType
+		if videoCount >= sub.OrdersPerMonthLimit {
+			return nil, fmt.Errorf("video count limit exceeded")
+		}
 	}
 
-	// Determine bucket based on plan
+	// 9. Определяем bucket на основе плана
 	bucket := s.config.SPObjStoreBucketStart // Default fallback
 	switch sub.PlanID {
 	case "pro":
 		bucket = s.config.SPObjStoreBucketPro
 	case "business":
 		bucket = s.config.SPObjStoreBucketBusiness
-	case "start":
+	case "start", "free":
 		bucket = s.config.SPObjStoreBucketStart
 	}
 
+	// 10. Генерируем videoID и путь в S3
+	videoID := uuid.New().String()
+	objectKey := fmt.Sprintf("videos/%s/%s/%s", orgID, videoID, fileName)
+
+	// 11. Инициируем multipart upload в S3
+
 	uploadID, err := s.storage.InitiateMultipartUpload(ctx, bucket, objectKey, contentType)
 	if err != nil {
-
 		return nil, app_errors.ErrFailedToInitiateS3Upload
 	}
 
+	// 12. Создаём запись в БД
 	fileNameSearch := strings.ToLower(fileName)
 	uploadStatus := "pending"
 
@@ -380,7 +396,8 @@ func (s *Service) CompleteMultipartUploadDirect(ctx context.Context, userID, org
 
 	// Check VideoLimitMB
 	limitBytes := sub.VideoLimitMB * 1024 * 1024
-	if actualSize > limitBytes {
+	fileMaxSizeBytes := s.config.MaxVideoFileSizeMB * 1024 * 1024
+	if actualSize > limitBytes || actualSize > fileMaxSizeBytes {
 		slog.Error("Video size limit exceeded", "user_id", userID, "video_id", videoID, "size", actualSize, "limit", limitBytes)
 		_ = s.storage.CleanupObject(ctx, video.BucketName, storagePath)
 		return nil, app_errors.ErrVideoSizeLimitExceeded

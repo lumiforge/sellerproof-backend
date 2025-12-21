@@ -1,0 +1,50 @@
+meta {
+  name: Unpaid user switches to simple user org
+  type: http
+  seq: 43
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unpaidUserAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{simpleUserOrgId}}",
+    "refresh_token": "{{unpaidUserRefreshToken}}"
+  }
+}
+
+tests {
+  test("Should return 200 OK and new tokens for successful org switch", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+    
+    // Validate all required fields exist
+    expect(res.body).to.have.property("access_token");
+    expect(res.body).to.have.property("refresh_token");
+    expect(res.body).to.have.property("expires_at");
+    
+    // Validate field types
+    expect(res.body.access_token).to.be.a("string");
+    expect(res.body.refresh_token).to.be.a("string");
+    expect(res.body.expires_at).to.be.a("number");
+    
+    // Validate field values are not empty
+    expect(res.body.access_token).to.not.equal("");
+    expect(res.body.refresh_token).to.not.equal("");
+    expect(res.body.expires_at).to.be.at.least(Date.now() / 1000);
+    
+    // Store new tokens
+    bru.setEnvVar("unpaidUserAccessToken", res.body.access_token);
+    bru.setEnvVar("unpaidUserRefreshToken", res.body.refresh_token);
+    
+    console.log("✅ Unpaid user switched to Simple User org successfully");
+  });
+}

@@ -59,9 +59,10 @@ type Plan struct {
 
 // Subscription представляет подписку
 type Subscription struct {
-	SubscriptionID      string    `db:"subscription_id"`
-	UserID              string    `db:"user_id"`
-	OrgID               string    `db:"org_id"`
+	SubscriptionID string `db:"subscription_id"`
+	UserID         string `db:"user_id"`
+	// TODO
+	// OrgID               string    `db:"org_id"`
 	PlanID              string    `db:"plan_id"`
 	VideoLimitMB        int64     `db:"video_limit_mb"`
 	OrdersPerMonthLimit int64     `db:"orders_per_month_limit"`

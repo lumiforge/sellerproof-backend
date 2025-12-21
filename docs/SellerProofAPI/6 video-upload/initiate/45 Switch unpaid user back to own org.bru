@@ -1,0 +1,40 @@
+meta {
+  name: Switch unpaid user back to own org
+  type: http
+  seq: 45
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/switch-organization
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unpaidUserAccessToken}}
+}
+
+body:json {
+  {
+    "org_id": "{{unpaidUserOrgId}}",
+    "refresh_token": "{{unpaidUserRefreshToken}}"
+  }
+}
+
+tests {
+  test("Should return 200 OK and new tokens for successful org switch", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("object");
+    
+    // Validate all required fields exist
+    expect(res.body).to.have.property("access_token");
+    expect(res.body).to.have.property("refresh_token");
+    expect(res.body).to.have.property("expires_at");
+    
+    // Store new tokens
+    bru.setEnvVar("unpaidUserAccessToken", res.body.access_token);
+    bru.setEnvVar("unpaidUserRefreshToken", res.body.refresh_token);
+    
+    console.log("✅ Unpaid user switched back to own org");
+  });
+}

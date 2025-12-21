@@ -290,7 +290,6 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 			CREATE TABLE subscriptions (
 				subscription_id Text NOT NULL,
 				user_id Text NOT NULL,
-				org_id Text NOT NULL,
 				plan_id Text NOT NULL,
 				video_limit_mb Int64 NOT NULL,
 				orders_per_month_limit Int64 NOT NULL,
@@ -301,8 +300,7 @@ func (c *YDBClient) createTables(ctx context.Context) error {
 				created_at Timestamp NOT NULL,
 				updated_at Timestamp NOT NULL,
 				PRIMARY KEY (subscription_id),
-				INDEX user_idx GLOBAL ON (user_id),
-				INDEX org_idx GLOBAL ON (org_id)
+				INDEX user_idx GLOBAL ON (user_id)
 			)
 		`
 		err := c.executeSchemeQuery(ctx, query)
@@ -1125,10 +1123,10 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 
 // CreateSubscription создает новую подписку
 func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscription) error {
+	// TODO
 	query := `
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $org_id AS Text;
 		DECLARE $plan_id AS Text;
 		DECLARE $video_limit_mb AS Int64;
 		DECLARE $orders_per_month_limit AS Int64;
@@ -1140,9 +1138,9 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $updated_at AS Timestamp;
 
 		REPLACE INTO subscriptions (
-			subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
+			subscription_id, user_id, plan_id, video_limit_mb, orders_per_month_limit,
 			is_active, started_at, expires_at, billing_cycle, created_at, updated_at
-		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
+		) VALUES ($subscription_id, $user_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
 	`
 
 	now := time.Now()
@@ -1158,7 +1156,6 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 			table.NewQueryParameters(
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
-				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
 				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$orders_per_month_limit", types.Int64Value(subscription.OrdersPerMonthLimit)),
@@ -1175,10 +1172,12 @@ func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscr
 }
 
 // GetSubscriptionByUser получает активную подписку пользователя
+// в интерфейсе есть только один метод получения подписки
+// подписка привязана к пользователю (владельцу), а не к организации
 func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*Subscription, error) {
 	query := `
 		DECLARE $user_id AS Text;
-		SELECT subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
+		SELECT subscription_id, user_id, plan_id, video_limit_mb, orders_per_month_limit,
 			   is_active, started_at, expires_at, billing_cycle, created_at, updated_at
 		FROM subscriptions
 		WHERE user_id = $user_id AND is_active = true AND expires_at > CurrentUtcTimestamp()
@@ -1207,7 +1206,6 @@ func (c *YDBClient) GetSubscriptionByUser(ctx context.Context, userID string) (*
 			err := res.ScanNamed(
 				named.Required("subscription_id", &subscription.SubscriptionID),
 				named.Required("user_id", &subscription.UserID),
-				named.Required("org_id", &subscription.OrgID),
 				named.Required("plan_id", &subscription.PlanID),
 				named.Required("video_limit_mb", &subscription.VideoLimitMB),
 				named.Required("orders_per_month_limit", &subscription.OrdersPerMonthLimit),
@@ -2390,7 +2388,6 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 	query := `
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
-		DECLARE $org_id AS Text;
 		DECLARE $plan_id AS Text;
 		DECLARE $video_limit_mb AS Int64;
 		DECLARE $orders_per_month_limit AS Int64;
@@ -2402,9 +2399,9 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 		DECLARE $updated_at AS Timestamp;
 
 		REPLACE INTO subscriptions (
-			subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
+			subscription_id, user_id, plan_id, video_limit_mb, orders_per_month_limit,
 			is_active, started_at, expires_at, billing_cycle, created_at, updated_at
-		) VALUES ($subscription_id, $user_id, $org_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
+		) VALUES ($subscription_id, $user_id, $plan_id, $video_limit_mb, $orders_per_month_limit, $is_active, $started_at, $expires_at, $billing_cycle, $created_at, $updated_at)
 	`
 
 	subscription.UpdatedAt = time.Now()
@@ -2414,7 +2411,6 @@ func (c *YDBClient) UpdateSubscription(ctx context.Context, subscription *Subscr
 			table.NewQueryParameters(
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$user_id", types.TextValue(subscription.UserID)),
-				table.ValueParam("$org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
 				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$orders_per_month_limit", types.Int64Value(subscription.OrdersPerMonthLimit)),
@@ -3627,7 +3623,6 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			declarations.WriteString(`
 		DECLARE $subscription_id AS Text;
 		DECLARE $sub_user_id AS Text;
-		DECLARE $sub_org_id AS Text;
 		DECLARE $plan_id AS Text;
 		DECLARE $video_limit_mb AS Int64;
 		DECLARE $orders_per_month_limit AS Int64;
@@ -3642,7 +3637,6 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 			paramOpts = append(paramOpts,
 				table.ValueParam("$subscription_id", types.TextValue(subscription.SubscriptionID)),
 				table.ValueParam("$sub_user_id", types.TextValue(subscription.UserID)),
-				table.ValueParam("$sub_org_id", types.TextValue(subscription.OrgID)),
 				table.ValueParam("$plan_id", types.TextValue(subscription.PlanID)),
 				table.ValueParam("$video_limit_mb", types.Int64Value(subscription.VideoLimitMB)),
 				table.ValueParam("$orders_per_month_limit", types.Int64Value(subscription.OrdersPerMonthLimit)),
@@ -3704,10 +3698,10 @@ func (c *YDBClient) RegisterUserTx(ctx context.Context, user *User, org *Organiz
 		if subscription != nil {
 			statements.WriteString(`
 		INSERT INTO subscriptions (
-			subscription_id, user_id, org_id, plan_id, video_limit_mb, orders_per_month_limit,
+			subscription_id, user_id, plan_id, video_limit_mb, orders_per_month_limit,
 			is_active, started_at, expires_at, billing_cycle, created_at, updated_at
 		) VALUES (
-			$subscription_id, $sub_user_id, $sub_org_id, $plan_id, $video_limit_mb, $orders_per_month_limit,
+			$subscription_id, $sub_user_id, $plan_id, $video_limit_mb, $orders_per_month_limit,
 			$sub_is_active, $started_at, $expires_at, $billing_cycle, $sub_created_at, $sub_updated_at
 		);
 `)
@@ -3799,7 +3793,6 @@ func (c *YDBClient) DeleteOrganizationTx(ctx context.Context, orgID string) erro
 		DELETE FROM organizations WHERE org_id = $org_id;
 		DELETE FROM memberships WHERE org_id = $org_id;
 		DELETE FROM invitations WHERE org_id = $org_id;
-		DELETE FROM subscriptions WHERE org_id = $org_id;
 		DELETE FROM videos WHERE org_id = $org_id;
 	`
 

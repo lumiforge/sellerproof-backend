@@ -25,6 +25,6 @@ body:json {
 tests {
   test("Should return 403 Forbidden for unpaid subscription", function() {
     expect(res.status).to.equal(403);
-    expect(res.body.message).to.include("failed to get subscription");
+    expect(res.body.message).to.include("video size limit exceeded");
   });
 }

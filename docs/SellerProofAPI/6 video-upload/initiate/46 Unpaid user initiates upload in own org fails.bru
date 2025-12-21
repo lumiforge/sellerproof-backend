@@ -1,0 +1,61 @@
+meta {
+  name: Unpaid user initiates upload in own org fails
+  type: http
+  seq: 46
+}
+
+post {
+  url: {{baseUrl}}/api/v1/video/upload/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{unpaidUserAccessToken}}
+}
+
+body:json {
+  {
+    "file_name": "unpaid-user-video-in-own-org.mp4",
+    "file_size_bytes": 1048576,
+    "duration_seconds": 60
+  }
+}
+
+tests {
+  test("Should return 403 Forbidden - unpaid user cannot upload in own org without subscription", function() {
+    expect(res.status).to.equal(403);
+    expect(res.body).to.be.an("object");
+    
+    // Validate error response structure
+    expect(res.body).to.have.property("error");
+    expect(res.body).to.have.property("message");
+    expect(res.body).to.have.property("code");
+    
+    // Validate field types
+    expect(res.body.error).to.be.a("string");
+    expect(res.body.message).to.be.a("string");
+    expect(res.body.code).to.be.a("number");
+    
+    // Validate error content
+    expect(res.body.error).to.equal("Forbidden");
+    expect(res.body.code).to.equal(403);
+    
+    // Check for subscription-related error messages
+    const validErrorMessages = [
+      "video size limit exceeded",
+      "subscription expired",
+      "failed to get subscription",
+      "subscription is not active"
+    ];
+    
+    const hasValidError = validErrorMessages.some(msg => 
+      res.body.message.toLowerCase().includes(msg.toLowerCase())
+    );
+    
+    expect(hasValidError).to.be.true;
+    
+    console.log("❌ Unpaid user correctly blocked from uploading in own org");
+    console.log("Error:", res.body.message);
+  });
+}
