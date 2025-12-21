@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"runtime"
@@ -1837,8 +1836,6 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole: org_id", claims.OrgID, "user_id", claims.UserID)
 	// Get user_id from context (set by router)
 	userID, ok := r.Context().Value("path_user_id").(string)
 	if !ok {
@@ -1941,8 +1938,6 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: remove this after testing
-	log.Println("UpdateMemberStatus: org_id", claims.OrgID, "admin_user_id", claims.UserID, "target_user_id", userID)
 	err := s.authService.UpdateMemberStatus(r.Context(), claims.UserID, claims.OrgID, userID, req.Status)
 	if err != nil {
 		errorMsg := err.Error()
@@ -2642,25 +2637,20 @@ func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) 
 // @Router		/organization/subscription [get]
 func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
-	// TODO: remove this after testing
-	log.Println("GetSubscription: orgID", claims.OrgID)
+
 	if !ok {
-		// TODO: remove this after testing
-		log.Println("GetSubscription: User not authenticated")
+
 		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	resp, err := s.authService.GetOrganizationSubscription(r.Context(), claims.OrgID)
 	if err != nil {
-		// TODO: remove this after testing
-		log.Println("GetSubscription: Failed to get subscription", "error", err.Error())
 		slog.Error("GetSubscription: Failed to get subscription", "error", err.Error(), "org_id", claims.OrgID)
 		s.writeError(w, http.StatusInternalServerError, "Failed to get subscription details")
 		return
 	}
-	// TODO: remove this after testing
-	log.Println("GetSubscription: resp", resp)
+
 	s.writeJSON(w, http.StatusOK, resp)
 }
 

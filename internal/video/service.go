@@ -487,128 +487,6 @@ func (s *Service) GetVideoDirect(ctx context.Context, userID, orgID, role, video
 	}, nil
 }
 
-// // CreatePublicShareLinkDirect creates public share link with direct parameters
-// func (s *Service) CreatePublicShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string, expiresInHours int32) (*CreatePublicShareLinkResult, error) {
-// 	video, err := s.db.GetVideo(ctx, videoID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if video.OrgID != orgID {
-// 		return nil, fmt.Errorf("access denied")
-// 	}
-
-// 	// RBAC: User can only share own videos
-// 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-// 		return nil, fmt.Errorf("access denied: can only share own videos")
-// 	}
-
-// 	// var expiresAt int64
-// 	// if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() {
-// 	// 	expiresAt = video.ShareExpiresAt.Unix()
-// 	// }
-
-// 	token := generateToken(32)
-// 	video.PublicShareToken = &token
-// 	if expiresInHours > 0 {
-// 		t := time.Now().Add(time.Duration(expiresInHours) * time.Hour)
-// 		video.ShareExpiresAt = &t
-// 	} else {
-// 		video.ShareExpiresAt = nil
-// 	}
-
-// 	if err := s.db.UpdateVideo(ctx, video); err != nil {
-// 		return nil, err
-// 	}
-
-// 	// Генерируем pre-signed URL на S3 сразу
-// 	// TODO HARD
-// 	duration := time.Duration(expiresInHours) * time.Hour
-// 	if duration == 0 {
-// 		duration = 24 * time.Hour // по умолчанию 24 часа
-// 	}
-
-// 	presignedURL, err := s.storage.GeneratePresignedDownloadURL(
-// 		ctx,
-// 		video.StoragePath,
-// 		duration,
-// 	)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to generate presigned URL: %w", err)
-// 	}
-
-// 	return &CreatePublicShareLinkResult{
-// 		ShareURL:  presignedURL, // Прямая ссылка на S3
-// 		ExpiresAt: time.Now().Add(duration).Unix(),
-// 	}, nil
-
-// 	// return &CreatePublicShareLinkResult{
-// 	// 	ShareURL:  fmt.Sprintf("https://sellerproof.ru/share/%s", token),
-// 	// 	ExpiresAt: expiresAt,
-// 	// }, nil
-// }
-
-// // CreatePublicShareLinkResult represents the result of creating public share link
-// type CreatePublicShareLinkResult struct {
-// 	ShareURL  string `json:"share_url"`
-// 	ExpiresAt int64  `json:"expires_at"`
-// }
-
-// // GetPublicVideoDirect gets public video with direct parameters
-// func (s *Service) GetPublicVideoDirect(ctx context.Context, shareToken string) (*GetPublicVideoResult, error) {
-// 	video, err := s.db.GetVideoByShareToken(ctx, shareToken)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("video not found or link invalid")
-// 	}
-
-// 	if video.ShareExpiresAt != nil && !video.ShareExpiresAt.IsZero() && time.Now().After(*video.ShareExpiresAt) {
-// 		return nil, fmt.Errorf("link expired")
-// 	}
-
-// 	storagePath := video.StoragePath
-// 	url, err := s.storage.GeneratePresignedDownloadURL(ctx, storagePath, 1*time.Hour)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	fileName := video.FileName
-// 	fileSize := video.FileSizeBytes
-// 	return &GetPublicVideoResult{
-// 		FileName:    fileName,
-// 		FileSize:    fileSize,
-// 		DownloadURL: url,
-// 		ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
-// 	}, nil
-// }
-
-// // GetPublicVideoResult represents the result of getting public video
-// type GetPublicVideoResult struct {
-// 	FileName    string `json:"file_name"`
-// 	FileSize    int64  `json:"file_size"`
-// 	DownloadURL string `json:"download_url"`
-// 	ExpiresAt   int64  `json:"expires_at"`
-// }
-
-// // RevokeShareLinkDirect revokes share link with direct parameters
-// func (s *Service) RevokeShareLinkDirect(ctx context.Context, userID, orgID, role, videoID string) error {
-// 	video, err := s.db.GetVideo(ctx, videoID)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if video.OrgID != orgID {
-// 		return fmt.Errorf("access denied")
-// 	}
-
-// 	// RBAC: User can only revoke own videos
-// 	if rbac.Role(role) == rbac.RoleUser && video.UploadedBy != userID {
-// 		return fmt.Errorf("access denied: can only revoke own videos")
-// 	}
-
-// 	video.PublicShareToken = nil
-// 	video.ShareExpiresAt = nil
-
-// 	return s.db.UpdateVideo(ctx, video)
-// }
-
 // SearchVideosDirect searches videos with direct parameters
 func (s *Service) SearchVideosDirect(ctx context.Context, userID, orgID, role, query string, page, pageSize int32) (*SearchVideosResult, error) {
 	if !s.rbac.CheckPermissionWithRole(rbac.Role(role), rbac.PermissionVideoSearch) {
@@ -702,51 +580,6 @@ func (s *Service) GetPrivateDownloadURL(ctx context.Context, userID, orgID, role
 		ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
 	}, nil
 }
-
-// PublishVideoToPublicBucket публикует видео в публичный bucket
-// func (s *Service) PublishVideoToPublicBucket(ctx context.Context, userID, orgID, role, videoID string) (*models.PublishVideoResult, error) {
-// 	// Проверка прав - только admin и manager могут публиковать
-// 	if rbac.Role(role) != rbac.RoleAdmin && rbac.Role(role) != rbac.RoleManager {
-// 		return nil, app_errors.ErrOnlyAdminsAndManagersCanPublish
-// 	}
-
-// 	video, err := s.db.GetVideo(ctx, videoID)
-// 	if err != nil {
-// 		return nil, app_errors.ErrVideoNotFound
-// 	}
-
-// 	if video.OrgID != orgID {
-// 		return nil, app_errors.ErrAccessDenied
-// 	}
-
-// 	// Проверяем, не опубликован ли уже
-// 	if video.PublicURL != nil && *video.PublicURL != "" {
-// 		return &models.PublishVideoResult{
-// 			PublicURL: *video.PublicURL,
-// 			Message:   "Video already published",
-// 		}, nil
-// 	}
-
-// 	// Копируем файл в публичный bucket
-// 	publicKey := fmt.Sprintf("public/%s/%s/%s", orgID, videoID, video.FileName)
-// 	publicURL, err := s.storage.CopyToPublicBucket(ctx, video.StoragePath, publicKey)
-// 	if err != nil {
-// 		return nil, app_errors.ErrFailedToPublishVideo
-// 	}
-
-// 	// Сохраняем публичный URL в БД
-// 	video.PublicURL = &publicURL
-// 	video.PublishedAt = aws.Time(time.Now())
-// 	video.PublishStatus = "published"
-// 	if err := s.db.UpdateVideo(ctx, video); err != nil {
-// 		return nil, app_errors.ErrFailedToUpdateVideoRecord
-// 	}
-
-// 	return &models.PublishVideoResult{
-// 		PublicURL: publicURL,
-// 		Message:   "Video published successfully",
-// 	}, nil
-// }
 
 // generatePublicToken генерирует криптографически стойкий публичный токен
 func generatePublicToken() (string, error) {
@@ -902,9 +735,9 @@ func (s *Service) GetPublicVideo(ctx context.Context, token string) (*models.Pub
 	response := &models.PublicVideoResponse{
 		VideoID:         video.VideoID,
 		Title:           displayTitle,
-		Description:     "", // TODO: добавить description в Video
+		Description:     "",
 		FileName:        video.FileName,
-		ThumbnailURL:    "", // TODO: генерировать thumbnail
+		ThumbnailURL:    "",
 		DurationSeconds: int(video.DurationSeconds),
 		FileSizeBytes:   video.FileSizeBytes,
 		StreamURL:       streamURL,

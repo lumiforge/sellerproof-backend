@@ -280,10 +280,8 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 		maxDate := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
 		subscription = &ydb.Subscription{
-			SubscriptionID: uuid.New().String(),
-			UserID:         user.UserID,
-			// TODO
-			// OrgID:               org.OrgID,
+			SubscriptionID:      uuid.New().String(),
+			UserID:              user.UserID,
 			PlanID:              freePlan.PlanID,
 			VideoLimitMB:        freePlan.VideoLimitMB,
 			OrdersPerMonthLimit: freePlan.OrdersPerMonthLimit,
@@ -433,8 +431,6 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	user, err := s.db.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		// TODO delete me
-		log.Println("Error in login 1", err)
 
 		return nil, app_errors.ErrInvalidCredentials
 	}
@@ -450,8 +446,6 @@ func (s *Service) Login(ctx context.Context, req *models.LoginRequest) (*models.
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
-		// TODO delete me
-		log.Println("Error in login 2", err)
 		return nil, app_errors.ErrInvalidCredentials
 	}
 
@@ -877,8 +871,7 @@ func (s *Service) SwitchOrganization(ctx context.Context, userID string, req *mo
 	// 2. Проверка прав доступа к новой организации
 	// Проверяем, что пользователь состоит в этой организации
 	membership, err := s.db.GetMembership(ctx, userID, req.OrgID)
-	// TODO DELETE ME
-	log.Printf("Error in switch-organization: %v, userID: %v, orgID: %v", err, userID, req.OrgID)
+
 	if err != nil {
 		return nil, app_errors.ErrMembershipNotFound
 	}
@@ -954,8 +947,7 @@ func (s *Service) hashToken(token string) string {
 
 // InviteUser приглашает пользователя в организацию
 func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *models.InviteUserRequest) (*models.InviteUserResponse, error) {
-	// TODO: remove this after testing
-	log.Println("InviteUser input", "inviter_id", inviterID, "org_id", orgID, "email", req.Email, "role", req.Role)
+
 	// Валидация входных данных
 	if req.Email == "" {
 		return nil, app_errors.ErrEmailRequired
@@ -987,8 +979,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 
 	// Проверяем, что приглашающий является admin или manager в организации
 	inviterMembership, err := s.db.GetMembership(ctx, inviterID, orgID)
-	// TODO: remove this after testing
-	log.Println("InviteUser GetMembership(inviter) result", "membership", inviterMembership, "error", err)
+
 	if err != nil {
 		return nil, app_errors.ErrInviterNotMember
 	}
@@ -1004,8 +995,7 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 
 	// Проверяем, что пользователь еще не приглашен в эту организацию
 	existingInvitation, err := s.db.GetInvitationByEmail(ctx, orgID, req.Email)
-	// TODO: remove this after testing
-	log.Println("InviteUser GetInvitationByEmail result", "invitation", existingInvitation, "error", err)
+
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		slog.Error("Failed to check existing invitations", "error", err)
 		return nil, app_errors.ErrFailedToCheckExistingInvitations
@@ -1016,12 +1006,10 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	}
 
 	existingUser, err := s.db.GetUserByEmail(ctx, req.Email)
-	// TODO: remove this after testing
-	log.Println("InviteUser GetUserByEmail result", "user", existingUser, "error", err)
+
 	if err == nil && existingUser != nil {
 		membership, _ := s.db.GetMembership(ctx, existingUser.UserID, orgID)
-		// TODO: remove this after testing
-		log.Println("InviteUser GetMembership(existingUser) result", "membership", membership)
+
 		if membership != nil {
 			return nil, app_errors.ErrUserIsAlreadyMember
 		}
@@ -1043,11 +1031,8 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 		CreatedAt:    time.Now(),
 	}
 
-	// TODO: remove this after testing
-	log.Println("InviteUser before CreateInvitation", "invitation", invitation)
 	err = s.db.CreateInvitation(ctx, invitation)
-	// TODO: remove this after testing
-	log.Println("InviteUser CreateInvitation result", "error", err)
+
 	if err != nil {
 		return nil, app_errors.ErrFailedToCreateInvitation
 	}
@@ -1066,8 +1051,6 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 	// 	}
 	// }
 
-	// TODO: remove this after testing
-	log.Println("InviteUser response", "invitation_id", invitation.InvitationID, "invite_code", inviteCode, "expires_at", invitation.ExpiresAt.Unix(), "email", req.Email, "role", req.Role)
 	return &models.InviteUserResponse{
 		InvitationID: invitation.InvitationID,
 		InviteCode:   inviteCode,
@@ -1079,16 +1062,14 @@ func (s *Service) InviteUser(ctx context.Context, inviterID, orgID string, req *
 
 // AcceptInvitation принимает приглашение в организацию
 func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *models.AcceptInvitationRequest) (*models.AcceptInvitationResponse, error) {
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation input", "user_id", userID, "invite_code", req.InviteCode)
+
 	if req.InviteCode == "" {
 		return nil, app_errors.ErrInviteCodeRequired
 	}
 
 	// Получаем приглашение по коду
 	invitation, err := s.db.GetInvitationByCode(ctx, req.InviteCode)
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation GetInvitationByCode result", "invitation", invitation, "error", err)
+
 	if err != nil {
 		return nil, app_errors.ErrInvalidInviteCode
 	}
@@ -1101,15 +1082,13 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	// Проверяем срок действия приглашения
 	if time.Now().After(invitation.ExpiresAt) {
 		err = s.db.UpdateInvitationStatus(ctx, invitation.InvitationID, "expired")
-		// TODO: remove this after testing
-		log.Println("AcceptInvitation UpdateInvitationStatus(expired) result", "error", err)
+
 		return nil, app_errors.ErrInvitationExpired
 	}
 
 	// Получаем пользователя
 	user, err := s.db.GetUserByID(ctx, userID)
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation GetUserByID result", "user", user, "error", err)
+
 	if err != nil {
 		return nil, app_errors.ErrUserNotFound
 	}
@@ -1124,8 +1103,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	}
 
 	membership, err := s.db.GetMembership(ctx, userID, invitation.OrgID)
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation GetMembership result", "membership", membership, "error", err)
+
 	if err != nil {
 		// Если ошибка - membership не найден, продолжаем
 	} else if membership != nil && membership.Status == "active" {
@@ -1146,8 +1124,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 	}
 
 	err = s.db.CreateMembership(ctx, newMembership)
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation CreateMembership result", "membership_id", newMembership.MembershipID, "error", err)
+
 	if err != nil {
 
 		slog.Error("Failed to create membership in AcceptInvitation",
@@ -1161,8 +1138,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 
 	// Обновляем статус приглашения
 	err = s.db.UpdateInvitationStatusWithAcceptTime(ctx, invitation.InvitationID, "accepted", time.Now())
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation UpdateInvitationStatusWithAcceptTime result", "error", err)
+
 	if err != nil {
 		slog.Error("Failed to update invitation status", "error", err)
 	}
@@ -1175,8 +1151,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		role,
 		invitation.OrgID,
 	)
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation GenerateTokenPair result", "access_token", accessToken, "refresh_token", refreshToken, "role", role, "org_id", invitation.OrgID)
+
 	if err != nil {
 		return nil, app_errors.ErrFailedToGenerateTokens
 	}
@@ -1193,15 +1168,12 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 		CreatedAt: createdAt,
 		IsRevoked: false,
 	}
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation before CreateRefreshToken", "refresh_token_record", refreshTokenRecord)
+
 	if err := s.db.CreateRefreshToken(ctx, refreshTokenRecord); err != nil {
 		slog.Error("Failed to save refresh token during invitation accept", "error", err, "user_id", user.UserID)
 		return nil, app_errors.ErrFailedToCreateSession
 	}
 
-	// TODO: remove this after testing
-	log.Println("AcceptInvitation response", "membership_id", newMembership.MembershipID, "org_id", invitation.OrgID, "role", invitation.Role)
 	return &models.AcceptInvitationResponse{
 		MembershipID: newMembership.MembershipID,
 		OrgID:        invitation.OrgID,
@@ -1215,11 +1187,9 @@ func (s *Service) AcceptInvitation(ctx context.Context, userID string, req *mode
 
 // ListInvitations возвращает список приглашений организации
 func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.InvitationInfo, error) {
-	// TODO: remove this after testing
-	log.Println("ListInvitations input", "org_id", orgID)
+
 	invitations, err := s.db.GetInvitationsByOrg(ctx, orgID)
-	// TODO: remove this after testing
-	log.Println("ListInvitations GetInvitationsByOrg result", "count", len(invitations), "error", err)
+
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetInvitations
 	}
@@ -1244,19 +1214,14 @@ func (s *Service) ListInvitations(ctx context.Context, orgID string) ([]*models.
 		result = append(result, invInfo)
 	}
 
-	// TODO: remove this after testing
-	log.Println("ListInvitations response", "count", len(result))
 	return result, nil
 }
 
 // CancelInvitation отменяет приглашение
 func (s *Service) CancelInvitation(ctx context.Context, invitationID string) error {
-	// TODO: remove this after testing
-	log.Println("CancelInvitation input", "invitation_id", invitationID)
+
 	invitation, err := s.db.GetInvitationByID(ctx, invitationID)
 
-	// TODO: remove this after testing
-	log.Println("CancelInvitation GetInvitationByCode result", "invitation", invitation, "error", err)
 	if err != nil {
 		// Нам нужен другой метод для получения приглашения по ID
 		// На время используем эту логику
@@ -1268,14 +1233,11 @@ func (s *Service) CancelInvitation(ctx context.Context, invitationID string) err
 	}
 
 	err = s.db.UpdateInvitationStatus(ctx, invitationID, "cancelled")
-	// TODO: remove this after testing
-	log.Println("CancelInvitation UpdateInvitationStatus result", "error", err)
+
 	if err != nil {
 		return app_errors.ErrFailedToCancelInvitation
 	}
 
-	// TODO: remove this after testing
-	log.Println("CancelInvitation response", "status", "cancelled", "invitation_id", invitationID)
 	return nil
 }
 
@@ -1284,24 +1246,21 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 	// 1. Get Organization to find the owner
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
 	if err != nil {
-		// TODO: remove this after testing
-		log.Println("GetOrganizationSubscription: Failed to get organization", "error", err.Error())
+
 		return nil, app_errors.ErrFailedToGetOrganizationInfo
 	}
 
 	// 2. Get Subscription by OwnerID
 	sub, err := s.db.GetSubscriptionByUser(ctx, org.OwnerID)
 	if err != nil {
-		// TODO: remove this after testing
-		log.Println("GetOrganizationSubscription: Failed to get subscription", "error", err.Error())
+
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
 
 	// 3. Get Storage Usage by OwnerID
 	videoCount, err := s.db.GetStorageUsage(ctx, org.OwnerID, sub.StartedAt)
 	if err != nil {
-		// TODO: remove this after testing
-		log.Println("GetOrganizationSubscription: Failed to get storage usage", "error", err.Error())
+
 		return nil, app_errors.ErrFailedToGetStorageUsage
 	}
 
@@ -1341,12 +1300,10 @@ func (s *Service) GetOrganizationSubscription(ctx context.Context, orgID string)
 
 // UpdateMemberRole обновляет роль члена организации
 func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUserID, newRole string) error {
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID, "new_role", newRole)
+
 	// Проверяем, что админ является admin в организации
 	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole GetMembership(admin) result", "membership", adminMembership, "error", err)
+
 	if err != nil {
 		return app_errors.ErrInviterNotMember
 	}
@@ -1370,15 +1327,13 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 
 	// Получаем текущее членство
 	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole GetMembership(target) result", "membership", targetMembership, "error", err)
+
 	if err != nil {
 		return app_errors.ErrTargetUserNotMember
 	}
 	// Получаем организацию для проверки владельца
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole GetOrganizationByID result", "org", org, "error", err)
+
 	if err != nil {
 		return app_errors.ErrFailedToGetOrganizationInfo
 	}
@@ -1392,25 +1347,20 @@ func (s *Service) UpdateMemberRole(ctx context.Context, adminID, orgID, targetUs
 	targetMembership.UpdatedAt = time.Now()
 
 	err = s.db.UpdateMembership(ctx, targetMembership)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole UpdateMembership result", "membership_id", targetMembership.MembershipID, "error", err)
+
 	if err != nil {
 		return app_errors.ErrFailedToUpdateMemberRole
 	}
 
-	// TODO: remove this after testing
-	log.Println("UpdateMemberRole response", "target_user_id", targetUserID, "new_role", newRole)
 	return nil
 }
 
 // RemoveMember удаляет члена из организации
 func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID string) error {
-	// TODO: remove this after testing
-	log.Println("RemoveMember input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID)
+
 	// Проверяем, что админ является admin в организации
 	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
-	// TODO: remove this after testing
-	log.Println("RemoveMember GetMembership(admin) result", "membership", adminMembership, "error", err)
+
 	if err != nil {
 		return app_errors.ErrInviterNotMember
 	}
@@ -1421,37 +1371,31 @@ func (s *Service) RemoveMember(ctx context.Context, adminID, orgID, targetUserID
 
 	// Проверяем, что целевой пользователь состоит в организации
 	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
-	// TODO: remove this after testing
-	log.Println("RemoveMember GetMembership(target) result", "membership", targetMembership, "error", err)
+
 	if err != nil {
 		return app_errors.ErrTargetUserNotMember
 	}
 
 	// Нельзя удалить владельца организации
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
-	// TODO: remove this after testing
-	log.Println("RemoveMember GetOrganizationByID result", "org", org, "error", err)
+
 	if err == nil && org.OwnerID == targetUserID {
 		return app_errors.ErrCannotRemoveOrgOwner
 	}
 
 	// Удаляем членство
 	err = s.db.DeleteMembership(ctx, targetMembership.MembershipID)
-	// TODO: remove this after testing
-	log.Println("RemoveMember DeleteMembership result", "membership_id", targetMembership.MembershipID, "error", err)
+
 	if err != nil {
 		return app_errors.ErrFailedToRemoveMember
 	}
 
-	// TODO: remove this after testing
-	log.Println("RemoveMember response", "removed_user_id", targetUserID)
 	return nil
 }
 
 // UpdateMemberStatus обновляет статус члена организации (active/suspended)
 func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, targetUserID, newStatus string) error {
-	// TODO: remove this after testing
-	log.Println("UpdateMemberStatus input", "admin_id", adminID, "org_id", orgID, "target_user_id", targetUserID, "new_status", newStatus)
+
 	// Валидация статуса
 	if newStatus != "active" && newStatus != "suspended" {
 		return app_errors.ErrInvalidStatus
@@ -1459,8 +1403,7 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 
 	// Получаем членство администратора
 	adminMembership, err := s.db.GetMembership(ctx, adminID, orgID)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberStatus GetMembership(admin) result", "membership", adminMembership, "error", err)
+
 	if err != nil {
 		return app_errors.ErrInviterNotMember
 	}
@@ -1472,8 +1415,7 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 
 	// Получаем целевое членство
 	targetMembership, err := s.db.GetMembership(ctx, targetUserID, orgID)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberStatus GetMembership(target) result", "membership", targetMembership, "error", err)
+
 	if err != nil {
 		return app_errors.ErrTargetUserNotMember
 	}
@@ -1487,8 +1429,7 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 
 	// Нельзя заблокировать владельца организации
 	org, err := s.db.GetOrganizationByID(ctx, orgID)
-	// TODO: remove this after testing
-	log.Println("UpdateMemberStatus GetOrganizationByID result", "org", org, "error", err)
+
 	if err == nil && org.OwnerID == targetUserID {
 		return app_errors.ErrCannotChangeStatusOfOrgOwner
 	}
@@ -1497,18 +1438,15 @@ func (s *Service) UpdateMemberStatus(ctx context.Context, adminID, orgID, target
 	targetMembership.UpdatedAt = time.Now()
 
 	// Обновляем запись в БД
-	// TODO: remove this after testing
-	log.Println("UpdateMemberStatus before UpdateMembership", "membership_id", targetMembership.MembershipID, "new_status", newStatus)
+
 	return s.db.UpdateMembership(ctx, targetMembership)
 }
 
 // ListOrgMembers возвращает список членов организации
 func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.MemberInfo, error) {
-	// TODO: remove this after testing
-	log.Println("ListOrgMembers input", "org_id", orgID)
+
 	memberships, err := s.db.GetMembershipsByOrg(ctx, orgID)
-	// TODO: remove this after testing
-	log.Println("ListOrgMembers GetMembershipsByOrg result", "count", len(memberships), "error", err)
+
 	if err != nil {
 		return nil, app_errors.ErrFailedToGetMembers
 	}
@@ -1517,8 +1455,7 @@ func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.M
 	for _, m := range memberships {
 		// Получаем информацию о пользователе
 		user, err := s.db.GetUserByID(ctx, m.UserID)
-		// TODO: remove this after testing
-		log.Println("ListOrgMembers GetUserByID result", "user", user, "error", err)
+
 		if err != nil {
 			slog.Error("Failed to get user", "error", err, "user_id", m.UserID)
 			continue
@@ -1536,8 +1473,6 @@ func (s *Service) ListOrgMembers(ctx context.Context, orgID string) ([]*models.M
 		result = append(result, memberInfo)
 	}
 
-	// TODO: remove this after testing
-	log.Println("ListOrgMembers response", "count", len(result))
 	return result, nil
 }
 
@@ -1744,8 +1679,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, req *models.ForgotPa
 func (s *Service) ResetPassword(ctx context.Context, req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error) {
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	req.Code = strings.TrimSpace(req.Code)
-	// TODO: remove this after testing
-	log.Println("ResetPassword input", "email:", req.Email, ", code:", req.Code)
+
 	if err := validation.ValidateEmail(req.Email, "email"); err != nil {
 		return nil, err
 	}
@@ -1761,8 +1695,6 @@ func (s *Service) ResetPassword(ctx context.Context, req *models.ResetPasswordRe
 		return nil, app_errors.ErrInvalidRequest
 	}
 
-	// TODO: remove this after testing
-	log.Println("ResetPassword GetUserByEmail result", "password_reset_code:", user.PasswordResetCode)
 	if user.PasswordResetCode == nil || *user.PasswordResetCode != req.Code {
 		return nil, app_errors.ErrInvalidResetCode
 	}
@@ -1818,7 +1750,6 @@ func (s *Service) GetUserOrganizations(ctx context.Context, userID string) (*mod
 	for _, m := range memberships {
 		if org, exists := orgMap[m.OrgID]; exists {
 			// Получаем количество участников
-			// TODO: В будущем оптимизировать через отдельный метод GetMemberCount или поле в Organization
 			members, err := s.db.GetMembershipsByOrg(ctx, m.OrgID)
 			memberCount := 0
 			if err == nil {

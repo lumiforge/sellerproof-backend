@@ -1123,7 +1123,7 @@ func (c *YDBClient) GetPlanByID(ctx context.Context, planID string) (*Plan, erro
 
 // CreateSubscription создает новую подписку
 func (c *YDBClient) CreateSubscription(ctx context.Context, subscription *Subscription) error {
-	// TODO
+
 	query := `
 		DECLARE $subscription_id AS Text;
 		DECLARE $user_id AS Text;
