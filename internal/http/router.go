@@ -184,20 +184,8 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 		http.Error(w, "Not found", http.StatusNotFound)
 	})
 
-	/* REMOVED - replaced by manual routing above
-	// PUT /api/v1/organization/members/{user_id}/role
-	mux.HandleFunc("/api/v1/organization/members/{user_id}/role", chainMiddleware(server.UpdateMemberRole, methodMiddleware("PUT"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
-	// PUT /api/v1/organization/members/{user_id}/status
-	mux.HandleFunc("/api/v1/organization/members/{user_id}/status", chainMiddleware(server.UpdateMemberStatus, methodMiddleware("PUT"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
-	// DELETE /api/v1/organization/members/{user_id}
-	mux.HandleFunc("/api/v1/organization/members/{user_id}", chainMiddleware(server.RemoveMember, methodMiddleware("DELETE"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
-		return AuthMiddleware(jwtManager, server.authService, next)
-	}))
-	*/
+	// Public plans endpoint (no auth required)
+	mux.HandleFunc("/api/v1/plans", chainMiddleware(server.GetPlans, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware))
 
 	// Protected video routes
 	mux.HandleFunc("/api/v1/video/upload/initiate", chainMiddleware(server.InitiateMultipartUpload, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {

@@ -17,6 +17,7 @@ import (
 	app_errors "github.com/lumiforge/sellerproof-backend/internal/errors"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
+	"github.com/lumiforge/sellerproof-backend/internal/plan"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/validation"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
@@ -28,15 +29,17 @@ type Server struct {
 	videoService *video.Service
 	jwtManager   *jwt.JWTManager
 	auditService *audit.Service
+	planService  *plan.Service
 }
 
 // NewServer creates a new HTTP server
-func NewServer(authService *auth.Service, videoService *video.Service, jwtManager *jwt.JWTManager, auditService *audit.Service) *Server {
+func NewServer(authService *auth.Service, videoService *video.Service, jwtManager *jwt.JWTManager, auditService *audit.Service, planService *plan.Service) *Server {
 	return &Server{
 		authService:  authService,
 		videoService: videoService,
 		jwtManager:   jwtManager,
 		auditService: auditService,
+		planService:  planService,
 	}
 }
 
@@ -2652,4 +2655,23 @@ func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// GetPlans handles getting all available plans
+// @Summary		Get all available plans
+// @Description	Get list of all available subscription plans (public endpoint)
+// @Tags		plans
+// @Produce	json
+// @Success	200	{array}		models.PlanResponse
+// @Failure	500	{object}	models.ErrorResponse
+// @Router		/plans [get]
+func (s *Server) GetPlans(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.planService.GetAllPlans(r.Context())
+	if err != nil {
+		slog.Error("GetPlans: Failed to get plans", "error", err.Error())
+		s.writeError(w, http.StatusInternalServerError, "Failed to retrieve plans")
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, plans)
 }

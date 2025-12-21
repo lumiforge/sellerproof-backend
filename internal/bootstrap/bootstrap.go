@@ -14,6 +14,7 @@ import (
 	httpserver "github.com/lumiforge/sellerproof-backend/internal/http"
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	"github.com/lumiforge/sellerproof-backend/internal/logger"
+	"github.com/lumiforge/sellerproof-backend/internal/plan"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	"github.com/lumiforge/sellerproof-backend/internal/storage"
 	"github.com/lumiforge/sellerproof-backend/internal/telegram"
@@ -62,9 +63,10 @@ func Initialize(ctx context.Context) (http.Handler, error) {
 	videoService := video.NewService(db, storageClient, rbacManager, cfg)
 
 	auditService := audit.NewService(db)
+	planService := plan.NewService(db)
 
 	// Инициализация HTTP сервера
-	server := httpserver.NewServer(authService, videoService, jwtManager, auditService)
+	server := httpserver.NewServer(authService, videoService, jwtManager, auditService, planService)
 
 	// Настройка роутера
 	router := httpserver.SetupRouter(server, jwtManager)

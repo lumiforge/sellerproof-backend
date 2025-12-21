@@ -17,6 +17,7 @@ import (
 	"github.com/lumiforge/sellerproof-backend/internal/jwt"
 	jwtmocks "github.com/lumiforge/sellerproof-backend/internal/jwt/mocks"
 	"github.com/lumiforge/sellerproof-backend/internal/models"
+	"github.com/lumiforge/sellerproof-backend/internal/plan"
 	"github.com/lumiforge/sellerproof-backend/internal/rbac"
 	storagemocks "github.com/lumiforge/sellerproof-backend/internal/storage/mocks"
 	"github.com/lumiforge/sellerproof-backend/internal/video"
@@ -46,7 +47,9 @@ func setupTestRouter() (http.Handler, *ydbmocks.Database, *storagemocks.StorageP
 
 	realJWTForStruct := jwt.NewJWTManager(&config.Config{JWTSecretKey: "secret"})
 
-	server := NewServer(authService, videoService, realJWTForStruct, auditService)
+	planService := plan.NewService(mockDB)
+
+	server := NewServer(authService, videoService, realJWTForStruct, auditService, planService)
 	router := SetupRouter(server, realJWTForStruct)
 
 	return router, mockDB, mockStorage, mockJWT
