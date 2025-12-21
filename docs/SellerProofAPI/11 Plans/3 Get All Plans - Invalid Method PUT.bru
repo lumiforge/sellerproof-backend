@@ -1,0 +1,17 @@
+meta {
+  name: Get All Plans - Invalid Method PUT
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/v1/plans
+  body: none
+  auth: none
+}
+
+tests {
+  test("PUT method should not be allowed", function() {
+    expect(res.getStatus()).to.equal(405);
+  });
+}

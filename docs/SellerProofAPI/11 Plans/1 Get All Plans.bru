@@ -5,30 +5,28 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/v1/plans
-}
-
-headers {
-  Content-Type: application/json
+  url: {{baseUrl}}/api/v1/plans
+  body: none
+  auth: none
 }
 
 tests {
-  test("Status code is 200", function() {
-    expect(res.status).to.equal(200);
+  test("Should return HTTP 200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
   });
-
-  test("Response is an array", function() {
-    const plans = res.body;
+  
+  test("Response should be an array", function() {
+    const plans = res.getBody();
     expect(plans).to.be.an('array');
   });
-
-  test("Response contains at least one plan", function() {
-    const plans = res.body;
+  
+  test("Response should contain at least one plan", function() {
+    const plans = res.getBody();
     expect(plans.length).to.be.greaterThan(0);
   });
-
-  test("Each plan has required fields", function() {
-    const plans = res.body;
+  
+  test("Each plan should have required fields", function() {
+    const plans = res.getBody();
     
     plans.forEach(plan => {
       expect(plan).to.have.property('plan_id');
@@ -40,36 +38,36 @@ tests {
       expect(plan).to.have.property('features');
     });
   });
-
-  test("Plan IDs are not empty", function() {
-    const plans = res.body;
+  
+  test("Plan IDs should not be empty", function() {
+    const plans = res.getBody();
     
     plans.forEach(plan => {
       expect(plan.plan_id).to.be.a('string');
       expect(plan.plan_id).to.not.be.empty;
     });
   });
-
-  test("Video limits are positive numbers", function() {
-    const plans = res.body;
+  
+  test("Video limits should be positive numbers", function() {
+    const plans = res.getBody();
     
     plans.forEach(plan => {
       expect(plan.video_limit_mb).to.be.a('number');
       expect(plan.video_limit_mb).to.be.greaterThan(0);
     });
   });
-
-  test("Prices are non-negative numbers", function() {
-    const plans = res.body;
+  
+  test("Prices should be non-negative numbers", function() {
+    const plans = res.getBody();
     
     plans.forEach(plan => {
       expect(plan.price_rub).to.be.a('number');
       expect(plan.price_rub).to.be.at.least(0);
     });
   });
-
-  test("Free plan exists", function() {
-    const plans = res.body;
+  
+  test("Free plan should exist", function() {
+    const plans = res.getBody();
     const freePlan = plans.find(p => p.plan_id === 'free');
     
     expect(freePlan).to.exist;

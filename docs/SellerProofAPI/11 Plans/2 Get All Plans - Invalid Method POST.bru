@@ -1,0 +1,17 @@
+meta {
+  name: Get All Plans - Invalid Method POST
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/plans
+  body: none
+  auth: none
+}
+
+tests {
+  test("POST method should not be allowed", function() {
+    expect(res.getStatus()).to.equal(405);
+  });
+}
