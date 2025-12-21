@@ -48,6 +48,7 @@ func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
 		PlanID:              "start",
 		StartedAt:           now,
 		ExpiresAt:           now.Add(24 * time.Hour),
+		VideoLimitMB:        100,
 	}, nil)
 
 	// 2. Получение текущего использования (Уже 5 видео)
