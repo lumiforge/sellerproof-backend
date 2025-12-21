@@ -86,13 +86,19 @@ func (s *Service) InitiateMultipartUploadDirect(ctx context.Context, userID, org
 
 		return nil, app_errors.ErrFailedToGetSubscription
 	}
+
+	// check expiration
+	if sub.ExpiresAt.Before(time.Now()) {
+		return nil, app_errors.ErrSubscriptionExpired
+	}
+
 	// Check VideoLimitMB
 	limitBytes := sub.VideoLimitMB * 1024 * 1024
 	if fileSizeBytes > limitBytes {
 		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}
 
-	maxFileSizeBytes := s.config.MaxVideoFileSizeMB * 1024 * 1024
+	maxFileSizeBytes := sub.VideoLimitMB * 1024 * 1024
 	if fileSizeBytes >= maxFileSizeBytes {
 		return nil, app_errors.ErrVideoSizeLimitExceeded
 	}

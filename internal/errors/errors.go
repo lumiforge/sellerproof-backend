@@ -163,6 +163,7 @@ var (
 	ErrVideoNotPublished               = errors.New("video is not published")
 	ErrFailedToCopyVideoToPrivate      = errors.New("failed to copy video to private bucket")
 	ErrFailedToGetPublicShare          = errors.New("failed to get public share")
+	ErrSubscriptionExpired             = errors.New("subscription expired")
 
 	// YDB errors
 	ErrYDBCredentialsNotProvided = errors.New("YDB credentials not provided. Please set SP_YDB_ENDPOINT and SP_YDB_DATABASE_PATH environment variables")

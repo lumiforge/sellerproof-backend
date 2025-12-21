@@ -22,7 +22,7 @@ func setupVideoService() (*Service, *ydbmocks.Database, *storagemocks.StoragePro
 		APIBaseURL:            "https://api.test.com",
 		SPObjStoreBucketStart: "free-bucket",
 		SPObjStoreBucketPro:   "pro-bucket",
-		MaxVideoFileSizeMB:    2000,
+		// MaxVideoFileSizeMB:    2000,
 	}
 
 	service := NewService(mockDB, mockStorage, realRBAC, cfg)
@@ -43,10 +43,11 @@ func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
 
 	// 1. Получение подписки (Лимит 5 видео)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
-		VideoLimitMB:        100,
+		// VideoLimitMB:        100,
 		OrdersPerMonthLimit: 5,
 		PlanID:              "start",
 		StartedAt:           now,
+		ExpiresAt:           now.Add(24 * time.Hour),
 	}, nil)
 
 	// 2. Получение текущего использования (Уже 5 видео)
