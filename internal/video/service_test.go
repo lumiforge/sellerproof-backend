@@ -22,7 +22,7 @@ func setupVideoService() (*Service, *ydbmocks.Database, *storagemocks.StoragePro
 		APIBaseURL:            "https://api.test.com",
 		SPObjStoreBucketStart: "free-bucket",
 		SPObjStoreBucketPro:   "pro-bucket",
-		// MaxVideoFileSizeMB:    2000,
+		MaxVideoFileSizeMB:    2000,
 	}
 
 	service := NewService(mockDB, mockStorage, realRBAC, cfg)
@@ -44,6 +44,7 @@ func TestService_InitiateMultipartUpload_VideoCountLimitExceeded(t *testing.T) {
 	// 1. Получение подписки (Лимит 5 видео)
 	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
 		// VideoLimitMB:        100,
+		IsActive:            true,
 		OrdersPerMonthLimit: 5,
 		PlanID:              "start",
 		StartedAt:           now,
@@ -179,7 +180,11 @@ func TestService_CompleteMultipartUpload_Success(t *testing.T) {
 	mockStorage.On("GetObjectHeader", ctx, "free-bucket", storagePath).Return([]byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}, nil)
 	mockStorage.On("GetObjectSize", ctx, "free-bucket", storagePath).Return(int64(1024), nil)
 	mockDB.On("GetOrganizationByID", ctx, orgID).Return(&ydb.Organization{OwnerID: userID}, nil)
-	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{VideoLimitMB: 100, StartedAt: now}, nil)
+	mockDB.On("GetSubscriptionByUser", ctx, userID).Return(&ydb.Subscription{
+		IsActive:     true,
+		VideoLimitMB: 100,
+		StartedAt:    now,
+	}, nil)
 	mockDB.On("GetStorageUsage", ctx, userID, now).Return(int64(0), nil)
 
 	// Update DB success
