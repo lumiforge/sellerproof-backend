@@ -4,23 +4,28 @@ meta {
   seq: 4
 }
 
+
 post {
-  url: {{base_url}}/api/v1/plans
+  url: {{baseUrl}}/api/v1/plans
   body: json
   auth: none
 }
+
 
 headers {
   Content-Type: application/json
 }
 
+
 body:json {
   {}
 }
 
+
 assert {
   res.status: eq 405
 }
+
 
 tests {
   test("POST method is not allowed", function() {

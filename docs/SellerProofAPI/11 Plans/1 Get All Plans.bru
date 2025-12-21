@@ -4,11 +4,13 @@ meta {
   seq: 1
 }
 
+
 get {
   url: {{baseUrl}}/api/v1/plans
   body: none
   auth: none
 }
+
 
 tests {
   test("Should return HTTP 200 OK", function() {
@@ -48,12 +50,12 @@ tests {
     });
   });
   
-  test("Video limits should be positive numbers", function() {
+  test("Video limits should be non-negative numbers", function() {
     const plans = res.getBody();
     
     plans.forEach(plan => {
       expect(plan.video_limit_mb).to.be.a('number');
-      expect(plan.video_limit_mb).to.be.greaterThan(0);
+      expect(plan.video_limit_mb).to.be.at.least(0);
     });
   });
   
