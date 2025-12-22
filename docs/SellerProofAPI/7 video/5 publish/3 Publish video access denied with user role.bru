@@ -35,6 +35,6 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Forbidden');
-    expect(res.body.message).to.include('Only admins and managers can publish videos');
+    expect(res.body.message).to.include('only admins and managers can publish videos');
   });
 }

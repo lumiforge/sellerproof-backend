@@ -19,6 +19,6 @@ tests {
     expect(res.status).to.equal(403);
     expect(res.body).to.be.an('object');
     expect(res.body).to.have.property('error');
-    expect(res.body.message).to.include('Only admins can list members');
+    expect(res.body.message).to.include('only admins can list members');
   });
 }

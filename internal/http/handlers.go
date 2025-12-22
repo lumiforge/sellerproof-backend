@@ -125,7 +125,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		if errorMsg == "email already exists" {
 			s.writeJSON(w, http.StatusCreated, models.RegisterResponse{
 				UserID:  "",
-				Message: "Registration successful. Please check your email for verification.",
+				Message: app_errors.MsgRegistrationSuccessful.Error(),
 			})
 			return
 
@@ -211,7 +211,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 		errorMsg := err.Error()
 		// Check if email is already verified
-		if strings.Contains(errorMsg, "Email already verified") {
+		if strings.Contains(errorMsg, app_errors.MsgEmailAlreadyVerified.Error()) {
 			s.writeJSON(w, http.StatusOK, models.VerifyEmailResponse{
 				Message: resp.Message,
 				Success: resp.Success,
@@ -1638,14 +1638,14 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 	// IDOR check
 	if claims.OrgID != orgID {
 		slog.Error("ListInvitations: Access denied: you are not a member of this organization")
-		s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrAccessDeniedNotMember.Error())
 		return
 	}
 
 	// RBAC check
 	if claims.Role != string(rbac.RoleAdmin) && claims.Role != string(rbac.RoleManager) {
 		slog.Error("ListInvitations: Only admins and managers can list invitations")
-		s.writeError(w, http.StatusForbidden, "Only admins and managers can list invitations")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsAndManagersCanListInvitations.Error())
 		return
 	}
 
@@ -1725,7 +1725,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 	// Check admin/manager role
 	if claims.Role != "admin" && claims.Role != "manager" {
 		slog.Error("CancelInvitation: Only admins and managers can cancel invitations")
-		s.writeError(w, http.StatusForbidden, "Only admins and managers can cancel invitations")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsAndManagersCanCancelInvitations.Error())
 		return
 	}
 
@@ -1745,7 +1745,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Invitation cancelled successfully"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": app_errors.MsgInvitationCancelledSuccessfully.Error()})
 }
 
 // ListMembers handles listing organization members
@@ -1778,14 +1778,14 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 	// IDOR check
 	if claims.OrgID != orgID {
 		slog.Error("ListMembers: Access denied: you are not a member of this organization")
-		s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrAccessDeniedNotMember.Error())
 		return
 	}
 
 	// Check admin role
 	if claims.Role != "admin" {
 		slog.Error("ListMembers: Only admins can list members")
-		s.writeError(w, http.StatusForbidden, "Only admins can list members")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsCanListMembers.Error())
 		return
 	}
 
@@ -1835,7 +1835,7 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	// Check admin role
 	if claims.Role != "admin" {
 		slog.Error("UpdateMemberRole: Only admins can update member roles", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusForbidden, "Only admins can update member roles")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsCanUpdateMemberRoles.Error())
 		return
 	}
 
@@ -1890,7 +1890,7 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		"new_role":       req.NewRole,
 	})
 
-	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member role updated successfully"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": app_errors.MsgMemberRoleUpdatedSuccessfully.Error()})
 }
 
 // UpdateMemberStatus handles updating member status (block/unblock)
@@ -1958,7 +1958,7 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 		"new_status":     req.Status,
 	})
 
-	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member status updated successfully"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": app_errors.MsgMemberStatusUpdatedSuccessfully.Error()})
 }
 
 // RemoveMember handles removing member from organization
@@ -2004,7 +2004,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	if claims.OrgID != orgID && claims.Role != "admin" {
 		if claims.OrgID != orgID {
 			slog.Error("RemoveMember: Access denied: you are not a member of this organization")
-			s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+			s.writeError(w, http.StatusForbidden, app_errors.ErrAccessDeniedNotMember.Error())
 			return
 		}
 	}
@@ -2014,7 +2014,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		// Поэтому строгая проверка:
 		if claims.OrgID != orgID {
 			slog.Error("RemoveMember: Access denied: you are not a member of this organization")
-			s.writeError(w, http.StatusForbidden, "Access denied: you are not a member of this organization")
+			s.writeError(w, http.StatusForbidden, app_errors.ErrAccessDeniedNotMember.Error())
 			return
 		}
 	}
@@ -2022,7 +2022,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	// Check admin role
 	if claims.Role != "admin" {
 		slog.Error("RemoveMember: Only admins can remove members")
-		s.writeError(w, http.StatusForbidden, "Only admins can remove members")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsCanRemoveMembers2.Error())
 		return
 	}
 
@@ -2051,7 +2051,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Member removed successfully"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": app_errors.MsgMemberRemovedSuccessfully.Error()})
 }
 
 // PublishVideo handles video publishing to public bucket
@@ -2081,7 +2081,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	// Проверка прав (только admin/manager)
 	if claims.Role != "admin" && claims.Role != "manager" {
 		slog.Error("PublishVideo: Only admins and managers can publish videos")
-		s.writeError(w, http.StatusForbidden, "Only admins and managers can publish videos")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsAndManagersCanPublishVideos.Error())
 		return
 	}
 
@@ -2242,19 +2242,19 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("RevokeVideo: Failed to get video for revocation", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
 		if strings.Contains(err.Error(), "video not found") {
-			s.writeError(w, http.StatusNotFound, "Video not found")
+			s.writeError(w, http.StatusNotFound, app_errors.ErrVideoNotFoundMessage.Error())
 			return
 		} else if strings.Contains(err.Error(), "access denied") {
-			s.writeError(w, http.StatusForbidden, "Access denied")
+			s.writeError(w, http.StatusForbidden, app_errors.ErrAccessDeniedMessage.Error())
 			return
 		}
-		s.writeError(w, http.StatusInternalServerError, "Failed to get video")
+		s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToGetVideoMessage.Error())
 		return
 	}
 
 	if dbVideo.PublishStatus != "published" {
 		slog.Error("RevokeVideo: Video is not published", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Video is not published")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrVideoIsNotPublished.Error())
 		return
 	}
 
@@ -2285,9 +2285,9 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	})
 
 	s.writeJSON(w, http.StatusOK, models.RevokeVideoResponse{
-		Message: "Video access revoked successfully",
+		Message: app_errors.MsgVideoAccessRevokedSuccessfully.Error(),
 		VideoID: req.VideoID,
-		Status:  "private",
+		Status:  app_errors.MsgStatusPrivate.Error(),
 	})
 }
 
@@ -2325,7 +2325,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	hasPermission := rbacManager.CheckPermissionWithRole(rbac.Role(claims.Role), rbac.PermissionAdminViewLogs)
 	if !hasPermission {
 		slog.Error("GetAuditLogs: Insufficient permissions to access audit logs")
-		s.writeError(w, http.StatusForbidden, "Insufficient permissions to access audit logs")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrInsufficientPermissionsToAccessAuditLogs.Error())
 		return
 	} // Parse query parameters
 	userID := r.URL.Query().Get("user_id")
@@ -2350,7 +2350,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
 			// Limit offset to prevent DoS via deep pagination
 			if o > 10000 {
-				s.writeError(w, http.StatusBadRequest, "offset cannot exceed 10000. Please use date filters to narrow down results.")
+				s.writeError(w, http.StatusBadRequest, app_errors.ErrOffsetCannotExceed10000.Error())
 				return
 			}
 			offset = o
@@ -2384,7 +2384,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	logs, total, err := s.auditService.GetLogs(r.Context(), filters, limit, offset)
 	if err != nil {
 		slog.Error("Failed to retrieve audit logs", "error", err)
-		s.writeError(w, http.StatusInternalServerError, "Failed to retrieve audit logs")
+		s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToRetrieveAuditLogs.Error())
 		return
 	}
 
@@ -2435,7 +2435,7 @@ func (s *Server) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		if errors.As(err, &valErr) || strings.Contains(err.Error(), "invalid email") {
 			s.writeError(w, http.StatusBadRequest, err.Error())
 		} else {
-			s.writeError(w, http.StatusInternalServerError, "Failed to process request")
+			s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToProcessRequest.Error())
 		}
 		return
 	}
@@ -2547,12 +2547,12 @@ func (s *Server) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, app_errors.ErrOnlyOwnerCanDeleteOrg) {
 			s.writeError(w, http.StatusForbidden, err.Error())
 		} else {
-			s.writeError(w, http.StatusInternalServerError, "Failed to delete organization")
+			s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToDeleteOrganization.Error())
 		}
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]string{"message": "Organization deleted successfully"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"message": app_errors.MsgOrganizationDeletedSuccessfully.Error()})
 }
 
 // UpdateOrganizationName handles updating organization name
@@ -2617,10 +2617,10 @@ func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if errors.Is(err, app_errors.ErrMembershipNotFound) || errors.Is(err, app_errors.ErrFailedToGetOrganizationInfo) {
-			s.writeError(w, http.StatusNotFound, "Organization not found or access denied")
+			s.writeError(w, http.StatusNotFound, app_errors.ErrOrganizationNotFoundOrAccessDenied.Error())
 			return
 		}
-		s.writeError(w, http.StatusInternalServerError, "Failed to update organization name")
+		s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToUpdateOrganizationName.Error())
 		return
 	}
 
@@ -2650,7 +2650,7 @@ func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.authService.GetOrganizationSubscription(r.Context(), claims.OrgID)
 	if err != nil {
 		slog.Error("GetSubscription: Failed to get subscription", "error", err.Error(), "org_id", claims.OrgID)
-		s.writeError(w, http.StatusInternalServerError, "Failed to get subscription details")
+		s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToGetSubscriptionDetails.Error())
 		return
 	}
 
@@ -2669,7 +2669,7 @@ func (s *Server) GetPlans(w http.ResponseWriter, r *http.Request) {
 	plans, err := s.planService.GetAllPlans(r.Context())
 	if err != nil {
 		slog.Error("GetPlans: Failed to get plans", "error", err.Error())
-		s.writeError(w, http.StatusInternalServerError, "Failed to retrieve plans")
+		s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToRetrievePlans.Error())
 		return
 	}
 

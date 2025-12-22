@@ -23,7 +23,7 @@ tests {
   test('Should return 201 for successful registration of simple user', function() {
     expect(res.status).to.equal(201);
     expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('Registration successful');
+    expect(res.body.message).to.include('registration successful');
     
     console.log('Simple user registered successfully');
   });

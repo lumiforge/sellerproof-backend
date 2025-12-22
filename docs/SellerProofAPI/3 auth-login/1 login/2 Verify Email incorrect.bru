@@ -18,9 +18,11 @@ body:json {
 }
 
 tests {
-  test('Should return 500 Internal Server Error for invalid verification code', function() {
-    expect(res.status).to.equal(500);
+  test('Should return 400 Bad Request for incorrect verification code', function() {
+    expect(res.status).to.equal(400);
     expect(res.body).to.have.property('error');
-    expect(res.body.error).to.include('Internal Server Error');
+    expect(res.body.error).to.include('Bad Request');
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('user not found');
   });
 }

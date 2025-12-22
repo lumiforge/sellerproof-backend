@@ -184,7 +184,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 			return &models.RegisterResponse{
 				UserID:  existingUser.UserID,
-				Message: "Registration successful. Please check your email for verification.",
+				Message: "registration successful. please check your email for verification",
 			}, nil
 		}
 		return nil, app_errors.ErrEmailAlreadyExists
@@ -328,7 +328,7 @@ func (s *Service) Register(ctx context.Context, req *models.RegisterRequest) (*m
 
 	return &models.RegisterResponse{
 		UserID:  user.UserID,
-		Message: "Registration successful. Please check your email for verification.",
+		Message: "registration successful. please check your email for verification",
 	}, nil
 }
 
@@ -347,14 +347,14 @@ func (s *Service) VerifyEmail(ctx context.Context, req *models.VerifyEmailReques
 	// Check if email is already verified
 	if user.EmailVerified {
 		return &models.VerifyEmailResponse{
-			Message: "Email already verified",
+			Message: "email already verified",
 			Success: true,
 		}, nil
 	}
 
 	if user.VerificationCode == "" {
 		return &models.VerifyEmailResponse{
-			Message: "Email already verified",
+			Message: "email already verified",
 			Success: true,
 		}, nil
 	}

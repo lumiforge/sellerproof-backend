@@ -157,6 +157,17 @@ var (
 	ErrOrgCanHaveOnlyOneAdmin               = errors.New("organization can have only one admin")
 	ErrOnlyOwnerCanDeleteOrg                = errors.New("only organization owner can delete it")
 
+	// Success messages
+	MsgRegistrationSuccessful          = errors.New("registration successful. please check your email for verification")
+	MsgInvitationCancelledSuccessfully = errors.New("invitation cancelled successfully")
+	MsgMemberRoleUpdatedSuccessfully   = errors.New("member role updated successfully")
+	MsgMemberStatusUpdatedSuccessfully = errors.New("member status updated successfully")
+	MsgMemberRemovedSuccessfully       = errors.New("member removed successfully")
+	MsgVideoAccessRevokedSuccessfully  = errors.New("video access revoked successfully")
+	MsgOrganizationDeletedSuccessfully = errors.New("organization deleted successfully")
+	MsgStatusPrivate                   = errors.New("private")
+	MsgEmailAlreadyVerified            = errors.New("email already verified")
+
 	// Bootstrap errors
 	ErrFailedToConnectYDB        = errors.New("failed to connect to YDB")
 	ErrJWTSecretKeyNotConfigured = errors.New("JWT secret key is not configured")

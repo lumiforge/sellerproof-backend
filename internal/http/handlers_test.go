@@ -124,7 +124,7 @@ func TestHandler_Register_UserExists_Mapping(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, "", resp.UserID)
-	assert.Contains(t, resp.Message, "Registration successful. Please check your email for verification.")
+	assert.Contains(t, resp.Message, "registration successful. please check your email for verification")
 }
 
 func TestHandler_Register_UserExists_Unverified_Mapping(t *testing.T) {
@@ -162,7 +162,7 @@ func TestHandler_Register_UserExists_Unverified_Mapping(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, "unverified-id", resp.UserID)
-	assert.Contains(t, resp.Message, "Registration successful. Please check your email for verification.")
+	assert.Contains(t, resp.Message, "registration successful. please check your email for verification")
 }
 
 func TestHandler_Register_ValidationError_Mapping(t *testing.T) {

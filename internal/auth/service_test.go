@@ -75,7 +75,7 @@ func TestService_Register_Success(t *testing.T) {
 	// Assert
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "Registration successful. Please check your email for verification.", resp.Message)
+	assert.Equal(t, "registration successful. please check your email for verification", resp.Message)
 
 	mockDB.AssertExpectations(t)
 }

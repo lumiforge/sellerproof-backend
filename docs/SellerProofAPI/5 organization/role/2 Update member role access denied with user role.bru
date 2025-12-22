@@ -27,6 +27,6 @@ tests {
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.be.a('string');
     expect(res.body.error).to.include('Forbidden');
-    expect(res.body.message).to.include('Only admins can update member roles');
+    expect(res.body.message).to.include('only admins can update member roles');
   });
 }

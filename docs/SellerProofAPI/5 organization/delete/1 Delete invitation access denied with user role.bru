@@ -31,6 +31,6 @@ tests {
     expect(res.body.message).to.not.equal('');
     
     // Validate error message content
-    expect(res.body.message).to.include('Only admins and managers can cancel invitations');
+    expect(res.body.message).to.include('only admins and managers can cancel invitations');
   });
 }
