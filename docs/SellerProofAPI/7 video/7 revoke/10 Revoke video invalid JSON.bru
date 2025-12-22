@@ -25,6 +25,6 @@ tests {
 
   test("Should return error message", function() {
     expect(res.body.error).to.include("Bad Request");
-    expect(res.body.message).to.include("Invalid request format");
+    expect(res.body.message).to.include("invalid request format");
   });
 }

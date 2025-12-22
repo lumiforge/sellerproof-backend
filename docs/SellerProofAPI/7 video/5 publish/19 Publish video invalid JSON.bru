@@ -33,6 +33,6 @@ tests {
     
     // Validate error message content
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('Invalid request format');
+    expect(res.body.message).to.include('invalid request format');
   });
 }

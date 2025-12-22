@@ -16,7 +16,7 @@ tests {
 
   test("Should return error message", function() {
     expect(res.body.error).to.equal("Bad Request");
-    expect(res.body.message).to.equal("Missing or invalid token parameter");
+    expect(res.body.message).to.equal('missing or invalid token parameter')
     expect(res.body.code).to.equal(400);
   });
 }

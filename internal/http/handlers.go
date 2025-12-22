@@ -356,7 +356,7 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req models.RefreshTokenRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("RefreshToken: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
