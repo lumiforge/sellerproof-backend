@@ -33,7 +33,7 @@ tests {
 
     // Validate error details
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('cannot unmarshal');
+    expect(res.body.message).to.include('invalid request format');
     expect(res.body.code).to.equal(400);
   });
 }

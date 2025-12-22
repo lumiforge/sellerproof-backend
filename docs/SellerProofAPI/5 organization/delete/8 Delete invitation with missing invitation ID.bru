@@ -30,7 +30,7 @@ tests {
     expect(res.body.error).to.not.equal('');
     expect(res.body.message).to.not.equal('');
     expect(res.body.error).to.include('Bad Request');
-    expect(res.body.message).to.include('Invalid invitation_id: must be a valid UUID');
+    expect(res.body.message).to.include('invalid invitation_id: must be a valid UUID');
 
   });
 }

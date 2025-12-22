@@ -21,6 +21,6 @@ tests {
 
   test('Should return error message', function() {
     expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.include('Invalid org_id: must be a valid UUID');
+    expect(res.body.message).to.include('invalid org_id: must be a valid UUID');
   });
 }

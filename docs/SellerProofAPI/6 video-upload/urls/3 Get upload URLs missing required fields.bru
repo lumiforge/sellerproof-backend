@@ -25,6 +25,6 @@ tests {
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property("error");
     expect(res.body).to.have.property("message");
-    expect(res.body.message).to.include("Invalid request format: minimum 1 part required");
+    expect(res.body.message).to.include("invalid request format: minimum 1 part required");
   });
 }
