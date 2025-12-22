@@ -23,6 +23,6 @@ tests {
     expect(res.body).to.have.property('error');
     expect(res.body.error).to.include('Bad Request');
     expect(res.body).to.have.property('message');
-    expect(res.body.message).to.include('user not found');
+    expect(res.body.message).to.include('invalid verification code');
   });
 }

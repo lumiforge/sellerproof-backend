@@ -18,9 +18,9 @@ body:json {
 }
 
 tests {
-  test('Should return 400 unverified email', function() {
-    expect(res.status).to.equal(400);
-    expect(res.body.error).to.equal('Bad Request');
-    expect(res.body.message).to.equal('invalid credentials');
+  test('Should return 403 for incorrect login', function() {
+    expect(res.status).to.equal(403);
+    expect(res.body.error).to.equal('Forbidden');
+    expect(res.body.message).to.equal('email not verified');
   });
 }

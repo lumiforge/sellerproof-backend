@@ -226,7 +226,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 			strings.Contains(errorMsg, "validation error in") {
 			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else if strings.Contains(errorMsg, "invalid verification code") {
-			s.writeError(w, http.StatusInternalServerError, errorMsg)
+			s.writeError(w, http.StatusBadRequest, errorMsg)
 		} else {
 			s.writeError(w, http.StatusInternalServerError, err.Error())
 		}
