@@ -50,12 +50,12 @@ func SetupRouter(server *Server, jwtManager *jwt.JWTManager) http.Handler {
 	mux.Handle("/api/v1/auth/register", chainMiddleware(server.Register, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/login", chainMiddleware(server.Login, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/refresh", chainMiddleware(server.RefreshToken, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
-	mux.HandleFunc("/api/v1/auth/verify-email", chainMiddleware(server.VerifyEmail, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
+	mux.HandleFunc("/api/v1/auth/verify-email", chainMiddleware(server.VerifyEmail, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/forgot-password", chainMiddleware(server.ForgotPassword, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 	mux.HandleFunc("/api/v1/auth/reset-password", chainMiddleware(server.ResetPassword, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware))
 
 	// Protected auth routes
-	mux.HandleFunc("/api/v1/auth/logout", chainMiddleware(server.Logout, CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
+	mux.HandleFunc("/api/v1/auth/logout", chainMiddleware(server.Logout, methodMiddleware("POST"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, ContentTypeMiddleware, func(next http.Handler) http.Handler {
 		return AuthMiddleware(jwtManager, server.authService, next)
 	}))
 	mux.HandleFunc("/api/v1/auth/organizations", chainMiddleware(server.GetUserOrganizations, methodMiddleware("GET"), CORSMiddleware, RequestIDMiddleware, LoggingMiddleware, func(next http.Handler) http.Handler {
