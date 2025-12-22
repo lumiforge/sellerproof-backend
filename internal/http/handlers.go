@@ -100,7 +100,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 	var req models.RegisterRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("Register: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -191,7 +191,7 @@ func (s *Server) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var req models.VerifyEmailRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("VerifyEmail: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -274,7 +274,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	var req models.LoginRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("Login: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -363,13 +363,13 @@ func (s *Server) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// check if refresh token trailing spaces
 	if strings.TrimSpace(req.RefreshToken) != req.RefreshToken {
 		slog.Error("RefreshToken: Refresh token cannot contain trailing spaces")
-		s.writeError(w, http.StatusBadRequest, "Refresh token cannot contain trailing spaces")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrRefreshTokenCannotContainTrailingSpaces.Error())
 		return
 	}
 
 	if req.RefreshToken == "" {
 		slog.Error("RefreshToken: Refresh token is required")
-		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrRefreshTokenRequired.Error())
 		return
 	}
 	authReq := &models.RefreshTokenRequest{
@@ -424,14 +424,14 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 	var req models.LogoutRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("Logout: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
 	// Check if refresh token is empty (could be due to wrong field name)
 	if req.RefreshToken == "" {
 		slog.Error("Logout: Refresh token is required")
-		s.writeError(w, http.StatusBadRequest, "Refresh token is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrRefreshTokenRequired.Error())
 		return
 	}
 
@@ -475,7 +475,7 @@ func (s *Server) Logout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -518,7 +518,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("UpdateProfile: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -532,7 +532,7 @@ func (s *Server) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateProfileRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("UpdateProfile: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -589,7 +589,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("InitiateMultipartUpload: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -610,11 +610,11 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 		if errors.As(err, &typeErr) {
 			if typeErr.Value == "string" {
 				if typeErr.Field == "file_size_bytes" {
-					s.writeError(w, http.StatusBadRequest, "file_size_bytes must be a number, not a string")
+					s.writeError(w, http.StatusBadRequest, app_errors.ErrFileSizeMustBeNumber.Error())
 					return
 				}
 				if typeErr.Field == "duration_seconds" {
-					s.writeError(w, http.StatusBadRequest, "duration_seconds must be a number, not a string")
+					s.writeError(w, http.StatusBadRequest, app_errors.ErrDurationMustBeNumber.Error())
 					return
 				}
 			}
@@ -622,7 +622,7 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -658,13 +658,13 @@ func (s *Server) InitiateMultipartUpload(w http.ResponseWriter, r *http.Request)
 	// Validate FileSizeBytes
 	if req.FileSizeBytes <= 0 {
 		slog.Error("InitiateMultipartUpload: file_size_bytes must be greater than 0")
-		validationErrors = append(validationErrors, "file_size_bytes must be greater than 0")
+		validationErrors = append(validationErrors, app_errors.ErrFileSizeMustBePositive.Error())
 	}
 
 	// Validate DurationSeconds
 	if req.DurationSeconds <= 0 {
 		slog.Error("InitiateMultipartUpload: duration_seconds must be greater than 0")
-		validationErrors = append(validationErrors, "duration_seconds must be greater than 0")
+		validationErrors = append(validationErrors, app_errors.ErrDurationMustBePositive.Error())
 	}
 
 	// If there are validation errors, return them
@@ -724,7 +724,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 
 		slog.Error("User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -738,21 +738,21 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	var req models.GetPartUploadURLsRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
 	if req.TotalParts < 1 {
 		slog.Error("Invalid request format", "error", "minimum 1 part required")
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: minimum 1 part required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error()+": "+app_errors.ErrMinimum1PartRequired.Error())
 		return
 	} else if req.TotalParts > 100 {
 		slog.Error("Invalid request format", "error", "maximum 100 parts allowed")
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: maximum 100 parts allowed")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error()+": "+app_errors.ErrMaximum100PartsAllowed.Error())
 		return
 	} else if req.VideoID == "" {
 		slog.Error("Invalid request format", "error", "video_id is required")
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: video_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error()+": "+app_errors.ErrVideoIDRequired.Error())
 		return
 	}
 
@@ -765,7 +765,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
 		slog.Error("Invalid video_id", "error", errorMessage, "video_id", req.VideoID)
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoID.Error()+": "+errorMessage)
 		return
 	}
 
@@ -777,7 +777,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := uuid.Validate(req.VideoID); err != nil {
 		slog.Error("Invalid video_id", "error", err.Error(), "video_id", req.VideoID)
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoIDMustBeUUID.Error())
 		return
 	}
 
@@ -787,7 +787,7 @@ func (s *Server) GetPartUploadURLs(w http.ResponseWriter, r *http.Request) {
 		errorMsg := err.Error()
 		slog.Error("GetPartUploadURLs: Failed to get part upload URLs", "error", errorMsg, "video_id", req.VideoID)
 		if strings.Contains(errorMsg, "video not found") {
-			s.writeError(w, http.StatusNotFound, "Invalid video_id: video not found")
+			s.writeError(w, http.StatusNotFound, app_errors.ErrVideoNotFoundInvalidVideoID.Error())
 		} else if strings.Contains(errorMsg, "access denied") {
 			s.writeError(w, http.StatusForbidden, errorMsg)
 		} else {
@@ -828,7 +828,7 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("CompleteMultipartUpload: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -842,13 +842,13 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	var req models.CompleteMultipartUploadRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("CompleteMultipartUpload: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
 	if req.VideoID == "" {
 		slog.Error("CompleteMultipartUpload: video_id is required", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrVideoIDRequired.Error())
 		return
 	}
 
@@ -868,25 +868,25 @@ func (s *Server) CompleteMultipartUpload(w http.ResponseWriter, r *http.Request)
 	if !result.IsValid {
 		slog.Error("CompleteMultipartUpload: video_id is invalid", "error", result.Errors, "user_agent", userAgent, "ip_address", ipAddress)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoID.Error()+": "+errorMessage)
 		return
 	}
 
 	if len(req.Parts) == 0 {
 		slog.Error("CompleteMultipartUpload: parts is required", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "parts is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrPartsRequired.Error())
 		return
 	}
 
 	for i, p := range req.Parts {
 		if p.PartNumber <= 0 {
 			slog.Error("CompleteMultipartUpload: part_number at index %d must be greater than 0", "user_agent", userAgent, "ip_address", ipAddress)
-			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("part_number at index %d must be greater than 0", i))
+			s.writeError(w, http.StatusBadRequest, fmt.Sprintf(app_errors.ErrPartNumberMustBePositive.Error()+" at index %d", i))
 			return
 		}
 		if p.ETag == "" {
 			slog.Error("CompleteMultipartUpload: etag at index %d is required", "user_agent", userAgent, "ip_address", ipAddress)
-			s.writeError(w, http.StatusBadRequest, fmt.Sprintf("etag at index %d is required", i))
+			s.writeError(w, http.StatusBadRequest, fmt.Sprintf(app_errors.ErrETagRequired.Error()+" at index %d", i))
 			return
 		}
 	}
@@ -963,14 +963,14 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("GetVideo: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	videoID := r.URL.Query().Get("video_id")
 	if videoID == "" {
 		slog.Error("GetVideo: video_id is required")
-		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrVideoIDRequired.Error())
 		return
 	}
 
@@ -990,14 +990,14 @@ func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		slog.Error("GetVideo: video_id is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoID.Error()+": "+errorMessage)
 		return
 	}
 
 	// Validate UUID format
 	if _, err := uuid.Parse(videoID); err != nil {
 		slog.Error("GetVideo: video_id is invalid", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoIDMustBeUUID.Error())
 		return
 	}
 
@@ -1051,7 +1051,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("SearchVideos: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1090,7 +1090,7 @@ func (s *Server) SearchVideos(w http.ResponseWriter, r *http.Request) {
 		result := validation.ValidateInput(query, options)
 		if !result.IsValid {
 			errorMessage := strings.Join(result.Errors, "; ")
-			s.writeError(w, http.StatusBadRequest, "Invalid query: "+errorMessage)
+			s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidQuery.Error()+": "+errorMessage)
 			return
 		}
 	}
@@ -1144,14 +1144,14 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
 		slog.Error("GetPublicVideo: Missing or invalid token parameter")
-		s.writeError(w, http.StatusBadRequest, "Missing or invalid token parameter")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrMissingOrInvalidTokenParameter.Error())
 		return
 	}
 
 	// Validate token format (base64 URL-safe, 43-44 characters for 32 bytes)
 	if len(token) < 40 || len(token) > 50 {
 		slog.Error("GetPublicVideo: Invalid token format")
-		s.writeError(w, http.StatusBadRequest, "Invalid token format")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidTokenFormat.Error())
 		return
 	}
 
@@ -1171,7 +1171,7 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		slog.Error("GetPublicVideo: token is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid token: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidToken2.Error()+": "+errorMessage)
 		return
 	}
 
@@ -1181,15 +1181,15 @@ func (s *Server) GetPublicVideo(w http.ResponseWriter, r *http.Request) {
 		errorMsg := err.Error()
 		slog.Error("GetPublicVideo: Failed to get public video", "error", errorMsg, "token", token)
 		if strings.Contains(errorMsg, "video not found") || strings.Contains(errorMsg, "token is invalid") {
-			s.writeError(w, http.StatusNotFound, "Video not found or token is invalid")
+			s.writeError(w, http.StatusNotFound, app_errors.ErrVideoNotFoundOrTokenInvalid2.Error())
 			return
 		}
 		if strings.Contains(errorMsg, "public access revoked") {
-			s.writeError(w, http.StatusGone, "Public access to this video has been revoked")
+			s.writeError(w, http.StatusGone, app_errors.ErrPublicAccessRevokedMessage.Error())
 			return
 		}
 		slog.Error("Failed to get public video", "error", err, "token", token)
-		s.writeError(w, http.StatusInternalServerError, "Failed to retrieve video")
+		s.writeError(w, http.StatusInternalServerError, app_errors.ErrFailedToRetrieveVideo.Error())
 		return
 	}
 
@@ -1222,7 +1222,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("SwitchOrganization: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1236,7 +1236,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	var req models.SwitchOrganizationRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("SwitchOrganization: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -1249,7 +1249,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 
 	if req.RefreshToken == "" {
 		slog.Error("SwitchOrganization: refresh_token is required")
-		s.writeError(w, http.StatusBadRequest, "refresh_token is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrRefreshTokenRequired.Error())
 		return
 	}
 
@@ -1262,7 +1262,7 @@ func (s *Server) SwitchOrganization(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		errorMessage := strings.Join(result.Errors, "; ")
 		slog.Error("SwitchOrganization: org_id is invalid", "error", errorMessage)
-		s.writeError(w, http.StatusBadRequest, "Invalid org_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidOrgID.Error()+": "+errorMessage)
 		return
 	}
 
@@ -1304,13 +1304,13 @@ func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("CreateOrganization: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	if claims.Role != string(rbac.RoleAdmin) {
 		slog.Error("CreateOrganization: Only admins can create organizations")
-		s.writeError(w, http.StatusForbidden, "Only admins can create organizations")
+		s.writeError(w, http.StatusForbidden, app_errors.ErrOnlyAdminsCanCreateOrganizations.Error())
 		return
 	}
 
@@ -1323,7 +1323,7 @@ func (s *Server) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateOrganizationRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("CreateOrganization: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -1374,14 +1374,14 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("DownloadVideo: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	videoID := r.URL.Query().Get("video_id")
 	if videoID == "" {
 		slog.Error("DownloadVideo: video_id is required", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrVideoIDRequired.Error())
 		return
 	}
 
@@ -1401,7 +1401,7 @@ func (s *Server) DownloadVideo(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		slog.Error("DownloadVideo: video_id is invalid", "error", result.Errors, "user_agent", userAgent, "ip_address", ipAddress)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoID.Error()+": "+errorMessage)
 		return
 	}
 
@@ -1454,7 +1454,7 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("InviteUser: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1468,13 +1468,13 @@ func (s *Server) InviteUser(w http.ResponseWriter, r *http.Request) {
 	var req models.InviteUserRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("InviteUser: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
 	if req.OrgID == "" {
 		slog.Error("InviteUser: org_id is required")
-		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrOrgIDRequired.Error())
 		return
 	}
 
@@ -1550,7 +1550,7 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("AcceptInvitation: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1564,7 +1564,7 @@ func (s *Server) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	var req models.AcceptInvitationRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("AcceptInvitation: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -1612,19 +1612,19 @@ func (s *Server) ListInvitations(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("ListInvitations: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
 		slog.Error("ListInvitations: org_id is required")
-		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrOrgIDRequired.Error())
 		return
 	}
 
 	if err := uuid.Validate(orgID); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidOrgIDMustBeUUID.Error())
 		return
 	}
 
@@ -1681,7 +1681,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("CancelInvitation: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1693,12 +1693,12 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 
 	if invitationID == "" {
 		slog.Error("CancelInvitation: invitation_id is required")
-		s.writeError(w, http.StatusBadRequest, "invitation_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvitationIDRequired.Error())
 		return
 	}
 	if err := uuid.Validate(invitationID); err != nil {
 		slog.Error("CancelInvitation: invitation_id is invalid", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid invitation_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidInvitationIDMustBeUUID.Error())
 		return
 	}
 
@@ -1718,7 +1718,7 @@ func (s *Server) CancelInvitation(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		slog.Error("CancelInvitation: invitation_id is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid invitation_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidInvitationIDMustBeUUID.Error()+": "+errorMessage)
 		return
 	}
 
@@ -1765,14 +1765,14 @@ func (s *Server) ListMembers(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("ListMembers: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
 		slog.Error("ListMembers: org_id is required")
-		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrOrgIDRequired.Error())
 		return
 	}
 	// IDOR check
@@ -1828,7 +1828,7 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("UpdateMemberRole: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1847,7 +1847,7 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 
 	if userID == "" {
 		slog.Error("UpdateMemberRole: user_id is required", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "user_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrUserIDRequired.Error())
 		return
 	}
 
@@ -1861,7 +1861,7 @@ func (s *Server) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	var req models.UpdateMemberRoleRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("UpdateMemberRole: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -1918,7 +1918,7 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("UpdateMemberStatus: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -1930,14 +1930,14 @@ func (s *Server) UpdateMemberStatus(w http.ResponseWriter, r *http.Request) {
 
 	if userID == "" {
 		slog.Error("UpdateMemberStatus: user_id is required", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "user_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrUserIDRequired.Error())
 		return
 	}
 
 	var req models.UpdateMemberStatusRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("UpdateMemberStatus: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -1979,18 +1979,18 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("RemoveMember: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
 		slog.Error("RemoveMember: org_id is required")
-		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrOrgIDRequired.Error())
 		return
 	}
 	if err := uuid.Validate(orgID); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidOrgIDMustBeUUID.Error())
 		return
 	}
 
@@ -2033,7 +2033,7 @@ func (s *Server) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	}
 	if userID == "" {
 		slog.Error("RemoveMember: user_id is required")
-		s.writeError(w, http.StatusBadRequest, "user_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrUserIDRequired.Error())
 		return
 	}
 
@@ -2074,7 +2074,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("PublishVideo: User not authenticated")
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -2095,17 +2095,17 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	var req models.PublishVideoRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("PublishVideo: Invalid request format", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 	if req.VideoID == "" {
 		slog.Error("PublishVideo: Missing required field: video_id")
-		s.writeError(w, http.StatusBadRequest, "Missing required field: video_id")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrVideoIDRequired.Error())
 		return
 	}
 	if _, err := uuid.Parse(req.VideoID); err != nil {
 		slog.Error("PublishVideo: video_id is invalid", "error", err.Error())
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoIDMustBeUUID.Error())
 		return
 	}
 
@@ -2125,7 +2125,7 @@ func (s *Server) PublishVideo(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		slog.Error("PublishVideo: video_id is invalid", "error", result.Errors)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoID.Error()+": "+errorMessage)
 		return
 	}
 
@@ -2178,7 +2178,7 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("RevokeVideo: User not authenticated", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -2192,13 +2192,13 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	var req models.RevokeVideoRequest
 	if err := s.validateRequest(r, &req); err != nil {
 		slog.Error("RevokeVideo: Invalid request format", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
 	if req.VideoID == "" {
 		slog.Error("RevokeVideo: video_id is required", "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "video_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrVideoIDRequired.Error())
 		return
 	}
 
@@ -2218,14 +2218,14 @@ func (s *Server) RevokeVideo(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		slog.Error("RevokeVideo: video_id is invalid", "error", result.Errors, "user_agent", userAgent, "ip_address", ipAddress)
 		errorMessage := strings.Join(result.Errors, "; ")
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: "+errorMessage)
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoID.Error()+": "+errorMessage)
 		return
 	}
 
 	// Validate UUID format
 	if _, err := uuid.Parse(req.VideoID); err != nil {
 		slog.Error("RevokeVideo: video_id is invalid", "error", err.Error(), "user_agent", userAgent, "ip_address", ipAddress)
-		s.writeError(w, http.StatusBadRequest, "Invalid video_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidVideoIDMustBeUUID.Error())
 		return
 	}
 
@@ -2316,7 +2316,7 @@ func (s *Server) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
 		slog.Error("GetAuditLogs: Unauthorized")
-		s.writeError(w, http.StatusUnauthorized, "Unauthorized")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -2424,7 +2424,7 @@ func (s *Server) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	var req models.ForgotPasswordRequest
 	if err := s.validateRequest(r, &req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -2463,7 +2463,7 @@ func (s *Server) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	var req models.ResetPasswordRequest
 	if err := s.validateRequest(r, &req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -2491,7 +2491,7 @@ func (s *Server) ResetPassword(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetUserOrganizations(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
@@ -2521,18 +2521,18 @@ func (s *Server) GetUserOrganizations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
-		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrOrgIDRequired.Error())
 		return
 	}
 
 	if err := uuid.Validate(orgID); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidOrgIDMustBeUUID.Error())
 		return
 	}
 
@@ -2574,18 +2574,18 @@ func (s *Server) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
 func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) {
 	claims, ok := GetUserClaims(r)
 	if !ok {
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
 	orgID := r.URL.Query().Get("org_id")
 	if orgID == "" {
-		s.writeError(w, http.StatusBadRequest, "org_id is required")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrOrgIDRequired.Error())
 		return
 	}
 
 	if err := uuid.Validate(orgID); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid org_id: must be a valid UUID")
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidOrgIDMustBeUUID.Error())
 		return
 	}
 	if err := validation.ValidateFilenameUnicode(orgID, "org_id"); err != nil {
@@ -2600,7 +2600,7 @@ func (s *Server) UpdateOrganizationName(w http.ResponseWriter, r *http.Request) 
 
 	var req models.UpdateOrganizationNameRequest
 	if err := s.validateRequest(r, &req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "Invalid request format: "+err.Error())
+		s.writeError(w, http.StatusBadRequest, app_errors.ErrInvalidRequestFormat.Error())
 		return
 	}
 
@@ -2643,7 +2643,7 @@ func (s *Server) GetSubscription(w http.ResponseWriter, r *http.Request) {
 
 	if !ok {
 
-		s.writeError(w, http.StatusUnauthorized, "User not authenticated")
+		s.writeError(w, http.StatusUnauthorized, app_errors.ErrUserNotAuthenticated.Error())
 		return
 	}
 
