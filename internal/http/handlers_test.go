@@ -66,7 +66,7 @@ func TestHandler_Register_InvalidJSON(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request format")
+	assert.Contains(t, w.Body.String(), "invalid request format")
 }
 
 func TestHandler_Register_InvalidContentType(t *testing.T) {
