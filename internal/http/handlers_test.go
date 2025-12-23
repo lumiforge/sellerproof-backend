@@ -409,7 +409,7 @@ func TestHandler_DeleteOrganization_Success(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Organization deleted successfully")
+	assert.Contains(t, w.Body.String(), "organization deleted successfully")
 }
 
 func TestHandler_DeleteOrganization_Forbidden(t *testing.T) {
